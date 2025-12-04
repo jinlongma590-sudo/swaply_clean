@@ -1,5 +1,6 @@
 ﻿// lib/pages/main_navigation_page.dart
 // ✅ [OAuth闪屏修复] 移除独立Loading页面，避免OAuth期间的页面切换
+// ✅ [底部导航优化] 调整为微信标准高度（50dp），修复文字显示问题
 import 'package:swaply/pages/saved_page.dart' as real_saved;
 import 'package:swaply/pages/notification_page.dart' as real_notif;
 import 'dart:io' show Platform;
@@ -382,18 +383,18 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             ],
           ),
           child: Padding(
-            // ✅ [底部导航优化] 修复导航栏过低问题，增加Safe Area适配
+            // ✅ [底部导航优化] 调整为微信标准高度
             padding: EdgeInsets.fromLTRB(
               8.w,
-              8.h,
+              6.h,  // ✅ 改小：8.h → 6.h（减少顶部间距）
               8.w,
               math.max(
-                MediaQuery.of(context).padding.bottom + 8.h,  // Safe Area + 额外8像素
-                16.h,  // 最小16像素兜底
+                MediaQuery.of(context).padding.bottom + 4.h,  // ✅ 改小：8.h → 4.h（减少底部间距）
+                12.h,  // ✅ 改小：16.h → 12.h（减少最小兜底值）
               ),
             ),
             child: SizedBox(
-              height: 56.h,
+              height: 50.h,  // ✅ 改小：56.h → 50.h（微信标准高度）
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -455,10 +456,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 52.h,
+        height: 50.h,  // ✅ 改小：52.h → 50.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.h),  // ✅ 改小：4.h → 3.h
           decoration: BoxDecoration(
             color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
@@ -475,7 +476,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   size: 22.w,
                 ),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 1.5.h),  // ✅ 改小：2.h → 1.5.h（减少间距，确保文字显示完整）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
@@ -520,10 +521,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 52.h,
+        height: 50.h,  // ✅ 改小：52.h → 50.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.h),  // ✅ 改小：4.h → 3.h
           decoration: BoxDecoration(
             color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
@@ -586,7 +587,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                     ),
                 ],
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 1.5.h),  // ✅ 改小：2.h → 1.5.h（减少间距，确保文字显示完整）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
@@ -630,7 +631,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             scale: _sellButtonAnimation.value,
             child: Container(
               width: 56.w,
-              height: 46.h,
+              height: 44.h,  // ✅ 改小：46.h → 44.h（保持比例）
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
