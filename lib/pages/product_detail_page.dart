@@ -1,6 +1,7 @@
 // lib/pages/product_detail_page.dart
 // ✅ [iOS Deep Link 修复] 智能返回逻辑 - 根据登录状态决定返回目标
-// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理
+// ✅ [性能优化] 图片预加载 + 渐进式加载 + 智能缓存
+// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化
 // 严格遵守架构：不破坏 AuthFlowObserver/DeepLinkService/AppRouter 三层分离
 
 import 'dart:io';
@@ -78,6 +79,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   final _uuid = const Uuid();
 
+  // ✅ [性能优化] 图片预缓存控制
+  final Set<int> _precachedIndices = {};
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +106,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _incrementViewsWithRPC();
       _animationController.forward();
+
+      // ✅ [性能优化] 首屏加载完成后，立即预缓存所有图片
+      _precacheAllImages();
     });
 
     _hydrateListingFromCloudIfNeeded();
@@ -114,6 +121,55 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         _loadSellerVerification();
       });
     });
+  }
+
+  // ✅ [性能优化] 预缓存所有商品图片
+  void _precacheAllImages() {
+    if (productImages.isEmpty || !mounted) return;
+
+    for (int i = 0; i < productImages.length; i++) {
+      final imageUrl = productImages[i];
+      if (imageUrl.startsWith('http')) {
+        precacheImage(
+          NetworkImage(imageUrl),
+          context,
+          onError: (exception, stackTrace) {
+            if (kDebugMode) {
+              print('❌ Failed to precache image $i: $exception');
+            }
+          },
+        );
+      }
+    }
+
+    if (kDebugMode) {
+      print('✅ Precaching ${productImages.length} product images');
+    }
+  }
+
+  // ✅ [性能优化] 预加载相邻图片（PageView 滑动时触发）
+  void _precacheAdjacentImages(int currentIndex) {
+    if (!mounted) return;
+
+    // 预加载前一张和后一张
+    final indicesToCache = <int>[
+      if (currentIndex > 0) currentIndex - 1,
+      if (currentIndex < productImages.length - 1) currentIndex + 1,
+    ];
+
+    for (final index in indicesToCache) {
+      if (_precachedIndices.contains(index)) continue;
+
+      final imageUrl = productImages[index];
+      if (imageUrl.startsWith('http')) {
+        precacheImage(NetworkImage(imageUrl), context);
+        _precachedIndices.add(index);
+
+        if (kDebugMode) {
+          print('🖼️ Precaching adjacent image $index');
+        }
+      }
+    }
   }
 
   /// ✅ [iOS Deep Link 修复] 智能返回逻辑
@@ -497,6 +553,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           if (isPlaceholderList && rowImages is List && rowImages.isNotEmpty) {
             productImages = rowImages.map((e) => e.toString()).toList();
             product['images'] = productImages;
+
+            // ✅ [性能优化] 图片列表更新后，立即预缓存
+            Future.microtask(() => _precacheAllImages());
           }
         });
 
@@ -1889,6 +1948,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
+  // ✅ [性能优化] 优化后的图片轮播
   Widget _buildImageCarousel() {
     if (productImages.isEmpty) {
       return Container(
@@ -1903,7 +1963,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       children: [
         PageView.builder(
           controller: _pageController,
-          onPageChanged: (index) => setState(() => _currentImageIndex = index),
+          onPageChanged: (index) {
+            setState(() => _currentImageIndex = index);
+            // ✅ [性能优化] 预加载相邻图片
+            _precacheAdjacentImages(index);
+          },
           itemCount: productImages.length,
           itemBuilder: (context, index) {
             final imageUrl = productImages[index];
@@ -1916,6 +1980,26 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   imageUrl,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
+                  // ✅ [性能优化] 智能缩放，减少内存占用
+                  cacheWidth: (MediaQuery.of(context).size.width *
+                      MediaQuery.of(context).devicePixelRatio).round(),
+                  // ✅ [体验优化] 加载进度指示器
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: Colors.grey[100],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 2,
+                          color: _primaryBlue,
+                        ),
+                      ),
+                    );
+                  },
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.grey[100],
                     child: Center(

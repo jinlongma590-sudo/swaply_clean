@@ -2,6 +2,8 @@
 // ✅ [主页停滞修复] 优化首次加载体验，始终显示骨架屏
 // ✅ [性能优化] 优化数据加载逻辑，减少主线程阻塞
 // ✅ [UI优化] Popular Items 标题始终显示，不跟随图片动画
+// ✅ [P0性能优化] 图片内存缓存 + 请求超时 + 后台刷新缓存
+// ✅ [商品展示优化] Popular Items 展示数量优化（初期上线：100条）
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -29,6 +31,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  // ✅ [商品展示配置] 可配置的商品数量限制（方便后续调整）
+  static const int _featuredAdsLimit = 10;   // Featured Ads（置顶广告）数量
+  static const int _popularItemsLimit = 100; // Popular Items（热门商品）数量 - 初期上线展示更多
+
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
   final TextEditingController _searchCtrl = TextEditingController();
@@ -180,10 +186,12 @@ class _HomePageState extends State<HomePage>
     return priceData.toString();
   }
 
+  // ✅ [P0优化] 添加请求超时处理
+  // ✅ [商品展示优化] 使用配置常量作为默认参数
   Future<List<Map<String, dynamic>>> _fetchTrendingMixed({
     String? city,
-    int pinnedLimit = 10,
-    int latestLimit = 30,
+    int pinnedLimit = _featuredAdsLimit,     // ✅ 使用配置常量（10条）
+    int latestLimit = _popularItemsLimit,    // ✅ 使用配置常量（100条）
     bool bypassCache = false,
   }) async {
     final startTime = DateTime.now();
@@ -192,7 +200,7 @@ class _HomePageState extends State<HomePage>
       CouponService.getTrendingPinnedAds(
         city: city,
         limit: pinnedLimit,
-      ),
+      ).timeout(const Duration(seconds: 10)), // ✅ 单个请求超时10秒
       ListingApi.fetchListings(
         city: city,
         limit: latestLimit,
@@ -201,8 +209,8 @@ class _HomePageState extends State<HomePage>
         ascending: false,
         status: 'active',
         forceNetwork: bypassCache,
-      ),
-    ]);
+      ).timeout(const Duration(seconds: 10)), // ✅ 单个请求超时10秒
+    ]).timeout(const Duration(seconds: 15)); // ✅ 总超时15秒
 
     final pinnedAds = results[0] as List;
     final latest = results[1] as List<Map<String, dynamic>>;
@@ -246,6 +254,7 @@ class _HomePageState extends State<HomePage>
     return list.toList();
   }
 
+  // ✅ [P1优化] 添加后台刷新功能
   Future<void> _loadTrending({bool bypassCache = false, bool showLoading = true}) async {
     final city =
     _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
@@ -265,6 +274,13 @@ class _HomePageState extends State<HomePage>
             _fadeController.forward();
           }
         }
+
+        // ✅ [P1优化] 如果缓存超过1分钟，后台刷新
+        if (age > const Duration(minutes: 1)) {
+          debugPrint('🔄 [Cache] 后台刷新数据...');
+          _refreshInBackground(city);
+        }
+
         return;
       }
     }
@@ -275,10 +291,11 @@ class _HomePageState extends State<HomePage>
     }
 
     try {
+      // ✅ [商品展示优化] 使用配置常量
       final rows = await _fetchTrendingMixed(
         city: city,
-        pinnedLimit: 10,
-        latestLimit: 30,
+        pinnedLimit: _featuredAdsLimit,    // ✅ 10条 Featured Ads
+        latestLimit: _popularItemsLimit,   // ✅ 100条 Popular Items
         bypassCache: bypassCache,
       );
       if (mounted) {
@@ -297,6 +314,29 @@ class _HomePageState extends State<HomePage>
       debugPrint('❌ [Error] 加载数据失败: $e');
     } finally {
       if (mounted) setState(() => _loadingTrending = false);
+    }
+  }
+
+  // ✅ [P1优化] 新增：后台刷新方法
+  Future<void> _refreshInBackground(String? city) async {
+    try {
+      // ✅ [商品展示优化] 后台刷新也使用配置常量
+      final rows = await _fetchTrendingMixed(
+        city: city,
+        pinnedLimit: _featuredAdsLimit,    // ✅ 10条 Featured Ads
+        latestLimit: _popularItemsLimit,   // ✅ 100条 Popular Items
+        bypassCache: true,
+      );
+      if (mounted) {
+        setState(() {
+          _trendingRemote = rows;
+          _cachedTrending = rows;
+          _cacheTime = DateTime.now();
+        });
+        debugPrint('✅ [Cache] 后台刷新完成 (${rows.length}条)');
+      }
+    } catch (e) {
+      debugPrint('❌ [Cache] 后台刷新失败: $e');
     }
   }
 
@@ -1258,6 +1298,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  // ✅ [P0优化] 添加图片内存缓存参数
   Widget _buildOptimizedImageWidget(String? src) {
     if (src == null || src.isEmpty) {
       return Container(
@@ -1315,6 +1356,9 @@ class _HomePageState extends State<HomePage>
         alignment: Alignment.center,
         maxHeightDiskCache: 400,
         maxWidthDiskCache: 400,
+        memCacheWidth: 400,              // ✅ P0优化：添加内存缓存宽度
+        memCacheHeight: 400,             // ✅ P0优化：添加内存缓存高度
+        fadeInDuration: const Duration(milliseconds: 200), // ✅ P0优化：添加淡入动画
         placeholder: (context, url) => Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,

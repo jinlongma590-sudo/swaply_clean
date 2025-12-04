@@ -382,14 +382,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             ],
           ),
           child: Padding(
+            // ✅ [底部导航优化] 修复导航栏过低问题，增加Safe Area适配
             padding: EdgeInsets.fromLTRB(
               8.w,
               8.h,
               8.w,
-              (Theme.of(context).platform == TargetPlatform.iOS &&
-                  MediaQuery.of(context).padding.bottom > 0)
-                  ? 10.0.h
-                  : 8.0.h,
+              math.max(
+                MediaQuery.of(context).padding.bottom + 8.h,  // Safe Area + 额外8像素
+                16.h,  // 最小16像素兜底
+              ),
             ),
             child: SizedBox(
               height: 56.h,

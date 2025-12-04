@@ -2,6 +2,7 @@
 // 使用Facebook亮蓝色和Jiji风格的自动图片调整功能 - 更紧凑设计
 // ✅ [DONE] 与 Sell / Notifications / Saved 一致的 iOS 顶部距离（statusBar + 44）
 // ✅ [UPDATED] 商品图片展示尺寸与主页保持一致（childAspectRatio: 0.66）
+// ✅ [P0性能优化] 分页提前加载（80%位置触发，而非200px）
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -99,8 +100,13 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
 
     _loadInitial();
     _loadPinnedAds();
+
+    // ✅ [P0优化] 分页提前加载 - 改为80%位置触发，而非固定200px
     _scroll.addListener(() {
-      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
+      final position = _scroll.position;
+      final threshold = position.maxScrollExtent * 0.8; // 80%位置触发
+
+      if (position.pixels >= threshold) {
         _loadMore();
       }
     });
