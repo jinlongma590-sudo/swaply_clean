@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="@string/app_name"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:alwaysRetainTaskState="true"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <!-- Flutter normal theme while engine boots -->
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <!-- App launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- OAuth 回调：cc.swaply.app://login-callback -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="cc.swaply.app"
+                    android:host="login-callback" />
+            </intent-filter>
+
+            <!-- ✅ 新增：重置密码回调 cc.swaply.app://reset-password -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="cc.swaply.app"
+                    android:host="reset-password" />
+            </intent-filter>
+
+            <!-- Supabase 默认回调 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="io.supabase.flutter"
+                    android:host="callback" />
+            </intent-filter>
+
+            <!-- 自定义scheme深链 -->
+            <!-- swaply://listing?listing_id=xxx -->
+            <!-- swaply://offer?offer_id=xxx -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="swaply" />
+            </intent-filter>
+
+            <!-- App Links (https) -->
+            <!-- 处理 https://swaply.cc/l/[id] 这样的网页链接 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="swaply.cc" />
+                <data android:host="www.swaply.cc" />
+
+                <!-- 支持所有路径，由DeepLinkService统一解析 -->
+                <data android:pathPrefix="/l/" />
+                <data android:pathPrefix="/listing" />
+                <data android:pathPrefix="/offer" />
+                <data android:pathPrefix="/reset-password" />
+            </intent-filter>
+        </activity>
+
+        <!-- Flutter plugin registrant -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <!-- Package visibility for Process Text -->
+    <queries>
+        <!-- ✅ 浏览器（打开网页链接）-->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+
+        <!-- ✅ HTTP 浏览器 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+
+        <!-- ==================== 📱 社交媒体应用 ==================== -->
+
+        <!-- ✅ WhatsApp 应用包名 -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+
+        <!-- 🔧 关键修复：WhatsApp URL scheme intent 查询 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="whatsapp" />
+        </intent>
+
+        <!-- ✅ Telegram 应用包名 -->
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+
+        <!-- 🔧 关键修复：Telegram URL scheme intent 查询 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tg" />
+        </intent>
+
+        <!-- ✅ Facebook 应用包名 -->
+        <package android:name="com.facebook.katana" />
+
+        <!-- 🔧 关键修复：Facebook URL scheme intent 查询 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="fb" />
+        </intent>
+
+        <!-- ✅ Messenger 应用包名 -->
+        <package android:name="com.facebook.orca" />
+
+        <!-- ✅ Twitter/X 应用包名 -->
+        <package android:name="com.twitter.android" />
+
+        <!-- ==================== 🛒 应用商店 ==================== -->
+
+        <!-- 🔧 新增：Android market:// 协议（用于打开 Play Store）-->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="market" />
+        </intent>
+
+        <!-- ==================== 其他 ==================== -->
+
+        <!-- ✅ Process Text -->
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+</manifest>

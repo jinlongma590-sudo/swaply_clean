@@ -1,0 +1,89 @@
+name: swaply
+description: A marketplace app for Zimbabwe
+publish_to: 'none'
+version: 1.0.1+140
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 基础
+  intl:
+  provider:
+  shared_preferences:
+  flutter_screenutil:
+  uuid:
+
+  # 通知 / 深链 / 启动等
+  flutter_local_notifications:
+  url_launcher:
+  app_links:
+
+  # 存储 / 文件 / 图片
+  path_provider:
+  image_picker:
+  photo_view:
+  file_picker:
+  flutter_image_compress:
+  cross_file:
+
+  # 分享 / 网络 / 版本信息
+  share_plus:
+  http:
+  package_info_plus:
+
+  # Supabase / OAuth（固定 2.x）
+  supabase_flutter: ^2.10.3
+  supabase: ^2.10.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple:
+  crypto:
+  flutter_custom_tabs:
+
+  # ✅ 新增：骨架屏动画（HomePage 性能优化）
+  shimmer: ^3.0.0
+
+  cupertino_icons:
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints:
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+flutter_launcher_icons:
+  android: "adaptive"
+  ios: true
+  image_path_android: assets/app_icons/app_icon.png
+  image_path_ios:     assets/app_icons/app_icon.png
+  adaptive_icon_foreground: assets/ic_launcher_foreground_432.png
+  adaptive_icon_background: "#1877F2"
+  adaptive_icon_monochrome: assets/ic_launcher_foreground_432.png
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#1877F2"
+  image: assets/images/splash_branding.png
+  android: true
+  ios: true
+  ios_content_mode: center
+  fullscreen: true
+  android_12:
+    color: "#1877F2"
+    image: assets/images/splash_logo_only.png
+    icon_background_color: "#1877F2"
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/images/trending_items/

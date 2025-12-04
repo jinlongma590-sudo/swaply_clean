@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动页主题：覆盖状态栏/导航栏并铺满到最顶 -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/splash_blue</item>
+        <item name="android:navigationBarColor">@color/splash_blue</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+    <!-- ✅ 修复：App 正常主题 - 添加导航栏颜色配置 -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <!-- ✅ 关键修复：设置底部导航栏颜色，消除后台切换时的白条 -->
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- ✅ 可选：如果你的 App 整体是深色底部，可改为你的主题色 -->
+        <!-- <item name="android:navigationBarColor">@color/splash_blue</item> -->
+    </style>
+</resources>

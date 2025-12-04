@@ -1,0 +1,22 @@
+﻿# Logs & crash dumps
+*.log
+hs_err_pid*.log
+*.hprof
+logs/
+
+# IDE
+.idea/
+*.iml
+
+# Flutter generated
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Flutter/Dart build/cache
+.dart_tool/
+build/
+
+# Android build outputs
+android/build/
+android/app/build/
+android/local.properties
