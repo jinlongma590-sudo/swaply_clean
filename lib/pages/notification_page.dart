@@ -1,4 +1,5 @@
 // lib/pages/notification_page.dart
+// ✅ [通知架构修复] UI 层不再管理订阅，订阅由 AuthFlowObserver 统一管理
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -30,17 +31,31 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  List<Map<String, dynamic>> _notifications = [];
-  bool _isLoading = true;
+  // ✅ 删除：不再自己维护列表和loading状态
+  // List<Map<String, dynamic>> _notifications = [];
+  // bool _isLoading = true;
+
+  VoidCallback? _unreadListener;
 
   @override
   void initState() {
     super.initState();
+
     if (!widget.isGuest) {
-      _loadNotifications();
-      _subscribeToNotifications();
-    } else {
-      _isLoading = false;
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        // ✅ [通知架构修复] 修改4：删除 UI 层订阅调用
+        // 订阅由 AuthFlowObserver 统一管理，这里只负责拉取数据
+        NotificationService.refresh(limit: 100, includeRead: true);
+      }
+
+      // ✅ 监听未读数量变化
+      _unreadListener = () {
+        widget.onNotificationCountChanged?.call(
+          NotificationService.unreadCountNotifier.value,
+        );
+      };
+      NotificationService.unreadCountNotifier.addListener(_unreadListener!);
     }
 
     // 清空角标（如果底栏需要）
@@ -51,74 +66,30 @@ class _NotificationPageState extends State<NotificationPage> {
 
   @override
   void dispose() {
-    _unsubscribeFromNotifications();
+    // ✅ 删除：不再在这里 unsubscribe（全局订阅由 AuthFlowObserver 管理）
+    // _unsubscribeFromNotifications();
+
+    if (_unreadListener != null) {
+      NotificationService.unreadCountNotifier.removeListener(_unreadListener!);
+    }
     super.dispose();
   }
 
-  Future<void> _loadNotifications() async {
-    try {
-      setState(() => _isLoading = true);
+  // ✅ 删除：不再需要这些方法
+  // Future<void> _loadNotifications() async { ... }
+  // Future<void> _subscribeToNotifications() async { ... }
+  // Future<void> _unsubscribeFromNotifications() async { ... }
+  // void _updateUnreadCount() { ... }
 
-      final notifications = await NotificationService.getUserNotifications(
-        limit: 100,
-        includeRead: true,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _notifications = notifications;
-        _isLoading = false;
-      });
-      _updateUnreadCount();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[Notifications] _loadNotifications error: $e');
-      }
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _subscribeToNotifications() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    await NotificationService.subscribeUser(
-      user.id,
-      onEvent: (Map<String, dynamic> notification) {
-        if (!mounted) return;
-        setState(() {
-          _notifications.insert(0, notification);
-        });
-        _updateUnreadCount();
-      },
-    );
-  }
-
-  Future<void> _unsubscribeFromNotifications() async {
-    await NotificationService.unsubscribe();
-  }
-
-  void _updateUnreadCount() {
-    final unreadCount = _notifications.where((n) => n['is_read'] != true).length;
-    widget.onNotificationCountChanged?.call(unreadCount);
-  }
-
-  Future<void> _markAsRead(int index) async {
-    final notification = _notifications[index];
+  Future<void> _markAsRead(int index, List<Map<String, dynamic>> notifications) async {
+    final notification = notifications[index];
     if (notification['is_read'] == true) return;
 
     try {
-      final success = await NotificationService.markNotificationAsRead(
+      // ✅ 直接调用service，service会更新notifier
+      await NotificationService.markNotificationAsRead(
         notification['id'].toString(),
       );
-
-      if (success && mounted) {
-        setState(() {
-          _notifications[index]['is_read'] = true;
-          _notifications[index]['read_at'] = DateTime.now().toIso8601String();
-        });
-        _updateUnreadCount();
-      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[Notifications] _markAsRead error: $e');
@@ -126,18 +97,17 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-  Future<void> _deleteNotification(int index) async {
+  Future<void> _deleteNotification(int index, List<Map<String, dynamic>> notifications) async {
     final l10n = AppLocalizations.of(context)!;
-    final notification = _notifications[index];
+    final notification = notifications[index];
 
     try {
+      // ✅ 直接调用service，service会更新notifier
       final success = await NotificationService.deleteNotification(
         notification['id'].toString(),
       );
 
       if (success && mounted) {
-        setState(() => _notifications.removeAt(index));
-        _updateUnreadCount();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -181,17 +151,8 @@ class _NotificationPageState extends State<NotificationPage> {
 
   Future<void> _markAllAsRead() async {
     try {
-      final success = await NotificationService.markAllNotificationsAsRead();
-
-      if (success && mounted) {
-        setState(() {
-          for (var n in _notifications) {
-            n['is_read'] = true;
-            n['read_at'] = DateTime.now().toIso8601String();
-          }
-        });
-        _updateUnreadCount();
-      }
+      // ✅ 直接调用service，service会更新notifier
+      await NotificationService.markAllNotificationsAsRead();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[Notifications] _markAllAsRead error: $e');
@@ -201,12 +162,8 @@ class _NotificationPageState extends State<NotificationPage> {
 
   Future<void> _clearAll() async {
     try {
-      final success = await NotificationService.clearAllNotifications();
-
-      if (success && mounted) {
-        setState(() => _notifications.clear());
-        _updateUnreadCount();
-      }
+      // ✅ 直接调用service，service会更新notifier
+      await NotificationService.clearAllNotifications();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[Notifications] _clearAll error: $e');
@@ -306,10 +263,10 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   // 🚀 优化后的点击处理：添加预取功能
-  void _handleNotificationTap(Map<String, dynamic> notification) async {
-    final index = _notifications.indexOf(notification);
+  void _handleNotificationTap(Map<String, dynamic> notification, List<Map<String, dynamic>> notifications) async {
+    final index = notifications.indexOf(notification);
     if (index >= 0) {
-      _markAsRead(index);
+      _markAsRead(index, notifications);
     }
 
     final type = notification['type']?.toString() ?? '';
@@ -485,295 +442,323 @@ class _NotificationPageState extends State<NotificationPage> {
       );
     }
 
-    // 计算标题显示
-    final unreadCount = _notifications.where((n) => n['is_read'] != true).length;
-    final displayTitle = '${l10n.notifications}${unreadCount > 0 ? ' ($unreadCount)' : ''}';
+    // ✅ 使用 ValueListenableBuilder 监听未读数量
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationService.unreadCountNotifier,
+      builder: (context, unreadCount, _) {
+        final displayTitle = '${l10n.notifications}${unreadCount > 0 ? ' ($unreadCount)' : ''}';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      // ✅ 使用标准的 AppBar
-      appBar: AppBar(
-        backgroundColor: kPrimaryBlue,
-        toolbarHeight: isIOS ? 44 : null, // ✅ 统一高度逻辑
-        elevation: 0,
-        automaticallyImplyLeading: false, // ❌ 移除返回按钮
-        title: Text(
-          displayTitle,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16.sp, // ✅ 统一字体大小
-            fontWeight: FontWeight.w600, // ✅ 统一字重
-          ),
-        ),
-        actions: [
-          if (_notifications.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(right: 6.w),
-              child: PopupMenuButton<String>(
-                tooltip: 'More',
-                icon: Icon(Icons.more_horiz_rounded, color: Colors.white, size: 20.r),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                elevation: 6,
-                onSelected: (value) {
-                  if (value == 'mark_all_read') {
-                    _markAllAsRead();
-                  } else if (value == 'clear_all') {
-                    _clearAll();
-                  }
-                },
-                itemBuilder: (BuildContext context) => [
-                  PopupMenuItem(
-                    value: 'mark_all_read',
-                    height: 36.h,
-                    child: Row(
-                      children: [
-                        Icon(Icons.done_all_rounded,
-                            size: 16.r, color: Colors.grey.shade700),
-                        SizedBox(width: 8.w),
-                        Text(l10n.markAllAsRead, style: TextStyle(fontSize: 12.sp)),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F9FA),
+          // ✅ 使用标准的 AppBar
+          appBar: AppBar(
+            backgroundColor: kPrimaryBlue,
+            toolbarHeight: isIOS ? 44 : null, // ✅ 统一高度逻辑
+            elevation: 0,
+            automaticallyImplyLeading: false, // ❌ 移除返回按钮
+            title: Text(
+              displayTitle,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16.sp, // ✅ 统一字体大小
+                fontWeight: FontWeight.w600, // ✅ 统一字重
+              ),
+            ),
+            actions: [
+              // ✅ 监听列表变化以显示/隐藏菜单
+              ValueListenableBuilder<List<Map<String, dynamic>>>(
+                valueListenable: NotificationService.listNotifier,
+                builder: (context, notifications, _) {
+                  if (notifications.isEmpty) return const SizedBox.shrink();
+
+                  return Padding(
+                    padding: EdgeInsets.only(right: 6.w),
+                    child: PopupMenuButton<String>(
+                      tooltip: 'More',
+                      icon: Icon(Icons.more_horiz_rounded, color: Colors.white, size: 20.r),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      elevation: 6,
+                      onSelected: (value) {
+                        if (value == 'mark_all_read') {
+                          _markAllAsRead();
+                        } else if (value == 'clear_all') {
+                          _clearAll();
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem(
+                          value: 'mark_all_read',
+                          height: 36.h,
+                          child: Row(
+                            children: [
+                              Icon(Icons.done_all_rounded,
+                                  size: 16.r, color: Colors.grey.shade700),
+                              SizedBox(width: 8.w),
+                              Text(l10n.markAllAsRead, style: TextStyle(fontSize: 12.sp)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'clear_all',
+                          height: 36.h,
+                          child: Row(
+                            children: [
+                              Icon(Icons.clear_all_rounded,
+                                  color: Colors.red, size: 16.r),
+                              SizedBox(width: 8.w),
+                              Text(
+                                l10n.clearAll,
+                                style: TextStyle(fontSize: 12.sp, color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: 'clear_all',
-                    height: 36.h,
-                    child: Row(
+                  );
+                },
+              ),
+            ],
+          ),
+          // ✅ 使用嵌套的 ValueListenableBuilder 监听 loading 和 list
+          body: ValueListenableBuilder<bool>(
+            valueListenable: NotificationService.loadingNotifier,
+            builder: (context, isLoading, _) {
+              if (isLoading) {
+                return Center(
+                  child: Container(
+                    padding: EdgeInsets.all(24.w),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: kPrimaryBlue.withOpacity(0.08),
+                          blurRadius: 10.r,
+                          offset: Offset(0, 4.h),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.clear_all_rounded,
-                            color: Colors.red, size: 16.r),
-                        SizedBox(width: 8.w),
+                        Container(
+                          width: 40.w,
+                          height: 40.w,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                kPrimaryBlue.withOpacity(0.2),
+                                kPrimaryBlue.withOpacity(0.1),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: const CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
                         Text(
-                          l10n.clearAll,
-                          style: TextStyle(fontSize: 12.sp, color: Colors.red),
+                          'Loading notifications...',
+                          style: TextStyle(
+                            color: kPrimaryBlue,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-        ],
-      ),
-      body: _isLoading
-          ? Center(
-        child: Container(
-          padding: EdgeInsets.all(24.w),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            boxShadow: [
-              BoxShadow(
-                color: kPrimaryBlue.withOpacity(0.08),
-                blurRadius: 10.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40.w,
-                height: 40.w,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      kPrimaryBlue.withOpacity(0.2),
-                      kPrimaryBlue.withOpacity(0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20.r),
-                ),
-                child: Center(
-                  child: SizedBox(
-                    width: 20.w,
-                    height: 20.w,
-                    child: const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(kPrimaryBlue),
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                'Loading notifications...',
-                style: TextStyle(
-                  color: kPrimaryBlue,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      )
-          : _notifications.isEmpty
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 60.w,
-              height: 60.w,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    kPrimaryBlue.withOpacity(0.1),
-                    const Color(0xFF1E88E5).withOpacity(0.05),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(30.r),
-                border: Border.all(
-                  color: kPrimaryBlue.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                Icons.notifications_none_rounded,
-                size: 30.r,
-                color: kPrimaryBlue,
-              ),
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              l10n.noNotifications,
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                l10n.notificationsWillAppearHere,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12.sp,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      )
-          : RefreshIndicator(
-        onRefresh: _loadNotifications,
-        color: kPrimaryBlue,
-        backgroundColor: Colors.white,
-        strokeWidth: 2.w,
-        child: ListView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: _notifications.length,
-          itemBuilder: (context, index) {
-            final notification = _notifications[index];
-            final isRead = notification['is_read'] == true;
-            final type = notification['type']?.toString() ?? '';
-            final createdAt = notification['created_at']?.toString() ?? '';
+                );
+              }
 
-            return Dismissible(
-              key: Key('${notification['id']}'),
-              background: Container(
-                color: Colors.red.shade600,
-                alignment: Alignment.centerRight,
-                padding: EdgeInsets.only(right: 12.w),
-                child: Icon(Icons.delete_rounded, color: Colors.white, size: 20.r),
-              ),
-              direction: DismissDirection.endToStart,
-              onDismissed: (direction) => _deleteNotification(index),
-              child: Container(
-                color: isRead ? Colors.white : kPrimaryBlue.withOpacity(0.03),
-                margin: EdgeInsets.only(bottom: 0.5.h),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _handleNotificationTap(notification),
-                    splashColor: kPrimaryBlue.withOpacity(0.1),
-                    highlightColor: kPrimaryBlue.withOpacity(0.05),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              // ✅ 内层监听列表数据
+              return ValueListenableBuilder<List<Map<String, dynamic>>>(
+                valueListenable: NotificationService.listNotifier,
+                builder: (context, notifications, _) {
+                  if (notifications.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _getNotificationIcon(type),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${notification['title'] ?? ''}',
-                                        style: TextStyle(
-                                          fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
-                                          fontSize: 13.sp,
-                                          color: Colors.black87,
-                                          height: 1.3,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (!isRead)
-                                      Container(
-                                        width: 6.w,
-                                        height: 6.w,
-                                        margin: EdgeInsets.only(left: 6.w),
-                                        decoration: const BoxDecoration(
-                                          color: kPrimaryBlue,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                SizedBox(height: 2.h),
-                                Text(
-                                  '${notification['message'] ?? ''}',
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    color: Colors.grey.shade600,
-                                    height: 1.4,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 4.h),
-                                Row(
-                                  children: [
-                                    Icon(Icons.access_time_rounded,
-                                        size: 10.r, color: Colors.grey.shade400),
-                                    SizedBox(width: 2.w),
-                                    Text(
-                                      NotificationService.formatNotificationTime(createdAt),
-                                      style: TextStyle(
-                                        fontSize: 10.sp,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          Container(
+                            width: 60.w,
+                            height: 60.w,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  kPrimaryBlue.withOpacity(0.1),
+                                  const Color(0xFF1E88E5).withOpacity(0.05),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(30.r),
+                              border: Border.all(
+                                color: kPrimaryBlue.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.notifications_none_rounded,
+                              size: 30.r,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            l10n.noNotifications,
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 6.h),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
+                            child: Text(
+                              l10n.notificationsWillAppearHere,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12.sp,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         ],
                       ),
+                    );
+                  }
+
+                  // ✅ 渲染通知列表
+                  return RefreshIndicator(
+                    onRefresh: () => NotificationService.refresh(limit: 100, includeRead: true),
+                    color: kPrimaryBlue,
+                    backgroundColor: Colors.white,
+                    strokeWidth: 2.w,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: notifications.length,
+                      itemBuilder: (context, index) {
+                        final notification = notifications[index];
+                        final isRead = notification['is_read'] == true;
+                        final type = notification['type']?.toString() ?? '';
+                        final createdAt = notification['created_at']?.toString() ?? '';
+
+                        return Dismissible(
+                          key: Key('${notification['id']}'),
+                          background: Container(
+                            color: Colors.red.shade600,
+                            alignment: Alignment.centerRight,
+                            padding: EdgeInsets.only(right: 12.w),
+                            child: Icon(Icons.delete_rounded, color: Colors.white, size: 20.r),
+                          ),
+                          direction: DismissDirection.endToStart,
+                          onDismissed: (direction) => _deleteNotification(index, notifications),
+                          child: Container(
+                            color: isRead ? Colors.white : kPrimaryBlue.withOpacity(0.03),
+                            margin: EdgeInsets.only(bottom: 0.5.h),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _handleNotificationTap(notification, notifications),
+                                splashColor: kPrimaryBlue.withOpacity(0.1),
+                                highlightColor: kPrimaryBlue.withOpacity(0.05),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _getNotificationIcon(type),
+                                      SizedBox(width: 10.w),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    '${notification['title'] ?? ''}',
+                                                    style: TextStyle(
+                                                      fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                                                      fontSize: 13.sp,
+                                                      color: Colors.black87,
+                                                      height: 1.3,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                if (!isRead)
+                                                  Container(
+                                                    width: 6.w,
+                                                    height: 6.w,
+                                                    margin: EdgeInsets.only(left: 6.w),
+                                                    decoration: const BoxDecoration(
+                                                      color: kPrimaryBlue,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            SizedBox(height: 2.h),
+                                            Text(
+                                              '${notification['message'] ?? ''}',
+                                              style: TextStyle(
+                                                fontSize: 11.sp,
+                                                color: Colors.grey.shade600,
+                                                height: 1.4,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            SizedBox(height: 4.h),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.access_time_rounded,
+                                                    size: 10.r, color: Colors.grey.shade400),
+                                                SizedBox(width: 2.w),
+                                                Text(
+                                                  NotificationService.formatNotificationTime(createdAt),
+                                                  style: TextStyle(
+                                                    fontSize: 10.sp,
+                                                    color: Colors.grey.shade400,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

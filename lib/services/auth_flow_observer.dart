@@ -1,4 +1,5 @@
 // lib/services/auth_flow_observer.dart
+// ✅ [通知架构修复] 完整版：订阅生命周期收口到 AuthFlowObserver
 // ✅ [iOS 竞态修复] initialSession 增加延迟，避免与 DeepLinkService 竞争
 // [完整修复版] OAuth导航优化 + 首次导航标志
 import 'dart:async';
@@ -106,11 +107,12 @@ class AuthFlowObserver {
     _sub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final sinceStart = DateTime.now().difference(_appStart);
 
-      if (sinceStart < const Duration(milliseconds: 1200) &&
-          data.event == AuthChangeEvent.signedOut) {
-        debugPrint(
-            '[AuthFlowObserver] grace-window ignore early ${data.event}');
-        return;
+      // ✅ [通知架构修复] 修改1：改为标志，不要 return
+      final isGraceWindowSignOut = sinceStart < const Duration(milliseconds: 1200) &&
+          data.event == AuthChangeEvent.signedOut;
+
+      if (isGraceWindowSignOut) {
+        debugPrint('[AuthFlowObserver] grace-window signedOut detected (will skip navigation but allow cleanup)');
       }
 
       final eventName = data.event.name;
@@ -153,7 +155,18 @@ class AuthFlowObserver {
 
           if (hasSession) {
             final user = Supabase.instance.client.auth.currentUser;
-            if (user != null) _preheatProfile(user);
+            if (user != null) {
+              _preheatProfile(user);
+
+              // ✅ [通知架构修复] 修改2：冷启动时订阅
+              try {
+                await NotificationService.subscribeUser(user.id);
+              } catch (e) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] subscribeUser (initialSession) error: $e');
+                }
+              }
+            }
 
             await _goOnce('/home');
           } else {
@@ -248,6 +261,15 @@ class AuthFlowObserver {
 
         case AuthChangeEvent.signedOut:
         case AuthChangeEvent.userDeleted:
+        // ✅ [通知架构修复] 修改3：永远清理订阅（无论如何都执行）
+          try {
+            await NotificationService.unsubscribe();
+          } catch (e) {
+            if (kDebugMode) {
+              debugPrint('[AuthFlowObserver] unsubscribe error: $e');
+            }
+          }
+
           _signOutDebounce?.cancel();
 
           if (_lastUserId != null) {
@@ -255,23 +277,36 @@ class AuthFlowObserver {
             _lastUserId = null;
           }
 
+          // 状态机：手动登出
           if (_manualSignOutOnce) {
-            debugPrint(
-                '[AuthFlowObserver] signedOut fast-path (manual). swallow nav once.');
+            debugPrint('[AuthFlowObserver] signedOut fast-path (manual). swallow nav once.');
             _manualSignOutOnce = false;
             break;
           }
 
+          // 状态机：快速登出
           final now = DateTime.now();
           final fast = _manualSignOutAt != null &&
               now.difference(_manualSignOutAt!).inSeconds <= 3;
 
           if (fast) {
             _manualSignOutAt = null;
-            await _goOnce('/login');
+            // ✅ grace-window 判断：只在这里拦截快速登出的导航
+            if (!isGraceWindowSignOut) {
+              await _goOnce('/login');
+            } else {
+              debugPrint('[AuthFlowObserver] grace-window: skip fast-path navigation');
+            }
             break;
           }
 
+          // ✅ grace-window 判断：拦截延迟导航
+          if (isGraceWindowSignOut) {
+            debugPrint('[AuthFlowObserver] grace-window: cleanup done, skip debounced navigation');
+            break;
+          }
+
+          // 正常的延迟导航
           _signOutDebounce =
               Timer(const Duration(milliseconds: 150), () async {
                 await _goOnce('/login');

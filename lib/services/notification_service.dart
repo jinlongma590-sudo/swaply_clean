@@ -4,7 +4,7 @@
 
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, ValueNotifier;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -27,6 +27,84 @@ enum NotificationType {
 class NotificationService {
   static final SupabaseClient _client = Supabase.instance.client;
   static const String _tableName = 'notifications';
+
+  // ======= ✅ UI 单一数据源（页面只监听它） =======
+  static final ValueNotifier<List<Map<String, dynamic>>> listNotifier =
+  ValueNotifier<List<Map<String, dynamic>>>(const []);
+
+  static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
+
+  static final ValueNotifier<bool> loadingNotifier = ValueNotifier<bool>(false);
+
+  static void _setList(List<Map<String, dynamic>> list) {
+    // 只保留未删除
+    final filtered = list.where((e) => e['is_deleted'] != true).toList();
+    listNotifier.value = List<Map<String, dynamic>>.unmodifiable(filtered);
+    unreadCountNotifier.value =
+        filtered.where((n) => n['is_read'] != true).length;
+  }
+
+  static void _upsertLocal(Map<String, dynamic> record, {bool bumpToTop = false}) {
+    final id = (record['id'] ?? '').toString();
+    if (id.isEmpty) return;
+
+    // deleted => 移除
+    if (record['is_deleted'] == true) {
+      _removeLocalById(id);
+      return;
+    }
+
+    final cur = List<Map<String, dynamic>>.from(listNotifier.value);
+    final idx = cur.indexWhere((e) => (e['id'] ?? '').toString() == id);
+
+    if (idx >= 0) {
+      // 合并覆盖
+      cur[idx] = {...cur[idx], ...record};
+      if (bumpToTop && idx > 0) {
+        final item = cur.removeAt(idx);
+        cur.insert(0, item);
+      }
+    } else {
+      cur.insert(0, record);
+    }
+
+    _setList(cur);
+  }
+
+  static void _removeLocalById(String id) {
+    final cur = List<Map<String, dynamic>>.from(listNotifier.value);
+    cur.removeWhere((e) => (e['id'] ?? '').toString() == id);
+    _setDictUnread(cur);
+  }
+
+  static void _setDictUnread(List<Map<String, dynamic>> cur) {
+    listNotifier.value = List<Map<String, dynamic>>.unmodifiable(cur);
+    unreadCountNotifier.value =
+        cur.where((n) => n['is_deleted'] != true && n['is_read'] != true).length;
+  }
+
+  static Future<void> refresh({
+    String? userId,
+    int limit = 100,
+    int offset = 0,
+    bool includeRead = true,
+  }) async {
+    final uid = userId ?? _client.auth.currentUser?.id;
+    if (uid == null || uid.isEmpty) return;
+
+    loadingNotifier.value = true;
+    try {
+      final list = await getUserNotifications(
+        userId: uid,
+        limit: limit,
+        offset: offset,
+        includeRead: includeRead,
+      );
+      _setList(list);
+    } finally {
+      loadingNotifier.value = false;
+    }
+  }
 
   // ======= ✅ 新增：统一深链 payload 构造器 =======
   /// 报价通知 → 直达 OfferDetailPage
@@ -223,6 +301,9 @@ class NotificationService {
 
         _debugPrint('New notification received: $data');
 
+        // ✅ 更新本地列表
+        _upsertLocal(data, bumpToTop: true);
+
         if (onEvent != null) onEvent(data);
         _controller.add(data); // 全局广播
       },
@@ -240,6 +321,10 @@ class NotificationService {
       ),
       callback: (payload) {
         final data = Map<String, dynamic>.from(payload.newRecord);
+
+        // ✅ 更新本地列表
+        _upsertLocal(data, bumpToTop: false);
+
         _controller.add(data);
       },
     );
@@ -446,7 +531,7 @@ class NotificationService {
           .from(_tableName)
           .select('*')
           .eq('recipient_id', targetUserId)
-          .eq('is_deleted', false);
+          .or('is_deleted.is.null,is_deleted.eq.false'); // ✅ 修改：包含NULL值
 
       if (!includeRead) {
         query = query.eq('is_read', false);
@@ -500,6 +585,13 @@ class NotificationService {
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
+      // ✅ 更新本地notifier
+      _upsertLocal({
+        'id': notificationId,
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      });
+
       return true;
     } catch (e) {
       _debugPrint('Error marking notification as read: $e');
@@ -523,6 +615,14 @@ class NotificationService {
           .eq('recipient_id', targetUserId)
           .eq('is_read', false);
 
+      // ✅ 更新本地notifier
+      final cur = List<Map<String, dynamic>>.from(listNotifier.value);
+      for (var n in cur) {
+        n['is_read'] = true;
+        n['read_at'] = DateTime.now().toIso8601String();
+      }
+      _setList(cur);
+
       return true;
     } catch (e) {
       _debugPrint('Error marking all notifications as read: $e');
@@ -543,6 +643,9 @@ class NotificationService {
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
+      // ✅ 更新本地notifier
+      _removeLocalById(notificationId);
+
       return true;
     } catch (e) {
       _debugPrint('Error deleting notification: $e');
@@ -560,6 +663,9 @@ class NotificationService {
       await _client
           .from(_tableName)
           .update({'is_deleted': true}).eq('recipient_id', targetUserId);
+
+      // ✅ 更新本地notifier
+      _setList([]);
 
       return true;
     } catch (e) {
