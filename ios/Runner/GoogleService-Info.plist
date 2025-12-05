@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ANDROID_CLIENT_ID</key>
-	<string>947323234114-45dfrjbs5o0lcu6rqunor9tjl55u3t81.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyBaFb6kBZlD9_svmAWVkqsWnhS5bPrDY9o</string>
 	<key>GCM_SENDER_ID</key>
@@ -16,17 +14,23 @@
 	<string>swaply-prod</string>
 	<key>STORAGE_BUCKET</key>
 	<string>swaply-prod.firebasestorage.app</string>
-	<key>IS_ADS_ENABLED</key>
-	<false></false>
-	<key>IS_ANALYTICS_ENABLED</key>
-	<false></false>
-	<key>IS_APPINVITE_ENABLED</key>
-	<true></true>
-	<key>IS_GCM_ENABLED</key>
-	<true></true>
-	<key>IS_SIGNIN_ENABLED</key>
-	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:947323234114:ios:d4976f7c93930260914adb</string>
+	<key>CLIENT_ID</key>
+	<string>947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>947323234114-45dfrjbs5o0lcu6rqunor9tjl55u3t81.apps.googleusercontent.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
 </dict>
 </plist>
