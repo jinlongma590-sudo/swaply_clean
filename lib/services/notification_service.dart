@@ -1,9 +1,12 @@
 // lib/services/notification_service.dart
-// 单例 + 全局广播流；“收藏后通知”走 RPC（notify_favorite）以绕过 RLS。
+// 单例 + 全局广播流；"收藏后通知"走 RPC（notify_favorite）以绕过 RLS。
+// ✅ [推送通知] 集成 Firebase Cloud Messaging
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 typedef NotificationEventCallback = void Function(
     Map<String, dynamic> notification,
@@ -89,7 +92,102 @@ class NotificationService {
     }
   }
 
+  // ================================================
+  // ✅ [推送通知] FCM Token 管理
+  // ================================================
+
+  /// 初始化 FCM 并保存 Token 到 Supabase
+  static Future<void> initializeFCM() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      // 获取当前用户
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        _debugPrint('FCM: 用户未登录，跳过 Token 保存');
+        return;
+      }
+
+      // 获取 FCM Token
+      final token = await messaging.getToken();
+      if (token == null || token.isEmpty) {
+        _debugPrint('FCM: Token 为空');
+        return;
+      }
+
+      _debugPrint('FCM: Token 获取成功，准备保存');
+
+      // 保存到 Supabase
+      await _saveFcmToken(token);
+
+      // 监听 Token 刷新
+      messaging.onTokenRefresh.listen((newToken) {
+        _debugPrint('FCM: Token 刷新: $newToken');
+        _saveFcmToken(newToken);
+      });
+
+      _debugPrint('FCM: 初始化完成');
+    } catch (e, st) {
+      _debugPrint('FCM: 初始化失败: $e\n$st');
+    }
+  }
+
+  /// 保存 FCM Token 到 Supabase
+  static Future<void> _saveFcmToken(String token) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        _debugPrint('FCM: 无法保存 Token，用户未登录');
+        return;
+      }
+
+      // 获取平台信息
+      final platform = Platform.isIOS ? 'ios' : 'android';
+
+      // 使用 upsert 保证幂等性
+      await _client.from('user_fcm_tokens').upsert({
+        'user_id': user.id,
+        'fcm_token': token,
+        'platform': platform,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      _debugPrint('FCM: Token 已保存到 Supabase (platform=$platform)');
+    } catch (e, st) {
+      _debugPrint('FCM: Token 保存失败: $e\n$st');
+    }
+  }
+
+  /// 删除当前用户的 FCM Token
+  static Future<void> removeFcmToken() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        _debugPrint('FCM: 无法删除 Token，用户未登录');
+        return;
+      }
+
+      final platform = Platform.isIOS ? 'ios' : 'android';
+
+      await _client
+          .from('user_fcm_tokens')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('platform', platform);
+
+      _debugPrint('FCM: Token 已从 Supabase 删除');
+    } catch (e, st) {
+      _debugPrint('FCM: Token 删除失败: $e\n$st');
+    }
+  }
+
+  // ================================================
+  // ✅ [架构兼容] 订阅用户通知
+  // 符合 Swaply 架构：由 AuthFlowObserver 在登录时调用
+  // ================================================
+
   /// 订阅当前用户的通知（幂等）
+  /// ✅ 新增：同时初始化 FCM Token
   static Future<void> subscribeUser(
       String userId, {
         NotificationEventCallback? onEvent,
@@ -149,9 +247,13 @@ class NotificationService {
     ch.subscribe(); // 某些 SDK 不是 Future
     _channel = ch;
     _debugPrint('Subscribed to notifications for user: $userId');
+
+    // ✅ [推送通知] 订阅成功后，初始化 FCM Token
+    await initializeFCM();
   }
 
   /// 取消订阅（幂等）
+  /// ✅ 新增：同时删除 FCM Token
   static Future<void> unsubscribe() async {
     final ch = _channel;
     _channel = null;
@@ -169,6 +271,9 @@ class NotificationService {
         _debugPrint('Unsubscribed from notifications');
       } catch (_) {}
     }
+
+    // ✅ [推送通知] 取消订阅时，删除 FCM Token
+    await removeFcmToken();
   }
 
   // ========== ✅ 安全 RPC：收藏后通知（命名参数版） ==========

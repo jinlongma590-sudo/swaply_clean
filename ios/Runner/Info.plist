@@ -57,6 +57,19 @@
        <string>We use the microphone when recording videos or voice messages.</string>
        <key>NSLocationWhenInUseUsageDescription</key>
        <string>We use your location to show nearby listings and improve search results.</string>
+
+       <!-- ✅ 新增：通知权限说明（推送通知必需） -->
+       <key>NSUserNotificationsUsageDescription</key>
+       <string>Allow Swaply to send you notifications about offers, messages, and important updates</string>
+
+       <!-- ✅ 新增：后台模式（推送通知必需） -->
+       <key>UIBackgroundModes</key>
+       <array>
+          <string>remote-notification</string>
+          <string>fetch</string>
+          <string>processing</string>
+       </array>
+
        <key>CFBundleURLTypes</key>
        <array>
           <dict>

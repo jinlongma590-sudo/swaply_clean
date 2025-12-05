@@ -1,6 +1,7 @@
 ﻿// lib/pages/main_navigation_page.dart
 // ✅ [OAuth闪屏修复] 移除独立Loading页面，避免OAuth期间的页面切换
-// ✅ [底部导航优化] 调整为微信标准高度（50dp），修复文字显示问题
+// ✅ [底部导航优化] 调整为微信标准高度（49dp），修复文字显示问题
+// ✅ [文字显示修复] 优化间距和字号，确保所有标签完整显示
 import 'package:swaply/pages/saved_page.dart' as real_saved;
 import 'package:swaply/pages/notification_page.dart' as real_notif;
 import 'dart:io' show Platform;
@@ -383,18 +384,18 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             ],
           ),
           child: Padding(
-            // ✅ [底部导航优化] 调整为微信标准高度
+            // ✅ [底部导航优化] 参考微信标准，进一步降低高度
             padding: EdgeInsets.fromLTRB(
               8.w,
-              6.h,  // ✅ 改小：8.h → 6.h（减少顶部间距）
+              4.h,  // ✅ 改小：6.h → 4.h（顶部间距最小化）
               8.w,
               math.max(
-                MediaQuery.of(context).padding.bottom + 4.h,  // ✅ 改小：8.h → 4.h（减少底部间距）
-                12.h,  // ✅ 改小：16.h → 12.h（减少最小兜底值）
+                MediaQuery.of(context).padding.bottom + 2.h,  // ✅ 改小：4.h → 2.h（底部间距最小化）
+                8.h,  // ✅ 改小：12.h → 8.h（最小兜底值）
               ),
             ),
             child: SizedBox(
-              height: 50.h,  // ✅ 改小：56.h → 50.h（微信标准高度）
+              height: 49.h,  // ✅ 改小：50.h → 49.h（微信/iOS标准高度）
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -456,10 +457,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 50.h,  // ✅ 改小：52.h → 50.h（匹配父容器）
+        height: 49.h,  // ✅ 改小：50.h → 49.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.h),  // ✅ 改小：4.h → 3.h
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),  // ✅ 改小：3.h → 2.h（垂直内边距最小化）
           decoration: BoxDecoration(
             color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
@@ -476,13 +477,14 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   size: 22.w,
                 ),
               ),
-              SizedBox(height: 1.5.h),  // ✅ 改小：2.h → 1.5.h（减少间距，确保文字显示完整）
+              SizedBox(height: 1.h),  // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
                   color: isSelected ? _PRIMARY_BLUE : Colors.grey[600],
-                  fontSize: 8.5.sp,
+                  fontSize: 8.sp,  // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  height: 1.0,  // ✅ 新增：行高设为1.0，去除额外垂直空间
                 ),
                 child: Text(
                   label,
@@ -521,10 +523,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 50.h,  // ✅ 改小：52.h → 50.h（匹配父容器）
+        height: 49.h,  // ✅ 改小：50.h → 49.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.h),  // ✅ 改小：4.h → 3.h
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),  // ✅ 改小：3.h → 2.h（垂直内边距最小化）
           decoration: BoxDecoration(
             color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
@@ -587,13 +589,14 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                     ),
                 ],
               ),
-              SizedBox(height: 1.5.h),  // ✅ 改小：2.h → 1.5.h（减少间距，确保文字显示完整）
+              SizedBox(height: 1.h),  // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
                   color: isSelected ? _PRIMARY_BLUE : Colors.grey[600],
-                  fontSize: 8.5.sp,
+                  fontSize: 8.sp,  // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  height: 1.0,  // ✅ 新增：行高设为1.0，去除额外垂直空间
                 ),
                 child: Text(
                   label,
@@ -631,7 +634,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             scale: _sellButtonAnimation.value,
             child: Container(
               width: 56.w,
-              height: 44.h,  // ✅ 改小：46.h → 44.h（保持比例）
+              height: 43.h,  // ✅ 改小：44.h → 43.h（保持比例，稍微降低）
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -663,7 +666,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   AnimatedRotation(
                     turns: isSelected ? 0.125 : 0.0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.add_rounded, color: Colors.white, size: 22.h),
+                    child: Icon(Icons.add_rounded, color: Colors.white, size: 21.h),  // ✅ 改小：22.h → 21.h
                   ),
                   SizedBox(height: 0.5.h),
                   Text(

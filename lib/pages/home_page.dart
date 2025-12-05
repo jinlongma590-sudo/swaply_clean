@@ -4,6 +4,7 @@
 // ✅ [UI优化] Popular Items 标题始终显示，不跟随图片动画
 // ✅ [P0性能优化] 图片内存缓存 + 请求超时 + 后台刷新缓存
 // ✅ [商品展示优化] Popular Items 展示数量优化（初期上线：100条）
+// ✅ [布局优化] 骨架屏期间保持 Featured Ads 标题占位，避免加载完成后位置跳动
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -795,7 +796,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [UI优化] 修改此方法：Popular Items 标题移到外面，始终显示
+  // ✅ [布局优化] 修改：在骨架屏期间也显示 Featured Ads 标题占位
   Widget _buildTrendingSection() {
     // 预先计算是否有 pinned 和 regular items（用于判断是否显示标题）
     final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
@@ -833,8 +834,8 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ Featured Ads 标题（如果有数据则显示，loading时隐藏）
-        if (!_loadingTrending && hasPinned) ...[
+        // ✅ [布局优化] Featured Ads 标题占位（loading 期间也显示，保持布局一致）
+        if (_loadingTrending || hasPinned) ...[
           Padding(
             padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
             child: Row(
@@ -878,25 +879,23 @@ class _HomePageState extends State<HomePage>
           ),
         ],
 
-        // ✅ Popular Items 标题（始终显示，不参与动画）
-        if (_loadingTrending || hasRegular) ...[
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              16.w,
-              (_loadingTrending || hasPinned) ? 16.h : 0,  // loading时或有featured ads时加间距
-              16.w,
-              Platform.isIOS ? 2.h : 8.h,
-            ),
-            child: Text(
-              'Popular Items',
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
+        // ✅ [布局优化] Popular Items 标题（始终显示占位，保持一致性）
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            16.w,
+            (_loadingTrending || hasPinned) ? 16.h : 0,  // loading时或有featured ads时加间距
+            16.w,
+            Platform.isIOS ? 2.h : 8.h,
+          ),
+          child: Text(
+            'Popular Items',
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
             ),
           ),
-        ],
+        ),
 
         // 图片网格区域（保持loading和fade动画）
         Padding(
@@ -996,7 +995,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [UI优化] 修改此方法：移除 Popular Items 标题（已移到外面）
+  // ✅ [布局优化] 修改：移除条件判断，直接显示网格（标题已移到外面且始终显示）
   Widget _buildTrendingGrid() {
     if (_trendingRemote.isEmpty) {
       return Container(
@@ -1059,7 +1058,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [UI优化] 新方法：只返回 Featured Ads 网格（标题已移到外面）
+  // ✅ [布局优化] Featured Ads 网格（标题已移到外面）
   Widget _buildFeaturedTrendingGrid() {
     final pinnedItems =
     _trendingRemote.where((r) => r['pinned'] == true).toList();

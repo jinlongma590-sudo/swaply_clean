@@ -1,10 +1,38 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ✅ [推送通知] 通知权限 (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- ✅ [推送通知] 网络权限（FCM 需要） -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- ✅ [推送通知] 后台运行权限（保持 FCM 连接） -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- ✅ [推送通知] 前台服务权限（Android 9+） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
+
+        <!-- ✅ [推送通知] FCM 默认通知图标 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
+        <!-- ✅ [推送通知] FCM 默认通知颜色 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@android:color/holo_blue_light" />
+
+        <!-- ✅ [推送通知] FCM 默认通知渠道 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="swaply_notifications" />
 
         <activity
             android:name=".MainActivity"
@@ -86,6 +114,16 @@
                 <data android:pathPrefix="/reset-password" />
             </intent-filter>
         </activity>
+
+        <!-- ✅ [推送通知] FCM Service（关键！） -->
+        <service
+            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            android:exported="false"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!-- Flutter plugin registrant -->
         <meta-data

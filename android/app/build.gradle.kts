@@ -68,4 +68,14 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // ✅ 添加 Firebase 依赖（推送通知必需）
+    // 使用 BoM (Bill of Materials) 自动管理版本，避免冲突
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
 }
+
+// ✅ 应用 Google Services 插件（必须在文件最后）
+// 这个插件会读取 google-services.json 并生成必要的配置代码
+apply(plugin = "com.google.gms.google-services")
