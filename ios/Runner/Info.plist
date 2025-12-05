@@ -2,118 +2,136 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <dict>
-       <key>CFBundleDevelopmentRegion</key>
-       <string>$(DEVELOPMENT_LANGUAGE)</string>
-       <key>CFBundleDisplayName</key>
-       <string>Swaply</string>
-       <key>CFBundleExecutable</key>
-       <string>$(EXECUTABLE_NAME)</string>
-       <key>CFBundleIdentifier</key>
-       <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-       <key>CFBundleInfoDictionaryVersion</key>
-       <string>6.0</string>
-       <key>CFBundleName</key>
-       <string>Swaply</string>
-       <key>CFBundlePackageType</key>
-       <string>APPL</string>
-       <key>CFBundleShortVersionString</key>
-       <string>$(FLUTTER_BUILD_NAME)</string>
-       <key>CFBundleSignature</key>
-       <string>????</string>
-       <key>CFBundleVersion</key>
-       <string>$(FLUTTER_BUILD_NUMBER)</string>
-       <key>LSRequiresIPhoneOS</key>
-       <true/>
-       <key>UILaunchStoryboardName</key>
-       <string>LaunchScreen</string>
-       <key>UIMainStoryboardFile</key>
-       <string>Main</string>
-       <key>UISupportedInterfaceOrientations</key>
-       <array>
-          <string>UIInterfaceOrientationPortrait</string>
-          <string>UIInterfaceOrientationLandscapeLeft</string>
-          <string>UIInterfaceOrientationLandscapeRight</string>
-       </array>
-       <key>UISupportedInterfaceOrientations~ipad</key>
-       <array>
-          <string>UIInterfaceOrientationPortrait</string>
-          <string>UIInterfaceOrientationPortraitUpsideDown</string>
-          <string>UIInterfaceOrientationLandscapeLeft</string>
-          <string>UIInterfaceOrientationLandscapeRight</string>
-       </array>
-       <key>CADisableMinimumFrameDurationOnPhone</key>
-       <true/>
-       <key>UIApplicationSupportsIndirectInputEvents</key>
-       <true/>
-       <key>UIStatusBarHidden</key>
-       <false/>
-       <key>NSPhotoLibraryUsageDescription</key>
-       <string>We need access to your photos so you can upload item pictures to your listings.</string>
-       <key>NSPhotoLibraryAddUsageDescription</key>
-       <string>We may save photos to your library when you download or export listing images.</string>
-       <key>NSCameraUsageDescription</key>
-       <string>We use the camera to take photos or videos for your listings.</string>
-       <key>NSMicrophoneUsageDescription</key>
-       <string>We use the microphone when recording videos or voice messages.</string>
-       <key>NSLocationWhenInUseUsageDescription</key>
-       <string>We use your location to show nearby listings and improve search results.</string>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>$(DEVELOPMENT_LANGUAGE)</string>
+        <key>CFBundleDisplayName</key>
+        <string>Swaply</string>
+        <key>CFBundleExecutable</key>
+        <string>$(EXECUTABLE_NAME)</string>
+        <key>CFBundleIdentifier</key>
+        <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+        <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+        <key>CFBundleName</key>
+        <string>Swaply</string>
+        <key>CFBundlePackageType</key>
+        <string>APPL</string>
+        <key>CFBundleShortVersionString</key>
+        <string>$(FLUTTER_BUILD_NAME)</string>
+        <key>CFBundleSignature</key>
+        <string>????</string>
+        <key>CFBundleVersion</key>
+        <string>$(FLUTTER_BUILD_NUMBER)</string>
+        <key>LSRequiresIPhoneOS</key>
+        <true/>
+        <key>UILaunchStoryboardName</key>
+        <string>LaunchScreen</string>
+        <key>UIMainStoryboardFile</key>
+        <string>Main</string>
 
-       <!-- ✅ 新增：通知权限说明（推送通知必需） -->
-       <key>NSUserNotificationsUsageDescription</key>
-       <string>Allow Swaply to send you notifications about offers, messages, and important updates</string>
+        <key>UISupportedInterfaceOrientations</key>
+        <array>
+            <string>UIInterfaceOrientationPortrait</string>
+            <string>UIInterfaceOrientationLandscapeLeft</string>
+            <string>UIInterfaceOrientationLandscapeRight</string>
+        </array>
+        <key>UISupportedInterfaceOrientations~ipad</key>
+        <array>
+            <string>UIInterfaceOrientationPortrait</string>
+            <string>UIInterfaceOrientationPortraitUpsideDown</string>
+            <string>UIInterfaceOrientationLandscapeLeft</string>
+            <string>UIInterfaceOrientationLandscapeRight</string>
+        </array>
 
-       <!-- ✅ 新增：后台模式（推送通知必需） -->
-       <key>UIBackgroundModes</key>
-       <array>
-          <string>remote-notification</string>
-          <string>fetch</string>
-          <string>processing</string>
-       </array>
+        <key>CADisableMinimumFrameDurationOnPhone</key>
+        <true/>
+        <key>UIApplicationSupportsIndirectInputEvents</key>
+        <true/>
+        <key>UIStatusBarHidden</key>
+        <false/>
 
-       <key>CFBundleURLTypes</key>
-       <array>
-          <dict>
-             <key>CFBundleURLName</key>
-             <string>cc.swaply.app</string>
-             <key>CFBundleURLSchemes</key>
-             <array>
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>We need access to your photos so you can upload item pictures to your listings.</string>
+        <key>NSPhotoLibraryAddUsageDescription</key>
+        <string>We may save photos to your library when you download or export listing images.</string>
+        <key>NSCameraUsageDescription</key>
+        <string>We use the camera to take photos or videos for your listings.</string>
+        <key>NSMicrophoneUsageDescription</key>
+        <string>We use the microphone when recording videos or voice messages.</string>
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>We use your location to show nearby listings and improve search results.</string>
+
+        <!-- Push notification permission text -->
+        <key>NSUserNotificationsUsageDescription</key>
+        <string>Allow Swaply to send you notifications about offers, messages, and important updates</string>
+
+        <!-- Background modes -->
+        <key>UIBackgroundModes</key>
+        <array>
+            <string>remote-notification</string>
+            <string>fetch</string>
+            <string>processing</string>
+        </array>
+
+        <!-- ✅ BGTask identifiers required when using 'processing' -->
+        <key>BGTaskSchedulerPermittedIdentifiers</key>
+        <array>
+            <!-- Custom task IDs (prefix with bundle id) -->
+            <string>cc.swaply.app.bgrefresh</string>
+            <string>cc.swaply.app.bgprocessing</string>
+
+            <!-- If plugins require fixed identifiers, add them too (examples commented) -->
+            <!-- <string>com.transistorsoft.fetch</string> -->
+            <!-- <string>be.tramckrijte.workmanager.background</string> -->
+        </array>
+
+        <key>CFBundleURLTypes</key>
+        <array>
+            <dict>
+                <key>CFBundleURLName</key>
                 <string>cc.swaply.app</string>
-             </array>
-          </dict>
-          <dict>
-             <key>CFBundleURLName</key>
-             <string>io.supabase.flutter</string>
-             <key>CFBundleURLSchemes</key>
-             <array>
+                <key>CFBundleURLSchemes</key>
+                <array>
+                    <string>cc.swaply.app</string>
+                </array>
+            </dict>
+            <dict>
+                <key>CFBundleURLName</key>
                 <string>io.supabase.flutter</string>
-             </array>
-          </dict>
-          <dict>
-             <key>CFBundleURLName</key>
-             <string>swaply</string>
-             <key>CFBundleURLSchemes</key>
-             <array>
+                <key>CFBundleURLSchemes</key>
+                <array>
+                    <string>io.supabase.flutter</string>
+                </array>
+            </dict>
+            <dict>
+                <key>CFBundleURLName</key>
                 <string>swaply</string>
-             </array>
-          </dict>
-       </array>
-       <key>LSApplicationQueriesSchemes</key>
-       <array>
-          <string>fbapi</string>
-          <string>fbauth2</string>
-          <string>fb-messenger-share-api</string>
-          <string>fb</string>
-          <string>google</string>
-          <string>whatsapp</string>
-          <string>whatsapp-business</string>
-          <string>tg</string>
-       </array>
-       <key>UIViewControllerBasedStatusBarAppearance</key>
-       <true/>
-       <key>com.apple.developer.associated-domains</key>
-       <array>
-          <string>applinks:swaply.cc</string>
-          <string>applinks:www.swaply.cc</string>
-       </array>
+                <key>CFBundleURLSchemes</key>
+                <array>
+                    <string>swaply</string>
+                </array>
+            </dict>
+        </array>
+
+        <key>LSApplicationQueriesSchemes</key>
+        <array>
+            <string>fbapi</string>
+            <string>fbauth2</string>
+            <string>fb-messenger-share-api</string>
+            <string>fb</string>
+            <string>google</string>
+            <string>whatsapp</string>
+            <string>whatsapp-business</string>
+            <string>tg</string>
+        </array>
+
+        <key>UIViewControllerBasedStatusBarAppearance</key>
+        <true/>
+
+        <key>com.apple.developer.associated-domains</key>
+        <array>
+            <string>applinks:swaply.cc</string>
+            <string>applinks:www.swaply.cc</string>
+        </array>
     </dict>
 </plist>
