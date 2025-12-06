@@ -110,7 +110,6 @@
 
                 <!-- 你的域名 -->
                 <data android:host="swaply.cc" />
-                <data android:host="www.swaply.cc" />
             </intent-filter>
 
             <!-- =====================================================
@@ -129,7 +128,6 @@
 
                 <data android:scheme="https" />
                 <data android:host="swaply.cc" />
-                <data android:host="www.swaply.cc" />
             </intent-filter>
         </activity>
 

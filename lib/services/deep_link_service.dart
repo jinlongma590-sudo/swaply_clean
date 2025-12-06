@@ -1,9 +1,10 @@
 ﻿// lib/services/deep_link_service.dart
-// ✅ [iOS 竞态修复] 增加延迟避免与 AuthFlowObserver 竞争
+// ✅ [iOS 竞态修复] 增加协调标志避免与 AuthFlowObserver 竞争
 // 完全符合 Swaply 架构：
 //    1. 只负责提取参数并传递，不做会话解析
 //    2. reset-password 使用 navReplaceAll（全局跳转）
 //    3. 不触碰任何 AuthFlowObserver 的职责
+//    4. 提供协调标志，让 AuthFlowObserver 知道业务深链正在处理
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,13 @@ class DeepLinkService {
   bool _bootstrapped = false;
   bool _flushing = false;
   bool _initialHandled = false;
+
+  // ✅ [协调机制] 标志：是否正在处理业务深链（listing/offer）
+  // 用于与 AuthFlowObserver 协调，避免导航冲突
+  static bool _handlingBusinessDeepLink = false;
+
+  // ✅ [协调机制] Public getter，供 AuthFlowObserver 查询
+  static bool get isHandlingBusinessDeepLink => _handlingBusinessDeepLink;
 
   /// 解析 URL fragment（形如 #a=1&b=2）为 Map
   Map<String, String> _parseFragmentParams(String fragment) {
@@ -82,10 +90,10 @@ class DeepLinkService {
         }
         await SchedulerBinding.instance.endOfFrame;
 
-        // ✅ [iOS 竞态修复] 从120ms增加到300ms
-        // 确保 AuthFlowObserver.initialSession 先完成登录状态检查
-        // 避免 deep link 导航和登录检查竞争导致的页面混乱
-        await Future.delayed(const Duration(milliseconds: 300));
+        // ✅ [iOS 竞态修复] 减少延迟到 50ms
+        // 目标：比 AuthFlowObserver.initialSession 更早执行
+        // AuthFlowObserver 会检查我们的标志并等待
+        await Future.delayed(const Duration(milliseconds: 50));
 
         _handle(initial, isInitial: true);
       }
@@ -161,6 +169,7 @@ class DeepLinkService {
     // ============================================================
     // 1) Reset Password 深链
     // ✅ 符合架构：只提取参数，不做验证，使用 navReplaceAll
+    // ⚠️ 不设置协调标志，因为这是全局跳转，不需要协调
     // ============================================================
     final isResetByHost = host == 'reset-password';
     final isResetByPath = path.contains('reset-password');
@@ -248,73 +257,105 @@ class DeepLinkService {
     }
 
     // ============================================================
-    // 2) Offer 深链
-    // ✅ 架构符合：业务跳转使用 navPush
+    // ✅ [协调机制] 开始处理业务深链，设置标志
+    // 让 AuthFlowObserver 知道有业务深链正在处理
     // ============================================================
-    final isOfferByHost = host == 'offer';
-    final isOfferByPath = path.contains('/offer');
-    if (isOfferByHost || isOfferByPath) {
-      final offerId = uri.queryParameters['offer_id'] ?? uri.queryParameters['id'];
-      final listingId = uri.queryParameters['listing_id'] ??
-          uri.queryParameters['listingid'] ??
-          uri.queryParameters['listing'];
-      if (offerId != null && offerId.isNotEmpty) {
-        if (kDebugMode) {
-          debugPrint('[DeepLink] 💼 → OfferDetailPage: offer_id=$offerId');
-        }
-        Future.delayed(Duration.zero, () {
-          navPush('/offer-detail', arguments: {
-            'offer_id': offerId,
-            if (listingId != null && listingId.isNotEmpty) 'listing_id': listingId,
-          });
-        });
-        return;
-      }
+    _handlingBusinessDeepLink = true;
+    if (kDebugMode) {
+      debugPrint('[DeepLink] 🚦 Business deep link handling started (flag=true)');
     }
 
-    // ============================================================
-    // 3) 短链格式：/l/[id] → 商品详情页
-    // ✅ 架构符合：业务跳转使用 navPush
-    // ============================================================
-    final isShortLinkPath = path.startsWith('/l/');
-    if (isShortLinkPath) {
-      final segments = path.split('/').where((s) => s.isNotEmpty).toList();
-      if (segments.length >= 2 && segments[0] == 'l') {
-        final listingId = segments[1];
-        if (listingId.isNotEmpty) {
+    try {
+      // ============================================================
+      // 2) Offer 深链
+      // ✅ 架构符合：业务跳转使用 navPush
+      // ============================================================
+      final isOfferByHost = host == 'offer';
+      final isOfferByPath = path.contains('/offer');
+      if (isOfferByHost || isOfferByPath) {
+        final offerId = uri.queryParameters['offer_id'] ?? uri.queryParameters['id'];
+        final listingId = uri.queryParameters['listing_id'] ??
+            uri.queryParameters['listingid'] ??
+            uri.queryParameters['listing'];
+        if (offerId != null && offerId.isNotEmpty) {
           if (kDebugMode) {
-            debugPrint('[DeepLink] 🔗 → ProductDetailPage (short link): $listingId');
+            debugPrint('[DeepLink] 💼 → OfferDetailPage: offer_id=$offerId');
+          }
+          Future.delayed(Duration.zero, () {
+            navPush('/offer-detail', arguments: {
+              'offer_id': offerId,
+              if (listingId != null && listingId.isNotEmpty) 'listing_id': listingId,
+            });
+          });
+
+          // 等待导航完成
+          await Future.delayed(const Duration(milliseconds: 150));
+          return;
+        }
+      }
+
+      // ============================================================
+      // 3) 短链格式：/l/[id] → 商品详情页
+      // ✅ 架构符合：业务跳转使用 navPush
+      // ============================================================
+      final isShortLinkPath = path.startsWith('/l/');
+      if (isShortLinkPath) {
+        final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+        if (segments.length >= 2 && segments[0] == 'l') {
+          final listingId = segments[1];
+          if (listingId.isNotEmpty) {
+            if (kDebugMode) {
+              debugPrint('[DeepLink] 🔗 → ProductDetailPage (short link): $listingId');
+            }
+            Future.delayed(Duration.zero, () {
+              navPush('/listing', arguments: {'id': listingId});
+            });
+
+            // 等待导航完成
+            await Future.delayed(const Duration(milliseconds: 150));
+            return;
+          }
+        }
+      }
+
+      // ============================================================
+      // 4) Listing 深链
+      // ✅ 架构符合：业务跳转使用 navPush
+      // ============================================================
+      final isListingByHost = host == 'listing';
+      final isListingByPath = path.contains('/listing');
+      if (isListingByHost || isListingByPath) {
+        final listingId = uri.queryParameters['listing_id'] ?? uri.queryParameters['id'];
+        if (listingId != null && listingId.isNotEmpty) {
+          if (kDebugMode) {
+            debugPrint('[DeepLink] 📦 → ProductDetailPage: $listingId');
           }
           Future.delayed(Duration.zero, () {
             navPush('/listing', arguments: {'id': listingId});
           });
+
+          // 等待导航完成
+          await Future.delayed(const Duration(milliseconds: 150));
           return;
         }
       }
-    }
 
-    // ============================================================
-    // 4) Listing 深链
-    // ✅ 架构符合：业务跳转使用 navPush
-    // ============================================================
-    final isListingByHost = host == 'listing';
-    final isListingByPath = path.contains('/listing');
-    if (isListingByHost || isListingByPath) {
-      final listingId = uri.queryParameters['listing_id'] ?? uri.queryParameters['id'];
-      if (listingId != null && listingId.isNotEmpty) {
+      // ============================================================
+      // 5) 默认：不匹配的链接
+      // ============================================================
+      if (kDebugMode) debugPrint('[DeepLink] ❓ unmatched -> ignore: $uri');
+
+    } finally {
+      // ============================================================
+      // ✅ [协调机制] 业务深链处理完成，清除标志
+      // 延迟 200ms 清除，确保 AuthFlowObserver 能看到这个标志
+      // ============================================================
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _handlingBusinessDeepLink = false;
         if (kDebugMode) {
-          debugPrint('[DeepLink] 📦 → ProductDetailPage: $listingId');
+          debugPrint('[DeepLink] 🚦 Business deep link handling completed (flag=false)');
         }
-        Future.delayed(Duration.zero, () {
-          navPush('/listing', arguments: {'id': listingId});
-        });
-        return;
-      }
+      });
     }
-
-    // ============================================================
-    // 5) 默认：不匹配的链接
-    // ============================================================
-    if (kDebugMode) debugPrint('[DeepLink] ❓ unmatched -> ignore: $uri');
   }
 }

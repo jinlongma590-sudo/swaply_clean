@@ -1,6 +1,7 @@
 // lib/services/auth_flow_observer.dart
 // ✅ [通知架构修复] 完整版：订阅生命周期收口到 AuthFlowObserver
-// ✅ [iOS 竞态修复] initialSession 增加延迟，避免与 DeepLinkService 竞争
+// ✅ [iOS 竞态修复] initialSession 增加协调等待，避免与 DeepLinkService 竞争
+// ✅ [协调机制] 检查 DeepLinkService 标志，等待业务深链处理完成
 // [完整修复版] OAuth导航优化 + 首次导航标志
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,7 @@ import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/services/profile_service.dart';
 import 'package:swaply/services/reward_service.dart';
+import 'package:swaply/services/deep_link_service.dart'; // ✅ [协调机制] 引入 DeepLinkService
 import 'package:swaply/auth/register_screen.dart';
 
 final _appStart = DateTime.now();
@@ -168,6 +170,49 @@ class AuthFlowObserver {
               }
             }
 
+            // ============================================================
+            // ✅ [协调机制] 等待 DeepLinkService 完成业务深链处理
+            // 架构符合：
+            // - 不检查深链内容（职责分离）
+            // - 只检查标志：DeepLinkService 是否正在处理业务深链
+            // - 等待完成后再执行全局导航，避免冲突
+            // ============================================================
+            if (DeepLinkService.isHandlingBusinessDeepLink) {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] 🚦 DeepLinkService is handling business deep link, waiting...');
+              }
+
+              // 轮询等待，最多 1 秒
+              var waited = 0;
+              const checkInterval = 50; // 每 50ms 检查一次
+              const maxWait = 1000; // 最多等待 1000ms
+
+              while (DeepLinkService.isHandlingBusinessDeepLink && waited < maxWait) {
+                await Future.delayed(const Duration(milliseconds: checkInterval));
+                waited += checkInterval;
+
+                if (kDebugMode && waited % 200 == 0) {
+                  debugPrint('[AuthFlowObserver] 🕐 Still waiting for business deep link... (${waited}ms)');
+                }
+              }
+
+              if (DeepLinkService.isHandlingBusinessDeepLink) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] ⚠️ Timeout waiting for deep link (${waited}ms), proceeding anyway');
+                }
+              } else {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] ✅ Business deep link handled (waited ${waited}ms)');
+                }
+              }
+            } else {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] ℹ️ No business deep link detected, proceeding normally');
+              }
+            }
+
+            // 继续正常的 /home 导航
+            // DeepLinkService 的 navPush 会保留在栈上
             await _goOnce('/home');
           } else {
             Uri? initialLink;

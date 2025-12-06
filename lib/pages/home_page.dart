@@ -7,6 +7,7 @@
 // ✅ [布局优化] 三个标题位置固定，避免骨架屏加载时的位移
 // ✅ [位移修复] Popular Items 标题不再受 loading 状态影响，只根据实际有 Featured Ads 商品时才下移
 // ✅ [间隙优化] Popular Items 和图片之间的间隙减小到 0，彻底消除间隔
+// ✅ [滚动修复] 修复骨架屏加载完成后滚动位置重置的问题
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -33,7 +34,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+
+  // ✅ [滚动修复] 添加 AutomaticKeepAliveClientMixin，保持页面状态
+  @override
+  bool get wantKeepAlive => true;
+
   // ✅ [商品展示配置] 可配置的商品数量限制（方便后续调整）
   static const int _featuredAdsLimit = 10;   // Featured Ads（置顶广告）数量
   static const int _popularItemsLimit = 100; // Popular Items（热门商品）数量 - 初期上线展示更多
@@ -59,6 +65,10 @@ class _HomePageState extends State<HomePage>
   static DateTime? _cacheTime;
   static String? _cachedLocation;
   static const _cacheDuration = Duration(minutes: 2);
+
+  // ✅ [滚动修复] 添加滚动位置保存
+  double _savedScrollPosition = 0.0;
+  bool _isRestoringScroll = false;
 
   static const List<String> _locations = [
     'All Zimbabwe',
@@ -133,6 +143,9 @@ class _HomePageState extends State<HomePage>
       curve: Curves.easeInOut,
     );
 
+    // ✅ [滚动修复] 监听滚动位置
+    _scrollController.addListener(_onScroll);
+
     // ✅ [主页停滞修复] 首次加载显示骨架屏（showLoading: true）
     _loadTrending(showLoading: true);
 
@@ -143,6 +156,13 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  // ✅ [滚动修复] 滚动监听器
+  void _onScroll() {
+    if (!_loadingTrending && !_isRestoringScroll) {
+      _savedScrollPosition = _scrollController.position.pixels;
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 保留占位
@@ -151,6 +171,7 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchCtrl.dispose();
     _fadeController.dispose();
@@ -193,8 +214,8 @@ class _HomePageState extends State<HomePage>
   // ✅ [商品展示优化] 使用配置常量作为默认参数
   Future<List<Map<String, dynamic>>> _fetchTrendingMixed({
     String? city,
-    int pinnedLimit = _featuredAdsLimit,     // ✅ 使用配置常量（10条）
-    int latestLimit = _popularItemsLimit,    // ✅ 使用配置常量（100条）
+    int pinnedLimit = _featuredAdsLimit,
+    int latestLimit = _popularItemsLimit,
     bool bypassCache = false,
   }) async {
     final startTime = DateTime.now();
@@ -203,7 +224,7 @@ class _HomePageState extends State<HomePage>
       CouponService.getTrendingPinnedAds(
         city: city,
         limit: pinnedLimit,
-      ).timeout(const Duration(seconds: 10)), // ✅ 单个请求超时10秒
+      ).timeout(const Duration(seconds: 10)),
       ListingApi.fetchListings(
         city: city,
         limit: latestLimit,
@@ -212,8 +233,8 @@ class _HomePageState extends State<HomePage>
         ascending: false,
         status: 'active',
         forceNetwork: bypassCache,
-      ).timeout(const Duration(seconds: 10)), // ✅ 单个请求超时10秒
-    ]).timeout(const Duration(seconds: 15)); // ✅ 总超时15秒
+      ).timeout(const Duration(seconds: 10)),
+    ]).timeout(const Duration(seconds: 15));
 
     final pinnedAds = results[0] as List;
     final latest = results[1] as List<Map<String, dynamic>>;
@@ -288,17 +309,22 @@ class _HomePageState extends State<HomePage>
       }
     }
 
+    // ✅ [滚动修复] 保存当前滚动位置
+    if (_scrollController.hasClients) {
+      _savedScrollPosition = _scrollController.position.pixels;
+      debugPrint('💾 [Scroll] 保存滚动位置: $_savedScrollPosition');
+    }
+
     // ✅ [主页停滞修复] 始终显示loading状态（骨架屏）
     if (showLoading && mounted) {
       setState(() => _loadingTrending = true);
     }
 
     try {
-      // ✅ [商品展示优化] 使用配置常量
       final rows = await _fetchTrendingMixed(
         city: city,
-        pinnedLimit: _featuredAdsLimit,    // ✅ 10条 Featured Ads
-        latestLimit: _popularItemsLimit,   // ✅ 100条 Popular Items
+        pinnedLimit: _featuredAdsLimit,
+        latestLimit: _popularItemsLimit,
         bypassCache: bypassCache,
       );
       if (mounted) {
@@ -312,6 +338,9 @@ class _HomePageState extends State<HomePage>
         if (_trendingRemote.isNotEmpty) {
           _fadeController.forward();
         }
+
+        // ✅ [滚动修复] 恢复滚动位置
+        _restoreScrollPosition();
       }
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
@@ -320,23 +349,55 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  // ✅ [滚动修复] 恢复滚动位置方法
+  void _restoreScrollPosition() {
+    if (_savedScrollPosition > 0 && _scrollController.hasClients) {
+      _isRestoringScroll = true;
+      debugPrint('🔄 [Scroll] 恢复滚动位置: $_savedScrollPosition');
+
+      // 延迟到下一帧，确保布局完成
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          try {
+            final maxScroll = _scrollController.position.maxScrollExtent;
+            final targetPosition = _savedScrollPosition.clamp(0.0, maxScroll);
+
+            _scrollController.jumpTo(targetPosition);
+            debugPrint('✅ [Scroll] 滚动位置已恢复: $targetPosition (max: $maxScroll)');
+          } catch (e) {
+            debugPrint('❌ [Scroll] 恢复滚动位置失败: $e');
+          } finally {
+            _isRestoringScroll = false;
+          }
+        }
+      });
+    }
+  }
+
   // ✅ [P1优化] 新增：后台刷新方法
   Future<void> _refreshInBackground(String? city) async {
     try {
-      // ✅ [商品展示优化] 后台刷新也使用配置常量
       final rows = await _fetchTrendingMixed(
         city: city,
-        pinnedLimit: _featuredAdsLimit,    // ✅ 10条 Featured Ads
-        latestLimit: _popularItemsLimit,   // ✅ 100条 Popular Items
+        pinnedLimit: _featuredAdsLimit,
+        latestLimit: _popularItemsLimit,
         bypassCache: true,
       );
       if (mounted) {
+        // ✅ [滚动修复] 后台刷新时也保存滚动位置
+        if (_scrollController.hasClients) {
+          _savedScrollPosition = _scrollController.position.pixels;
+        }
+
         setState(() {
           _trendingRemote = rows;
           _cachedTrending = rows;
           _cacheTime = DateTime.now();
         });
         debugPrint('✅ [Cache] 后台刷新完成 (${rows.length}条)');
+
+        // ✅ [滚动修复] 恢复滚动位置
+        _restoreScrollPosition();
       }
     } catch (e) {
       debugPrint('❌ [Cache] 后台刷新失败: $e');
@@ -425,6 +486,8 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // ✅ [滚动修复] AutomaticKeepAliveClientMixin 需要调用
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
@@ -652,12 +715,12 @@ class _HomePageState extends State<HomePage>
         builder: (ctx, constraints) {
           const int crossAxisCount = 4;
           final double crossAxisSpacing = 6.w;
-          final double mainAxisSpacing  = 6.h;
+          final double mainAxisSpacing = 6.h;
           const double childAspectRatio = 1.0;
-          final double padHLeft  = 12.w;
+          final double padHLeft = 12.w;
           final double padHRight = 12.w;
-          final double padVTop   = Platform.isIOS ? 10.h : 12.h;
-          final double padVBottom= Platform.isIOS ? 12.h : 16.h;
+          final double padVTop = Platform.isIOS ? 10.h : 12.h;
+          final double padVBottom = Platform.isIOS ? 12.h : 16.h;
 
           final double usableWidth =
               constraints.maxWidth - padHLeft - padHRight;
@@ -666,8 +729,7 @@ class _HomePageState extends State<HomePage>
               crossAxisCount;
           final double tileH = tileW / childAspectRatio;
 
-          final int rows =
-          (_categories.length / crossAxisCount).ceil();
+          final int rows = (_categories.length / crossAxisCount).ceil();
           final double gridCoreHeight =
               rows * tileH + (rows - 1) * mainAxisSpacing;
           final double gridTotalHeight =
@@ -676,7 +738,8 @@ class _HomePageState extends State<HomePage>
           return SizedBox(
             height: gridTotalHeight,
             child: GridView.builder(
-              padding: EdgeInsets.fromLTRB(padHLeft, padVTop, padHRight, padVBottom),
+              padding: EdgeInsets.fromLTRB(
+                  padHLeft, padVTop, padHRight, padVBottom),
               primary: false,
               shrinkWrap: false,
               physics: const NeverScrollableScrollPhysics(),
@@ -700,7 +763,9 @@ class _HomePageState extends State<HomePage>
                   onTap: () => _navigateToCategory(cat['id']!, cat['label']!),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isTrending ? Colors.orange.shade50 : Colors.grey[50],
+                      color: isTrending
+                          ? Colors.orange.shade50
+                          : Colors.grey[50],
                       borderRadius: BorderRadius.circular(10.r),
                       border: Border.all(
                         color: isTrending
@@ -719,7 +784,8 @@ class _HomePageState extends State<HomePage>
                     child: LayoutBuilder(
                       builder: (ctx, c) {
                         final double H = c.maxHeight;
-                        final double labelMax = (H - iconBox - gap).clamp(0.0, 40.h);
+                        final double labelMax =
+                        (H - iconBox - gap).clamp(0.0, 40.h);
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -798,21 +864,18 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [布局优化] 修改：三个标题始终显示，Popular Items 间距根据上方是否有网格动态调整
-  // ✅ [位移修复] Popular Items 标题位置固定，只根据实际有 Featured Ads 商品时才下移
-  // ✅ [间隙优化] Popular Items 与商品网格间隙为 0，彻底消除间隔
   Widget _buildTrendingSection() {
-    // 预先计算是否有 pinned 和 regular items
-    final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
-    final hasRegular = _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
+    final hasPinned =
+        _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
+    final hasRegular =
+        _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
 
-    // ✅ [位移修复] 只根据实际有 Featured Ads 商品决定间距，移除 loading 状态影响
     final double popularItemsTopPadding = hasPinned ? 16.h : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Trending 标题（始终显示）
+        // 1. Trending 标题
         Padding(
           key: _trendingKey,
           padding: EdgeInsets.fromLTRB(
@@ -841,7 +904,7 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ 2. Featured Ads 标题（始终显示，避免位移）
+        // 2. Featured Ads 标题
         Padding(
           padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
           child: Row(
@@ -884,14 +947,13 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ 3. Popular Items 标题（始终显示，顶部间距仅根据实际有 Featured Ads 决定）
-        // ✅ [间距优化] 底部间距改为 0，彻底消除与商品网格的间隙
+        // 3. Popular Items 标题
         Padding(
           padding: EdgeInsets.fromLTRB(
             16.w,
-            popularItemsTopPadding,  // ← 仅根据实际有 Featured Ads 决定：有则 16.h，无则 0
+            popularItemsTopPadding,
             16.w,
-            0,   // ← 底部间距为 0，彻底消除间隙
+            0,
           ),
           child: Text(
             'Popular Items',
@@ -903,7 +965,7 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // 4. 图片网格区域（保持loading和fade动画）
+        // 4. 图片网格区域
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
           child:
@@ -913,6 +975,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  // ✅ [滚动修复] 修改骨架屏，使用与实际内容相同的 childAspectRatio
   Widget _buildTrendingLoading() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
@@ -921,14 +984,14 @@ class _HomePageState extends State<HomePage>
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
-        padding: EdgeInsets.zero,  // ✅ 设置为 zero，消除默认间隙
+        padding: EdgeInsets.zero,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.70,
+          childAspectRatio: 0.66, // ✅ 修改：统一使用 0.66，与实际内容一致
           crossAxisSpacing: 8.w,
           mainAxisSpacing: 8.h,
         ),
-        itemCount: 6,
+        itemCount: 6, // ✅ 保持 6 个，避免骨架屏过长
         itemBuilder: (_, __) => Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -948,7 +1011,8 @@ class _HomePageState extends State<HomePage>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
+                    borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(10.r)),
                   ),
                 ),
               ),
@@ -1038,7 +1102,6 @@ class _HomePageState extends State<HomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Featured Ads 网格（如果有）
           if (_trendingRemote.where((r) => r['pinned'] == true).isNotEmpty) ...[
             _buildFeaturedTrendingGrid(),
             Container(
@@ -1055,7 +1118,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           ],
-          // Popular Items 网格（如果有）
           if (_trendingRemote.where((r) => r['pinned'] != true).isNotEmpty) ...[
             _buildRegularTrendingGrid(),
           ],
@@ -1070,7 +1132,7 @@ class _HomePageState extends State<HomePage>
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
-      padding: EdgeInsets.zero,  // ✅ 设置为 zero，保持一致性
+      padding: EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 8.h,
@@ -1091,7 +1153,7 @@ class _HomePageState extends State<HomePage>
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
-      padding: EdgeInsets.zero,  // ✅ 所有平台都设置为 zero，消除默认间隙
+      padding: EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 8.h,
@@ -1303,7 +1365,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [P0优化] 添加图片内存缓存参数
   Widget _buildOptimizedImageWidget(String? src) {
     if (src == null || src.isEmpty) {
       return Container(
@@ -1333,16 +1394,19 @@ class _HomePageState extends State<HomePage>
             height: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[200],
-              borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
+              borderRadius:
+              BorderRadius.vertical(top: Radius.circular(10.r)),
             ),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.broken_image, size: 20.sp, color: Colors.grey[400]),
+                  Icon(Icons.broken_image,
+                      size: 20.sp, color: Colors.grey[400]),
                   SizedBox(height: 2.h),
                   Text('Image not found',
-                      style: TextStyle(fontSize: 8.sp, color: Colors.grey[500])),
+                      style:
+                      TextStyle(fontSize: 8.sp, color: Colors.grey[500])),
                 ],
               ),
             ),
@@ -1361,9 +1425,9 @@ class _HomePageState extends State<HomePage>
         alignment: Alignment.center,
         maxHeightDiskCache: 400,
         maxWidthDiskCache: 400,
-        memCacheWidth: 400,              // ✅ P0优化：添加内存缓存宽度
-        memCacheHeight: 400,             // ✅ P0优化：添加内存缓存高度
-        fadeInDuration: const Duration(milliseconds: 200), // ✅ P0优化：添加淡入动画
+        memCacheWidth: 400,
+        memCacheHeight: 400,
+        fadeInDuration: const Duration(milliseconds: 200),
         placeholder: (context, url) => Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
