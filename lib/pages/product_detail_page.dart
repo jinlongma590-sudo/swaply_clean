@@ -1,7 +1,8 @@
 // lib/pages/product_detail_page.dart
 // ✅ [iOS Deep Link 修复] 智能返回逻辑 - 根据登录状态决定返回目标
 // ✅ [性能优化] 图片预加载 + 渐进式加载 + 智能缓存
-// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化
+// ✅ [UI修复] 修复分享弹窗锯齿问题
+// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿
 // 严格遵守架构：不破坏 AuthFlowObserver/DeepLinkService/AppRouter 三层分离
 
 import 'dart:io';
@@ -28,7 +29,7 @@ import 'package:swaply/router/safe_navigator.dart';
 import 'package:swaply/widgets/verified_avatar.dart';
 import 'package:swaply/utils/share_utils.dart';
 import 'package:swaply/services/email_verification_service.dart';
-import 'package:swaply/router/root_nav.dart'; // ✅ 用于 navReplaceAll
+import 'package:swaply/router/root_nav.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
@@ -79,7 +80,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   final _uuid = const Uuid();
 
-  // ✅ [性能优化] 图片预缓存控制
   final Set<int> _precachedIndices = {};
 
   @override
@@ -106,8 +106,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _incrementViewsWithRPC();
       _animationController.forward();
-
-      // ✅ [性能优化] 首屏加载完成后，立即预缓存所有图片
       _precacheAllImages();
     });
 
@@ -123,7 +121,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     });
   }
 
-  // ✅ [性能优化] 预缓存所有商品图片
   void _precacheAllImages() {
     if (productImages.isEmpty || !mounted) return;
 
@@ -147,11 +144,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
   }
 
-  // ✅ [性能优化] 预加载相邻图片（PageView 滑动时触发）
   void _precacheAdjacentImages(int currentIndex) {
     if (!mounted) return;
 
-    // 预加载前一张和后一张
     final indicesToCache = <int>[
       if (currentIndex > 0) currentIndex - 1,
       if (currentIndex < productImages.length - 1) currentIndex + 1,
@@ -172,35 +167,18 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
   }
 
-  /// ✅ [iOS Deep Link 修复] 智能返回逻辑
-  /// 解决：未登录用户从外部链接进入后返回卡loading的问题
-  ///
-  /// 核心原理：
-  /// 1. 优先尝试正常pop（有导航栈时）
-  /// 2. 无法pop时，根据登录状态智能跳转：
-  ///    - 已登录 → /home（由AuthFlowObserver保证正确性）
-  ///    - 未登录 → /welcome（引导用户登录）
-  ///
-  /// 为什么不用 navReplaceAll('/')：
-  /// - 未登录时，MainNavigationPage会显示loading等待AuthFlowObserver
-  /// - 但AuthFlowObserver的initialSession已完成，不会再触发
-  /// - 导致永久卡在loading页面
   void _handleBack() {
     if (kDebugMode) {
       debugPrint('[ProductDetail] 🔙 Back button pressed');
       debugPrint('[ProductDetail] 🔍 canPop = ${Navigator.canPop(context)}');
     }
 
-    // ✅ 符合架构：检查是否可以 pop
     if (Navigator.canPop(context)) {
-      // 正常返回上一页（导航栈完整）
       Navigator.pop(context);
       if (kDebugMode) {
         debugPrint('[ProductDetail] ✅ Popped to previous page');
       }
     } else {
-      // ✅ [核心修复] 无法 pop 时，根据登录状态智能返回
-      // 这通常发生在通过deep link直接进入详情页的场景
       final hasSession = Supabase.instance.client.auth.currentSession != null;
 
       if (kDebugMode) {
@@ -209,15 +187,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       }
 
       if (hasSession) {
-        // 已登录用户：回到首页
-        // AuthFlowObserver会确保/home路由正确显示MainNavigationPage
         if (kDebugMode) {
           debugPrint('[ProductDetail] 📱 Logged in, navigating to /home');
         }
         navReplaceAll('/home');
       } else {
-        // 未登录用户：回到欢迎页（引导登录）
-        // 避免回到MainNavigationPage的loading页面
         if (kDebugMode) {
           debugPrint('[ProductDetail] 👋 Not logged in, navigating to /welcome');
         }
@@ -554,7 +528,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             productImages = rowImages.map((e) => e.toString()).toList();
             product['images'] = productImages;
 
-            // ✅ [性能优化] 图片列表更新后，立即预缓存
             Future.microtask(() => _precacheAllImages());
           }
         });
@@ -1221,7 +1194,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       }
     }
 
-    final url = 'https://www.swaply.cc/l/$id?ref=app';
+    final url = 'https://swaply.cc/l/$id?ref=app';
     final cityPart = (city != null && city.isNotEmpty) ? ' ($city)' : '';
     final pricePart = priceStr.isNotEmpty ? ' • \$$priceStr' : '';
     final text = 'Check this on Swaply$cityPart: $title$pricePart\n$url';
@@ -1238,6 +1211,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     await _showCompactShareSheet();
   }
 
+  // ✅ [UI修复] 修复分享弹窗锯齿问题 - 明确设置不透明背景色
   Future<void> _showCompactShareSheet() async {
     final payload = _buildSharePayload();
     final url = payload['url']!;
@@ -1249,78 +1223,84 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       isScrollControlled: false,
       useSafeArea: true,
       useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      backgroundColor: Colors.white,  // ✅ 明确设置白色背景，避免锯齿
+      elevation: 8,  // ✅ 添加阴影增强视觉效果
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.antiAlias,  // ✅ 确保抗锯齿
       builder: (ctx) {
         final divider = Divider(height: 1, color: Colors.grey.withOpacity(.2));
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 56,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(.12),
-                borderRadius: BorderRadius.circular(4),
+        return Container(
+          // ✅ 额外包裹一层白色容器，确保完全不透明
+          color: Colors.white,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 56,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _actionTile(
-              icon: Icons.ios_share_rounded,
-              iconColor: Colors.black87,
-              text: 'Share via other apps',
-              onTap: () async {
-                Navigator.pop(ctx);
-                await Share.share(text, subject: 'Swaply: $title');
-              },
-            ),
-            divider,
-            _actionTile(
-              icon: Icons.link_rounded,
-              iconColor: _primaryBlue,
-              text: 'Copy link',
-              subtitle: url,
-              onTap: () async {
-                await Clipboard.setData(ClipboardData(text: url));
-                Navigator.pop(ctx);
-                _toast('Link copied');
-              },
-            ),
-            divider,
-            _actionTile(
-              icon: Icons.chat_rounded,
-              iconColor: const Color(0xFF25D366),
-              text: 'Share to WhatsApp',
-              onTap: () async {
-                Navigator.pop(ctx);
-                await ShareUtils.toWhatsApp(text: text);
-              },
-            ),
-            divider,
-            _actionTile(
-              icon: Icons.send_rounded,
-              iconColor: const Color(0xFF2AABEE),
-              text: 'Share to Telegram',
-              onTap: () async {
-                Navigator.pop(ctx);
-                await ShareUtils.toTelegram(url: url, text: text);
-              },
-            ),
-            divider,
-            _actionTile(
-              icon: Icons.public_rounded,
-              iconColor: const Color(0xFF1877F2),
-              text: 'Share to Facebook',
-              onTap: () async {
-                Navigator.pop(ctx);
-                await ShareUtils.toFacebook(url: url);
-              },
-            ),
-            SizedBox(height: MediaQuery.of(ctx).padding.bottom + 6),
-          ],
+              const SizedBox(height: 8),
+              _actionTile(
+                icon: Icons.ios_share_rounded,
+                iconColor: Colors.black87,
+                text: 'Share via other apps',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await Share.share(text, subject: 'Swaply: $title');
+                },
+              ),
+              divider,
+              _actionTile(
+                icon: Icons.link_rounded,
+                iconColor: _primaryBlue,
+                text: 'Copy link',
+                subtitle: url,
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: url));
+                  Navigator.pop(ctx);
+                  _toast('Link copied');
+                },
+              ),
+              divider,
+              _actionTile(
+                icon: Icons.chat_rounded,
+                iconColor: const Color(0xFF25D366),
+                text: 'Share to WhatsApp',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ShareUtils.toWhatsApp(text: text);
+                },
+              ),
+              divider,
+              _actionTile(
+                icon: Icons.send_rounded,
+                iconColor: const Color(0xFF2AABEE),
+                text: 'Share to Telegram',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ShareUtils.toTelegram(url: url, text: text);
+                },
+              ),
+              divider,
+              _actionTile(
+                icon: Icons.public_rounded,
+                iconColor: const Color(0xFF1877F2),
+                text: 'Share to Facebook',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ShareUtils.toFacebook(url: url);
+                },
+              ),
+              SizedBox(height: MediaQuery.of(ctx).padding.bottom + 6),
+            ],
+          ),
         );
       },
     );
@@ -1392,7 +1372,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(background: _buildImageCarousel()),
             leading: IconButton(
-              onPressed: _handleBack, // ✅ 使用智能返回逻辑
+              onPressed: _handleBack,
               icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
               iconSize: 22,
               constraints: _topIconConstraints,
@@ -1948,7 +1928,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
-  // ✅ [性能优化] 优化后的图片轮播
   Widget _buildImageCarousel() {
     if (productImages.isEmpty) {
       return Container(
@@ -1965,7 +1944,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           controller: _pageController,
           onPageChanged: (index) {
             setState(() => _currentImageIndex = index);
-            // ✅ [性能优化] 预加载相邻图片
             _precacheAdjacentImages(index);
           },
           itemCount: productImages.length,
@@ -1980,10 +1958,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   imageUrl,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
-                  // ✅ [性能优化] 智能缩放，减少内存占用
                   cacheWidth: (MediaQuery.of(context).size.width *
                       MediaQuery.of(context).devicePixelRatio).round(),
-                  // ✅ [体验优化] 加载进度指示器
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
@@ -2081,7 +2057,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
-  // ✅ 图片预览入口（遵守架构，使用 SafeNavigator）
   void _showImageViewer(int initialIndex) async {
     final List<String> urls = productImages
         .where((e) => e.toString().isNotEmpty)
@@ -2242,7 +2217,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 }
 
-// ✅ 图片查看器
 class _SafeImageViewer extends StatefulWidget {
   final List<String> urls;
   final int initialIndex;

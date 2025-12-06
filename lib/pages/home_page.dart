@@ -4,7 +4,9 @@
 // ✅ [UI优化] Popular Items 标题始终显示，不跟随图片动画
 // ✅ [P0性能优化] 图片内存缓存 + 请求超时 + 后台刷新缓存
 // ✅ [商品展示优化] Popular Items 展示数量优化（初期上线：100条）
-// ✅ [布局优化] 骨架屏期间保持 Featured Ads 标题占位，避免加载完成后位置跳动
+// ✅ [布局优化] 三个标题位置固定，避免骨架屏加载时的位移
+// ✅ [位移修复] Popular Items 标题不再受 loading 状态影响，只根据实际有 Featured Ads 商品时才下移
+// ✅ [间隙优化] Popular Items 和图片之间的间隙减小到 0，彻底消除间隔
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -796,16 +798,21 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [布局优化] 修改：在骨架屏期间也显示 Featured Ads 标题占位
+  // ✅ [布局优化] 修改：三个标题始终显示，Popular Items 间距根据上方是否有网格动态调整
+  // ✅ [位移修复] Popular Items 标题位置固定，只根据实际有 Featured Ads 商品时才下移
+  // ✅ [间隙优化] Popular Items 与商品网格间隙为 0，彻底消除间隔
   Widget _buildTrendingSection() {
-    // 预先计算是否有 pinned 和 regular items（用于判断是否显示标题）
+    // 预先计算是否有 pinned 和 regular items
     final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
     final hasRegular = _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
+
+    // ✅ [位移修复] 只根据实际有 Featured Ads 商品决定间距，移除 loading 状态影响
+    final double popularItemsTopPadding = hasPinned ? 16.h : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Trending 标题（始终显示）
+        // 1. Trending 标题（始终显示）
         Padding(
           key: _trendingKey,
           padding: EdgeInsets.fromLTRB(
@@ -834,58 +841,57 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ [布局优化] Featured Ads 标题占位（loading 期间也显示，保持布局一致）
-        if (_loadingTrending || hasPinned) ...[
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(4.w),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[100],
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
+        // ✅ 2. Featured Ads 标题（始终显示，避免位移）
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(4.w),
+                decoration: BoxDecoration(
+                  color: Colors.orange[100],
+                  borderRadius: BorderRadius.circular(6.r),
                 ),
-                SizedBox(width: 6.w),
-                Text(
-                  'Featured Ads',
+                child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                'Featured Ads',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              SizedBox(width: 4.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                decoration: BoxDecoration(
+                  color: Colors.orange[600],
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Text(
+                  'PREMIUM',
                   style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    fontSize: 6.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
                   ),
                 ),
-                SizedBox(width: 4.w),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[600],
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Text(
-                    'PREMIUM',
-                    style: TextStyle(
-                      fontSize: 6.sp,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
 
-        // ✅ [布局优化] Popular Items 标题（始终显示占位，保持一致性）
+        // ✅ 3. Popular Items 标题（始终显示，顶部间距仅根据实际有 Featured Ads 决定）
+        // ✅ [间距优化] 底部间距改为 0，彻底消除与商品网格的间隙
         Padding(
           padding: EdgeInsets.fromLTRB(
             16.w,
-            (_loadingTrending || hasPinned) ? 16.h : 0,  // loading时或有featured ads时加间距
+            popularItemsTopPadding,  // ← 仅根据实际有 Featured Ads 决定：有则 16.h，无则 0
             16.w,
-            Platform.isIOS ? 2.h : 8.h,
+            0,   // ← 底部间距为 0，彻底消除间隙
           ),
           child: Text(
             'Popular Items',
@@ -897,7 +903,7 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // 图片网格区域（保持loading和fade动画）
+        // 4. 图片网格区域（保持loading和fade动画）
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
           child:
@@ -915,6 +921,7 @@ class _HomePageState extends State<HomePage>
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
+        padding: EdgeInsets.zero,  // ✅ 设置为 zero，消除默认间隙
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.70,
@@ -995,7 +1002,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [布局优化] 修改：移除条件判断，直接显示网格（标题已移到外面且始终显示）
   Widget _buildTrendingGrid() {
     if (_trendingRemote.isEmpty) {
       return Container(
@@ -1058,13 +1064,13 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [布局优化] Featured Ads 网格（标题已移到外面）
   Widget _buildFeaturedTrendingGrid() {
     final pinnedItems =
     _trendingRemote.where((r) => r['pinned'] == true).toList();
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
+      padding: EdgeInsets.zero,  // ✅ 设置为 zero，保持一致性
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 8.h,
@@ -1085,7 +1091,7 @@ class _HomePageState extends State<HomePage>
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
-      padding: Platform.isIOS ? EdgeInsets.zero : null,
+      padding: EdgeInsets.zero,  // ✅ 所有平台都设置为 zero，消除默认间隙
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 8.h,

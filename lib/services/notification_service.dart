@@ -1,4 +1,4 @@
-// lib/services/notification_service.dart
+// lib/services/notification_service.dart - 修复版（添加自我通知过滤）
 // 单例 + 全局广播流；"收藏后通知"走 RPC（notify_favorite）以绕过 RLS。
 // ✅ [推送通知] 集成 Firebase Cloud Messaging
 
@@ -107,20 +107,17 @@ class NotificationService {
   }
 
   // ======= ✅ 新增：统一深链 payload 构造器 =======
-  /// 报价通知 → 直达 OfferDetailPage
   static String buildOfferPayload({
     required String offerId,
     required String listingId,
   }) =>
       'swaply://offer?offer_id=$offerId&listing_id=$listingId';
 
-  /// 商品通知 / 收藏 / 点赞 → 直达 ProductDetailPage
   static String buildListingPayload({
     required String listingId,
   }) =>
       'swaply://listing?listing_id=$listingId';
 
-  // 可选：从一条通知记录里尽最大可能推导 payload（没有就返回 null）
   static String? derivePayloadFromRecord(Map<String, dynamic> record) {
     try {
       final type = (record['type'] ?? '').toString();
@@ -147,7 +144,6 @@ class NotificationService {
       return null;
     }
   }
-  // ==============================================
 
   // ===== Realtime 通道状态 =====
   static String? _currentUserId;
@@ -174,19 +170,16 @@ class NotificationService {
   // ✅ [推送通知] FCM Token 管理
   // ================================================
 
-  /// 初始化 FCM 并保存 Token 到 Supabase
   static Future<void> initializeFCM() async {
     try {
       final messaging = FirebaseMessaging.instance;
 
-      // 获取当前用户
       final user = _client.auth.currentUser;
       if (user == null) {
         _debugPrint('FCM: 用户未登录，跳过 Token 保存');
         return;
       }
 
-      // 获取 FCM Token
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) {
         _debugPrint('FCM: Token 为空');
@@ -195,10 +188,8 @@ class NotificationService {
 
       _debugPrint('FCM: Token 获取成功，准备保存');
 
-      // 保存到 Supabase
       await _saveFcmToken(token);
 
-      // 监听 Token 刷新
       messaging.onTokenRefresh.listen((newToken) {
         _debugPrint('FCM: Token 刷新: $newToken');
         _saveFcmToken(newToken);
@@ -210,7 +201,6 @@ class NotificationService {
     }
   }
 
-  /// 保存 FCM Token 到 Supabase
   static Future<void> _saveFcmToken(String token) async {
     try {
       final user = _client.auth.currentUser;
@@ -219,10 +209,8 @@ class NotificationService {
         return;
       }
 
-      // 获取平台信息
       final platform = Platform.isIOS ? 'ios' : 'android';
 
-      // 使用 upsert 保证幂等性
       await _client.from('user_fcm_tokens').upsert({
         'user_id': user.id,
         'fcm_token': token,
@@ -236,7 +224,6 @@ class NotificationService {
     }
   }
 
-  /// 删除当前用户的 FCM Token
   static Future<void> removeFcmToken() async {
     try {
       final user = _client.auth.currentUser;
@@ -261,11 +248,9 @@ class NotificationService {
 
   // ================================================
   // ✅ [架构兼容] 订阅用户通知
-  // 符合 Swaply 架构：由 AuthFlowObserver 在登录时调用
+  // ✅ 新增：过滤自己发给自己的通知
   // ================================================
 
-  /// 订阅当前用户的通知（幂等）
-  /// ✅ 新增：同时初始化 FCM Token
   static Future<void> subscribeUser(
       String userId, {
         NotificationEventCallback? onEvent,
@@ -293,6 +278,19 @@ class NotificationService {
       callback: (payload) {
         final data = Map<String, dynamic>.from(payload.newRecord);
 
+        // ✅ 新增：过滤自己发给自己的通知
+        final senderId = (data['sender_id'] ?? '').toString();
+        final recipientId = (data['recipient_id'] ?? '').toString();
+
+        if (senderId.isNotEmpty &&
+            recipientId.isNotEmpty &&
+            senderId == recipientId) {
+          _debugPrint('⚠️ 跳过自己发送的通知: ${data['id']}');
+          _debugPrint('  Sender: $senderId');
+          _debugPrint('  Recipient: $recipientId');
+          return;
+        }
+
         final id = (data['id'] ?? '').toString();
         if (id.isNotEmpty) {
           if (_seenIds.contains(id)) return;
@@ -305,7 +303,7 @@ class NotificationService {
         _upsertLocal(data, bumpToTop: true);
 
         if (onEvent != null) onEvent(data);
-        _controller.add(data); // 全局广播
+        _controller.add(data);
       },
     );
 
@@ -329,16 +327,13 @@ class NotificationService {
       },
     );
 
-    ch.subscribe(); // 某些 SDK 不是 Future
+    ch.subscribe();
     _channel = ch;
     _debugPrint('Subscribed to notifications for user: $userId');
 
-    // ✅ [推送通知] 订阅成功后，初始化 FCM Token
     await initializeFCM();
   }
 
-  /// 取消订阅（幂等）
-  /// ✅ 新增：同时删除 FCM Token
   static Future<void> unsubscribe() async {
     final ch = _channel;
     _channel = null;
@@ -357,29 +352,16 @@ class NotificationService {
       } catch (_) {}
     }
 
-    // ✅ [推送通知] 取消订阅时，删除 FCM Token
     await removeFcmToken();
   }
 
   // ========== ✅ 安全 RPC：收藏后通知（命名参数版） ==========
-  /// 使用后端 security definer 函数：public.notify_favorite(...)
-  /// 期望的函数参数（推荐）：
-  ///   p_recipient_id uuid,
-  ///   p_type text,
-  ///   p_title text,
-  ///   p_message text,
-  ///   p_listing_id uuid,
-  ///   p_liker_id uuid,
-  ///   p_liker_name text,
-  ///   p_metadata jsonb
-  ///
-  /// 如你的后端暂时仍是 `notify_favorite(uuid)`，需要先按上述签名升级函数。
   static Future<bool> notifyFavorite({
-    required String sellerId, // 被通知的卖家
-    required String listingId, // 商品ID
-    required String listingTitle, // 商品标题
-    String? likerId, // 收藏者 ID
-    String? likerName, // 收藏者显示名
+    required String sellerId,
+    required String listingId,
+    required String listingTitle,
+    String? likerId,
+    String? likerName,
   }) async {
     try {
       final currentUser = _client.auth.currentUser;
@@ -395,7 +377,6 @@ class NotificationService {
         return true;
       }
 
-      // ✅ 将深链一并写入 metadata（payload / deep_link 两个 key 都写）
       final String payload = buildListingPayload(listingId: listingId);
 
       final res = await _client.rpc(
@@ -411,8 +392,8 @@ class NotificationService {
           'p_metadata': {
             'listing_title': listingTitle,
             'liker_name': safeName,
-            'payload': payload, // ← 本地通知/点击可直接使用
-            'deep_link': payload, // ← 备用字段，便于前端读取
+            'payload': payload,
+            'deep_link': payload,
           },
         },
       );
@@ -435,8 +416,6 @@ class NotificationService {
   }
 
   // ========== （Legacy）直插入方法占位 ==========
-  // 注意：由于 RLS，客户端对 notifications 的 insert 会被拒绝。
-  // 因此保留该方法仅作占位，避免旧代码调用时报错；不再执行直插入。
   static Future<Map<String, dynamic>?> createNotification({
     required String recipientId,
     String? senderId,
@@ -460,7 +439,6 @@ class NotificationService {
     required String senderName,
     required String messageContent,
   }) async {
-    // 需要时可新增 notify_message RPC
     _debugPrint('createMessageNotification skipped (RPC not implemented)');
     return true;
   }
@@ -475,10 +453,6 @@ class NotificationService {
     String? buyerPhone,
     String? message,
   }) async {
-    // 需要时可新增 notify_offer RPC
-    // 提示：若你在别处弹本地通知，请用：
-    // final payload = buildOfferPayload(offerId: '<O_ID>', listingId: listingId);
-    // 然后把 payload 传给 flutter_local_notifications 的 show(..., payload: payload)
     _debugPrint('createOfferNotification skipped (RPC not implemented)');
     return true;
   }
@@ -490,7 +464,6 @@ class NotificationService {
     required String listingTitle,
     String? likerName,
   }) async {
-    // ✅ 走 RPC，避免 42501
     return await notifyFavorite(
       sellerId: sellerId,
       listingId: listingId,
@@ -506,7 +479,6 @@ class NotificationService {
     required String message,
     Map<String, dynamic>? metadata,
   }) async {
-    // 需要时可新增 notify_system RPC
     _debugPrint('createSystemNotification skipped (RPC not implemented)');
     return true;
   }
@@ -531,7 +503,7 @@ class NotificationService {
           .from(_tableName)
           .select('*')
           .eq('recipient_id', targetUserId)
-          .or('is_deleted.is.null,is_deleted.eq.false'); // ✅ 修改：包含NULL值
+          .or('is_deleted.is.null,is_deleted.eq.false');
 
       if (!includeRead) {
         query = query.eq('is_read', false);
@@ -541,8 +513,22 @@ class NotificationService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
+      // ✅ 新增：过滤查询结果中自己发给自己的通知
+      final filtered = (data as List).where((item) {
+        final senderId = (item['sender_id'] ?? '').toString();
+        final recipientId = (item['recipient_id'] ?? '').toString();
+
+        // 跳过自己发给自己的
+        if (senderId.isNotEmpty &&
+            recipientId.isNotEmpty &&
+            senderId == recipientId) {
+          return false;
+        }
+        return true;
+      }).toList();
+
       return List<Map<String, dynamic>>.from(
-        data.map((e) => Map<String, dynamic>.from(e)),
+        filtered.map((e) => Map<String, dynamic>.from(e)),
       );
     } catch (e) {
       _debugPrint('Error fetching notifications: $e');
@@ -557,12 +543,25 @@ class NotificationService {
 
       final data = await _client
           .from(_tableName)
-          .select('id')
+          .select('id, sender_id, recipient_id')
           .eq('recipient_id', targetUserId)
           .eq('is_read', false)
           .eq('is_deleted', false);
 
-      return (data as List).length;
+      // ✅ 新增：过滤自己发给自己的通知
+      final filtered = (data as List).where((item) {
+        final senderId = (item['sender_id'] ?? '').toString();
+        final recipientId = (item['recipient_id'] ?? '').toString();
+
+        if (senderId.isNotEmpty &&
+            recipientId.isNotEmpty &&
+            senderId == recipientId) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      return filtered.length;
     } catch (e) {
       _debugPrint('Error getting unread count: $e');
       return 0;
@@ -585,7 +584,6 @@ class NotificationService {
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
-      // ✅ 更新本地notifier
       _upsertLocal({
         'id': notificationId,
         'is_read': true,
@@ -615,7 +613,6 @@ class NotificationService {
           .eq('recipient_id', targetUserId)
           .eq('is_read', false);
 
-      // ✅ 更新本地notifier
       final cur = List<Map<String, dynamic>>.from(listNotifier.value);
       for (var n in cur) {
         n['is_read'] = true;
@@ -643,7 +640,6 @@ class NotificationService {
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
-      // ✅ 更新本地notifier
       _removeLocalById(notificationId);
 
       return true;
@@ -664,7 +660,6 @@ class NotificationService {
           .from(_tableName)
           .update({'is_deleted': true}).eq('recipient_id', targetUserId);
 
-      // ✅ 更新本地notifier
       _setList([]);
 
       return true;
@@ -728,7 +723,6 @@ class NotificationService {
   }
 
   static Future<bool> sendWelcomeNotification(String userId) async {
-    // 欢迎礼已由 Reward/WelcomeDialog 接管
     _debugPrint('sendWelcomeNotification skipped (use RewardService)');
     return true;
   }

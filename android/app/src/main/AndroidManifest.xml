@@ -56,7 +56,7 @@
             </intent-filter>
 
             <!-- OAuth 回调：cc.swaply.app://login-callback -->
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -66,7 +66,7 @@
             </intent-filter>
 
             <!-- ✅ 新增：重置密码回调 cc.swaply.app://reset-password -->
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -95,23 +95,41 @@
                 <data android:scheme="swaply" />
             </intent-filter>
 
-            <!-- App Links (https) -->
-            <!-- 处理 https://swaply.cc/l/[id] 这样的网页链接 -->
+            <!-- =====================================================
+                 ✅ App Links 验证（HTTPS 深链）
+                 关键：单独一个 intent-filter，不带 pathPrefix
+                 Android 会验证 assetlinks.json 文件
+                 ===================================================== -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
+                <!-- HTTPS only -->
                 <data android:scheme="https" />
-                <data android:scheme="http" />
+
+                <!-- 你的域名 -->
                 <data android:host="swaply.cc" />
                 <data android:host="www.swaply.cc" />
+            </intent-filter>
 
-                <!-- 支持所有路径，由DeepLinkService统一解析 -->
-                <data android:pathPrefix="/l/" />
-                <data android:pathPrefix="/listing" />
-                <data android:pathPrefix="/offer" />
-                <data android:pathPrefix="/reset-password" />
+            <!-- =====================================================
+                 ✅ 具体路径处理（不需要 autoVerify）
+                 处理所有 HTTPS 深链，由 DeepLinkService 统一解析
+                 支持：
+                 - https://swaply.cc/l/[id]
+                 - https://swaply.cc/listing?id=xxx
+                 - https://swaply.cc/offer?offer_id=xxx
+                 - https://swaply.cc/reset-password?token=xxx
+                 ===================================================== -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="swaply.cc" />
+                <data android:host="www.swaply.cc" />
             </intent-filter>
         </activity>
 

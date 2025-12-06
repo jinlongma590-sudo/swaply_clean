@@ -10,34 +10,43 @@ import FirebaseMessaging
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        // ✅ 1. Firebase 初始化（必须在最前面）
-        FirebaseApp.configure()
+        // ✅ 检查 GoogleService-Info.plist 是否存在
+        if let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") {
+            print("✅ GoogleService-Info.plist 找到: \(plistPath)")
 
-        // ✅ 2. 设置 FCM 代理
-        Messaging.messaging().delegate = self
+            // ✅ 1. Firebase 初始化
+            FirebaseApp.configure()
 
-        // ✅ 3. 设置通知代理
-        if #available(iOS 10.0, *) {
-            UNUserNotificationCenter.current().delegate = self
+            // ✅ 2. 设置 FCM 代理
+            Messaging.messaging().delegate = self
 
-            // ✅ 4. 请求通知权限
-            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-            UNUserNotificationCenter.current().requestAuthorization(
-                options: authOptions,
-                completionHandler: { granted, error in
-                    if granted {
-                        print("✅ iOS 通知权限已授予")
-                    } else if let error = error {
-                        print("❌ iOS 通知权限请求失败: \(error.localizedDescription)")
-                    } else {
-                        print("⚠️ iOS 通知权限被拒绝")
+            // ✅ 3. 设置通知代理
+            if #available(iOS 10.0, *) {
+                UNUserNotificationCenter.current().delegate = self
+
+                // ✅ 4. 请求通知权限
+                let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+                UNUserNotificationCenter.current().requestAuthorization(
+                    options: authOptions,
+                    completionHandler: { granted, error in
+                        if granted {
+                            print("✅ iOS 通知权限已授予")
+                        } else if let error = error {
+                            print("❌ iOS 通知权限请求失败: \(error.localizedDescription)")
+                        } else {
+                            print("⚠️ iOS 通知权限被拒绝")
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        // ✅ 5. 注册远程通知
-        application.registerForRemoteNotifications()
+            // ✅ 5. 注册远程通知
+            application.registerForRemoteNotifications()
+        } else {
+            print("❌ GoogleService-Info.plist 未找到，跳过 Firebase 初始化")
+            print("⚠️ 应用将在没有推送通知的情况下运行")
+            // 不调用 Firebase，避免崩溃
+        }
 
         GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)

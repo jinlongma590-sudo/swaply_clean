@@ -1,16 +1,13 @@
-// lib/services/message_service.dart - 稳定精简版（RPC+视图优先+无重复通知）
+// lib/services/message_service.dart - 修复版（添加自我发送验证）
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-// 如果你需要本地系统通知（不入库），可在回调里自行触发；此处不再主动写 notifications，避免与触发器重复
-// import 'notification_service.dart';
 
 /// 消息服务类 - 处理与 offer 相关的对话消息
 class MessageService {
   static final SupabaseClient _client = Supabase.instance.client;
 
   static const String _tableName = 'offer_messages';
-  // 如果已建视图：offer_messages_with_profiles（推荐），会优先使用
   static const String _viewName = 'offer_messages_with_profiles';
 
   /// 获取当前用户ID
@@ -71,6 +68,7 @@ class MessageService {
   }
 
   /// 发送消息（仅 RPC v2：jsonb 单参）
+  /// ✅ 新增：验证不能发给自己
   static Future<Map<String, dynamic>?> sendMessage({
     required String offerId,
     required String receiverId,
@@ -83,6 +81,15 @@ class MessageService {
         _debugPrint('未找到已认证用户');
         return null;
       }
+
+      // ✅ 新增验证：不能发给自己
+      if (senderId == receiverId) {
+        _debugPrint('❌ 错误：不能给自己发送消息');
+        _debugPrint('  Sender ID: $senderId');
+        _debugPrint('  Receiver ID: $receiverId');
+        throw Exception('Cannot send message to yourself');
+      }
+
       if (offerId.isEmpty || receiverId.isEmpty || message.trim().isEmpty) {
         _debugPrint(
             '参数无效: offerId=$offerId, receiverId=$receiverId, message长度=${message.length}');
@@ -91,6 +98,8 @@ class MessageService {
 
       _debugPrint('=== 开始发送消息（RPC v2） ===');
       _debugPrint('原始参数 - offerId: "$offerId", receiverId: "$receiverId"');
+      _debugPrint('Sender ID: $senderId');
+      _debugPrint('Receiver ID: $receiverId');
       _debugPrint(
           '消息内容: "${message.substring(0, message.length.clamp(0, 50))}${message.length > 50 ? '...' : ''}"');
 
@@ -103,11 +112,11 @@ class MessageService {
       // 仅传一个 jsonb 参数，交由函数内部强转
       final result = await _client.rpc('send_offer_message_v2', params: {
         'p_data': {
-          'offer_id': offerId.toString(), // 传字符串由函数内部 ::bigint
-          'sender_id': senderId, // uuid
-          'receiver_id': receiverId, // uuid
+          'offer_id': offerId.toString(),
+          'sender_id': senderId,
+          'receiver_id': receiverId,
           'message': message.trim(),
-          'message_type': messageType, // 'text' / 'system'
+          'message_type': messageType,
         }
       });
 
@@ -119,7 +128,6 @@ class MessageService {
       final messageData = Map<String, dynamic>.from(result);
       _debugPrint('RPC v2 插入成功: ${messageData['id']}');
 
-      // 数据库触发器已自动写 notifications，这里避免重复造通知
       return messageData;
     } catch (e) {
       _debugPrint('发送消息(RPC v2)异常: $e');
@@ -146,7 +154,7 @@ class MessageService {
         return [];
       }
 
-      // 1) 先尝试视图（推荐你建好该视图）
+      // 1) 先尝试视图
       try {
         final List<dynamic> messagesFromView = await _client
             .from(_viewName)
@@ -216,7 +224,7 @@ class MessageService {
     }
   }
 
-  /// 订阅实时消息（仅用来刷新 & 可在回调里做本地提示）
+  /// 订阅实时消息
   static RealtimeChannel subscribeToOfferMessages({
     required String offerId,
     required Function(Map<String, dynamic>) onMessageReceived,
@@ -235,25 +243,24 @@ class MessageService {
 
     final channel = _client
         .channel(
-            'offer_messages:$offerId:${DateTime.now().millisecondsSinceEpoch}')
+        'offer_messages:$offerId:${DateTime.now().millisecondsSinceEpoch}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: _tableName,
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'offer_id',
-            value: offerIdInt,
-          ),
-          callback: (payload) async {
-            final record = payload.newRecord;
-            final messageData = Map<String, dynamic>.from(record);
-            _debugPrint('通过实时连接收到新消息: ${messageData['message']}');
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: _tableName,
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'offer_id',
+        value: offerIdInt,
+      ),
+      callback: (payload) async {
+        final record = payload.newRecord;
+        final messageData = Map<String, dynamic>.from(record);
+        _debugPrint('通过实时连接收到新消息: ${messageData['message']}');
 
-            // 仅在前端需要时触发“本地提示”；入库通知已由 DB 触发器完成
-            onMessageReceived(messageData);
-                    },
-        )
+        onMessageReceived(messageData);
+      },
+    )
         .subscribe();
 
     _debugPrint('实时订阅创建成功: $offerId');
@@ -280,9 +287,9 @@ class MessageService {
       await _client
           .from(_tableName)
           .update({
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          })
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      })
           .eq('offer_id', offerIdInt)
           .eq('receiver_id', userId)
           .eq('is_read', false);
@@ -449,9 +456,9 @@ class MessageService {
       await _client
           .from(_tableName)
           .update({
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          })
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      })
           .filter('id', 'in', '(${messageIds.join(',')})')
           .eq('receiver_id', userId);
 
@@ -462,10 +469,10 @@ class MessageService {
     }
   }
 
-  /// 检查消息发送/进入会话权限（前端门禁；真正的读写由 RLS 负责）
+  /// 检查消息发送/进入会话权限
   static Future<bool> canSendMessage({
     required String offerId,
-    required String receiverId, // 可能是“对方”的 id，也可能是“自己”的 id
+    required String receiverId,
   }) async {
     try {
       final uid = _currentUserId;
@@ -483,10 +490,6 @@ class MessageService {
 
       final ownerId = offer['user_id'] as String?;
 
-      // 放行条件（任一成立即可）：
-      // 1) 当前用户就是 offer 拥有者
-      // 2) 传入的 receiverId 是 offer 拥有者（即把“对方”传进来时，对方=owner 也放行）
-      // 3) 当前用户就是传入的 receiverId（把“自己”传进来也放行）
       final allowed =
           (uid == ownerId) || (receiverId == ownerId) || (uid == receiverId);
 

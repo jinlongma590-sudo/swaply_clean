@@ -31,10 +31,6 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  // ✅ 删除：不再自己维护列表和loading状态
-  // List<Map<String, dynamic>> _notifications = [];
-  // bool _isLoading = true;
-
   VoidCallback? _unreadListener;
 
   @override
@@ -46,7 +42,12 @@ class _NotificationPageState extends State<NotificationPage> {
       if (user != null) {
         // ✅ [通知架构修复] 修改4：删除 UI 层订阅调用
         // 订阅由 AuthFlowObserver 统一管理，这里只负责拉取数据
-        NotificationService.refresh(limit: 100, includeRead: true);
+        // ✅ [BUG修复] 延迟到 build 完成后执行，避免 setState during build 错误
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            NotificationService.refresh(limit: 100, includeRead: true);
+          }
+        });
       }
 
       // ✅ 监听未读数量变化
@@ -67,19 +68,11 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void dispose() {
     // ✅ 删除：不再在这里 unsubscribe（全局订阅由 AuthFlowObserver 管理）
-    // _unsubscribeFromNotifications();
-
     if (_unreadListener != null) {
       NotificationService.unreadCountNotifier.removeListener(_unreadListener!);
     }
     super.dispose();
   }
-
-  // ✅ 删除：不再需要这些方法
-  // Future<void> _loadNotifications() async { ... }
-  // Future<void> _subscribeToNotifications() async { ... }
-  // Future<void> _unsubscribeFromNotifications() async { ... }
-  // void _updateUnreadCount() { ... }
 
   Future<void> _markAsRead(int index, List<Map<String, dynamic>> notifications) async {
     final notification = notifications[index];
