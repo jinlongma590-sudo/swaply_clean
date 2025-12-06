@@ -34,14 +34,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with TickerProviderStateMixin, WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
-
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        AutomaticKeepAliveClientMixin {
   // ✅ [滚动修复] 添加 AutomaticKeepAliveClientMixin，保持页面状态
   @override
   bool get wantKeepAlive => true;
 
   // ✅ [商品展示配置] 可配置的商品数量限制（方便后续调整）
-  static const int _featuredAdsLimit = 10;   // Featured Ads（置顶广告）数量
+  static const int _featuredAdsLimit = 10; // Featured Ads（置顶广告）数量
   static const int _popularItemsLimit = 100; // Popular Items（热门商品）数量 - 初期上线展示更多
 
   final ScrollController _scrollController = ScrollController();
@@ -96,11 +98,7 @@ class _HomePageState extends State<HomePage>
     {"id": "fashion", "icon": "fashion", "label": "Fashion"},
     {"id": "services", "icon": "services", "label": "Services"},
     {"id": "jobs", "icon": "jobs", "label": "Jobs"},
-    {
-      "id": "seeking_work_cvs",
-      "icon": "seeking_work_cvs",
-      "label": "Jobs Seeking"
-    },
+    {"id": "seeking_work_cvs", "icon": "seeking_work_cvs", "label": "Jobs Seeking"},
     {
       "id": "home_furniture_appliances",
       "icon": "home_furniture_appliances",
@@ -113,21 +111,9 @@ class _HomePageState extends State<HomePage>
     },
     {"id": "pets", "icon": "pets", "label": "Pets"},
     {"id": "babies_kids", "icon": "babies_kids", "label": "Baby & Kids"},
-    {
-      "id": "repair_construction",
-      "icon": "repair_construction",
-      "label": "Repair"
-    },
-    {
-      "id": "leisure_activities",
-      "icon": "leisure_activities",
-      "label": "Leisure"
-    },
-    {
-      "id": "food_agriculture_drinks",
-      "icon": "food_agriculture_drinks",
-      "label": "Food & Drinks"
-    },
+    {"id": "repair_construction", "icon": "repair_construction", "label": "Repair"},
+    {"id": "leisure_activities", "icon": "leisure_activities", "label": "Leisure"},
+    {"id": "food_agriculture_drinks", "icon": "food_agriculture_drinks", "label": "Food & Drinks"},
   ];
 
   @override
@@ -156,11 +142,11 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  // ✅ [滚动修复] 滚动监听器
+  // ✅ [滚动修复] 滚动监听器（关键修复：骨架屏期间也记录滚动位置）
   void _onScroll() {
-    if (!_loadingTrending && !_isRestoringScroll) {
-      _savedScrollPosition = _scrollController.position.pixels;
-    }
+    if (_isRestoringScroll) return;
+    if (!_scrollController.hasClients) return;
+    _savedScrollPosition = _scrollController.position.pixels;
   }
 
   @override
@@ -246,8 +232,7 @@ class _HomePageState extends State<HomePage>
     for (final e in pinnedAds) {
       final l = (e['listings'] as Map<String, dynamic>? ?? {});
       if (l.isEmpty) continue;
-      final imgs =
-          (l['images'] as List?) ?? (l['image_urls'] as List?) ?? const [];
+      final imgs = (l['images'] as List?) ?? (l['image_urls'] as List?) ?? const [];
       list.add({
         'id': l['id'],
         'title': l['title'],
@@ -263,8 +248,7 @@ class _HomePageState extends State<HomePage>
       final id = r['id']?.toString();
       if (id == null || seen.contains(id)) continue;
       seen.add(id);
-      final imgs =
-          (r['images'] as List?) ?? (r['image_urls'] as List?) ?? const [];
+      final imgs = (r['images'] as List?) ?? (r['image_urls'] as List?) ?? const [];
       list.add({
         'id': r['id'],
         'title': r['title'],
@@ -280,8 +264,7 @@ class _HomePageState extends State<HomePage>
 
   // ✅ [P1优化] 添加后台刷新功能
   Future<void> _loadTrending({bool bypassCache = false, bool showLoading = true}) async {
-    final city =
-    _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
+    final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
 
     // ✅ [性能优化] 检查缓存
@@ -349,7 +332,7 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  // ✅ [滚动修复] 恢复滚动位置方法
+  // ✅ [滚动修复] 恢复滚动位置方法（关键修复：不必要就不 jump，避免“加载完成跳回去”）
   void _restoreScrollPosition() {
     if (_savedScrollPosition > 0 && _scrollController.hasClients) {
       _isRestoringScroll = true;
@@ -357,18 +340,23 @@ class _HomePageState extends State<HomePage>
 
       // 延迟到下一帧，确保布局完成
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          try {
-            final maxScroll = _scrollController.position.maxScrollExtent;
-            final targetPosition = _savedScrollPosition.clamp(0.0, maxScroll);
+        if (!mounted || !_scrollController.hasClients) {
+          _isRestoringScroll = false;
+          return;
+        }
+        try {
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final targetPosition = _savedScrollPosition.clamp(0.0, maxScroll);
 
-            _scrollController.jumpTo(targetPosition);
-            debugPrint('✅ [Scroll] 滚动位置已恢复: $targetPosition (max: $maxScroll)');
-          } catch (e) {
-            debugPrint('❌ [Scroll] 恢复滚动位置失败: $e');
-          } finally {
-            _isRestoringScroll = false;
-          }
+          final current = _scrollController.position.pixels;
+          if ((current - targetPosition).abs() < 1.0) return; // ✅ 关键：同位置不跳
+
+          _scrollController.jumpTo(targetPosition);
+          debugPrint('✅ [Scroll] 滚动位置已恢复: $targetPosition (max: $maxScroll)');
+        } catch (e) {
+          debugPrint('❌ [Scroll] 恢复滚动位置失败: $e');
+        } finally {
+          _isRestoringScroll = false;
         }
       });
     }
@@ -421,8 +409,7 @@ class _HomePageState extends State<HomePage>
 
   void _navigateToProductDetail(String productId) {
     SafeNavigator.push(
-      MaterialPageRoute(
-          builder: (_) => ProductDetailPage(productId: productId)),
+      MaterialPageRoute(builder: (_) => ProductDetailPage(productId: productId)),
     );
   }
 
@@ -442,8 +429,7 @@ class _HomePageState extends State<HomePage>
     if (keyword.isEmpty) return;
     SafeNavigator.push(
       MaterialPageRoute(
-        builder: (_) =>
-            SearchResultsPage(keyword: keyword, location: _selectedLocation),
+        builder: (_) => SearchResultsPage(keyword: keyword, location: _selectedLocation),
       ),
     );
   }
@@ -454,17 +440,12 @@ class _HomePageState extends State<HomePage>
       final goLogin = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           title: const Text('Login Required'),
           content: const Text('Please login to post listings.'),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Login')),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Login')),
           ],
         ),
       );
@@ -493,6 +474,7 @@ class _HomePageState extends State<HomePage>
       body: Stack(
         children: [
           ListView(
+            key: const PageStorageKey<String>('home_page_list'), // ✅ 额外加固：Flutter 自带的滚动位置保持
             controller: _scrollController,
             padding: EdgeInsets.zero,
             children: [
@@ -639,8 +621,7 @@ class _HomePageState extends State<HomePage>
                   padding: EdgeInsets.symmetric(horizontal: 8.w),
                   child: DropdownButton<String>(
                     value: _selectedLocation,
-                    icon: Icon(Icons.arrow_drop_down,
-                        color: Colors.grey[600], size: 18.sp),
+                    icon: Icon(Icons.arrow_drop_down, color: Colors.grey[600], size: 18.sp),
                     isExpanded: true,
                     style: TextStyle(fontSize: 11.sp, color: Colors.grey[800]),
                     onChanged: (v) {
@@ -650,9 +631,11 @@ class _HomePageState extends State<HomePage>
                     items: _locations
                         .map((loc) => DropdownMenuItem(
                       value: loc,
-                      child: Text(loc,
-                          style: TextStyle(fontSize: 11.sp),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        loc,
+                        style: TextStyle(fontSize: 11.sp),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ))
                         .toList(),
                   ),
@@ -680,8 +663,7 @@ class _HomePageState extends State<HomePage>
                         style: TextStyle(fontSize: 12.sp),
                         decoration: InputDecoration(
                           hintText: 'Search products...',
-                          hintStyle: TextStyle(
-                              color: Colors.grey[500], fontSize: 11.sp),
+                          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11.sp),
                           border: InputBorder.none,
                           isCollapsed: true,
                         ),
@@ -693,8 +675,7 @@ class _HomePageState extends State<HomePage>
                     onTap: _performSearch,
                     child: Container(
                       padding: EdgeInsets.all(6.w),
-                      child:
-                      Icon(Icons.search, size: 18.sp, color: _primaryBlue),
+                      child: Icon(Icons.search, size: 18.sp, color: _primaryBlue),
                     ),
                   ),
                 ],
@@ -722,24 +703,18 @@ class _HomePageState extends State<HomePage>
           final double padVTop = Platform.isIOS ? 10.h : 12.h;
           final double padVBottom = Platform.isIOS ? 12.h : 16.h;
 
-          final double usableWidth =
-              constraints.maxWidth - padHLeft - padHRight;
-          final double tileW = (usableWidth -
-              crossAxisSpacing * (crossAxisCount - 1)) /
-              crossAxisCount;
+          final double usableWidth = constraints.maxWidth - padHLeft - padHRight;
+          final double tileW = (usableWidth - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
           final double tileH = tileW / childAspectRatio;
 
           final int rows = (_categories.length / crossAxisCount).ceil();
-          final double gridCoreHeight =
-              rows * tileH + (rows - 1) * mainAxisSpacing;
-          final double gridTotalHeight =
-              padVTop + gridCoreHeight + padVBottom;
+          final double gridCoreHeight = rows * tileH + (rows - 1) * mainAxisSpacing;
+          final double gridTotalHeight = padVTop + gridCoreHeight + padVBottom;
 
           return SizedBox(
             height: gridTotalHeight,
             child: GridView.builder(
-              padding: EdgeInsets.fromLTRB(
-                  padHLeft, padVTop, padHRight, padVBottom),
+              padding: EdgeInsets.fromLTRB(padHLeft, padVTop, padHRight, padVBottom),
               primary: false,
               shrinkWrap: false,
               physics: const NeverScrollableScrollPhysics(),
@@ -763,14 +738,10 @@ class _HomePageState extends State<HomePage>
                   onTap: () => _navigateToCategory(cat['id']!, cat['label']!),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isTrending
-                          ? Colors.orange.shade50
-                          : Colors.grey[50],
+                      color: isTrending ? Colors.orange.shade50 : Colors.grey[50],
                       borderRadius: BorderRadius.circular(10.r),
                       border: Border.all(
-                        color: isTrending
-                            ? Colors.orange.shade200
-                            : Colors.transparent,
+                        color: isTrending ? Colors.orange.shade200 : Colors.transparent,
                         width: 1,
                       ),
                       boxShadow: [
@@ -784,8 +755,7 @@ class _HomePageState extends State<HomePage>
                     child: LayoutBuilder(
                       builder: (ctx, c) {
                         final double H = c.maxHeight;
-                        final double labelMax =
-                        (H - iconBox - gap).clamp(0.0, 40.h);
+                        final double labelMax = (H - iconBox - gap).clamp(0.0, 40.h);
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -793,9 +763,7 @@ class _HomePageState extends State<HomePage>
                               width: iconBox,
                               height: iconBox,
                               decoration: BoxDecoration(
-                                color: isTrending
-                                    ? Colors.orange.shade100
-                                    : Colors.white,
+                                color: isTrending ? Colors.orange.shade100 : Colors.white,
                                 borderRadius: BorderRadius.circular(10.r),
                                 boxShadow: [
                                   BoxShadow(
@@ -817,13 +785,9 @@ class _HomePageState extends State<HomePage>
                                         'assets/icons/${cat['icon']}.jpg',
                                         fit: BoxFit.contain,
                                         errorBuilder: (_, __, ___) => Icon(
-                                          isTrending
-                                              ? Icons.local_fire_department
-                                              : Icons.category,
+                                          isTrending ? Icons.local_fire_department : Icons.category,
                                           size: iconFallbackSize,
-                                          color: isTrending
-                                              ? Colors.orange
-                                              : Colors.grey,
+                                          color: isTrending ? Colors.orange : Colors.grey,
                                         ),
                                       );
                                     },
@@ -865,10 +829,8 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildTrendingSection() {
-    final hasPinned =
-        _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
-    final hasRegular =
-        _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
+    final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
+    final hasRegular = _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
 
     final double popularItemsTopPadding = hasPinned ? 16.h : 0.0;
 
@@ -968,8 +930,7 @@ class _HomePageState extends State<HomePage>
         // 4. 图片网格区域
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child:
-          _loadingTrending ? _buildTrendingLoading() : _buildTrendingGrid(),
+          child: _loadingTrending ? _buildTrendingLoading() : _buildTrendingGrid(),
         ),
       ],
     );
@@ -1011,8 +972,7 @@ class _HomePageState extends State<HomePage>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
-                    borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(10.r)),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
                   ),
                 ),
               ),
@@ -1109,11 +1069,7 @@ class _HomePageState extends State<HomePage>
               height: 1.h,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    Colors.orange[300]!,
-                    Colors.transparent
-                  ],
+                  colors: [Colors.transparent, Colors.orange[300]!, Colors.transparent],
                 ),
               ),
             ),
@@ -1127,8 +1083,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFeaturedTrendingGrid() {
-    final pinnedItems =
-    _trendingRemote.where((r) => r['pinned'] == true).toList();
+    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -1148,8 +1103,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildRegularTrendingGrid() {
-    final regularItems =
-    _trendingRemote.where((r) => r['pinned'] != true).toList();
+    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -1198,8 +1152,7 @@ class _HomePageState extends State<HomePage>
                     top: 6.h,
                     left: 6.w,
                     child: Container(
-                      padding:
-                      EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: Colors.orange[600],
                         borderRadius: BorderRadius.circular(8.r),
@@ -1233,13 +1186,11 @@ class _HomePageState extends State<HomePage>
                 children: [
                   if (priceText.isNotEmpty)
                     Container(
-                      padding:
-                      EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: _successGreen.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4.r),
-                        border:
-                        Border.all(color: _successGreen.withOpacity(0.3)),
+                        border: Border.all(color: _successGreen.withOpacity(0.3)),
                       ),
                       child: Text(
                         priceText,
@@ -1265,16 +1216,14 @@ class _HomePageState extends State<HomePage>
                   SizedBox(height: 3.h),
                   Row(
                     children: [
-                      Icon(Icons.location_on,
-                          size: 8.sp, color: Colors.grey[500]),
+                      Icon(Icons.location_on, size: 8.sp, color: Colors.grey[500]),
                       SizedBox(width: 2.w),
                       Expanded(
                         child: Text(
                           r['city']?.toString() ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 8.sp, color: Colors.grey[600]),
+                          style: TextStyle(fontSize: 8.sp, color: Colors.grey[600]),
                         ),
                       ),
                     ],
@@ -1342,16 +1291,14 @@ class _HomePageState extends State<HomePage>
                   SizedBox(height: 2.h),
                   Row(
                     children: [
-                      Icon(Icons.location_on,
-                          size: 8.sp, color: Colors.grey[500]),
+                      Icon(Icons.location_on, size: 8.sp, color: Colors.grey[500]),
                       SizedBox(width: 1.w),
                       Expanded(
                         child: Text(
                           r['city']?.toString() ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 8.sp, color: Colors.grey[600]),
+                          style: TextStyle(fontSize: 8.sp, color: Colors.grey[600]),
                         ),
                       ),
                     ],
@@ -1394,19 +1341,18 @@ class _HomePageState extends State<HomePage>
             height: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[200],
-              borderRadius:
-              BorderRadius.vertical(top: Radius.circular(10.r)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
             ),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.broken_image,
-                      size: 20.sp, color: Colors.grey[400]),
+                  Icon(Icons.broken_image, size: 20.sp, color: Colors.grey[400]),
                   SizedBox(height: 2.h),
-                  Text('Image not found',
-                      style:
-                      TextStyle(fontSize: 8.sp, color: Colors.grey[500])),
+                  Text(
+                    'Image not found',
+                    style: TextStyle(fontSize: 8.sp, color: Colors.grey[500]),
+                  ),
                 ],
               ),
             ),
@@ -1450,9 +1396,11 @@ class _HomePageState extends State<HomePage>
               children: [
                 Icon(Icons.broken_image, size: 20.sp, color: Colors.grey[400]),
                 SizedBox(height: 2.h),
-                Text('Image failed to load',
-                    style: TextStyle(fontSize: 8.sp, color: Colors.grey[500]),
-                    textAlign: TextAlign.center),
+                Text(
+                  'Image failed to load',
+                  style: TextStyle(fontSize: 8.sp, color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),

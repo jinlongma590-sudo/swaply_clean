@@ -1,4 +1,5 @@
 // lib/services/auth_flow_observer.dart
+// ✅ [Android Deep Link 修复] 增加等待时间并在检测到深链时跳过 /home 导航
 // ✅ [通知架构修复] 完整版：订阅生命周期收口到 AuthFlowObserver
 // ✅ [iOS 竞态修复] initialSession 增加协调等待，避免与 DeepLinkService 竞争
 // ✅ [协调机制] 检查 DeepLinkService 标志，等待业务深链处理完成
@@ -172,6 +173,8 @@ class AuthFlowObserver {
 
             // ============================================================
             // ✅ [协调机制] 等待 DeepLinkService 完成业务深链处理
+            // ✅ [Android Deep Link 修复] 增加等待时间到 2 秒
+            // ✅ [Android Deep Link 修复] 如果检测到深链，跳过 /home 导航
             // 架构符合：
             // - 不检查深链内容（职责分离）
             // - 只检查标志：DeepLinkService 是否正在处理业务深链
@@ -182,10 +185,10 @@ class AuthFlowObserver {
                 debugPrint('[AuthFlowObserver] 🚦 DeepLinkService is handling business deep link, waiting...');
               }
 
-              // 轮询等待，最多 1 秒
+              // ✅ [Android Deep Link 修复] 增加等待时间
               var waited = 0;
               const checkInterval = 50; // 每 50ms 检查一次
-              const maxWait = 1000; // 最多等待 1000ms
+              const maxWait = 2000; // ✅ 改为 2000ms（足够等待 DeepLinkService 的 150ms + 200ms = 350ms）
 
               while (DeepLinkService.isHandlingBusinessDeepLink && waited < maxWait) {
                 await Future.delayed(const Duration(milliseconds: checkInterval));
@@ -198,22 +201,26 @@ class AuthFlowObserver {
 
               if (DeepLinkService.isHandlingBusinessDeepLink) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] ⚠️ Timeout waiting for deep link (${waited}ms), proceeding anyway');
+                  debugPrint('[AuthFlowObserver] ⚠️ Timeout waiting for deep link (${waited}ms), proceeding to /home');
                 }
+                // ✅ 超时后仍然跳转到 /home（兜底逻辑）
+                await _goOnce('/home');
               } else {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] ✅ Business deep link handled (waited ${waited}ms)');
+                  debugPrint('[AuthFlowObserver] 🎯 SKIP /home navigation to preserve deep link page');
                 }
+                // ✅ [Android Deep Link 修复] 关键：检测到深链已处理，跳过 /home 导航
+                // 这样 navPush 的 /listing 页面就会保留在栈上
+                return; // ← 直接返回，不执行后面的 _goOnce('/home')
               }
             } else {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] ℹ️ No business deep link detected, proceeding normally');
+                debugPrint('[AuthFlowObserver] ℹ️ No business deep link detected, proceeding to /home');
               }
+              // 没有深链，正常跳转到 /home
+              await _goOnce('/home');
             }
-
-            // 继续正常的 /home 导航
-            // DeepLinkService 的 navPush 会保留在栈上
-            await _goOnce('/home');
           } else {
             Uri? initialLink;
             try {
