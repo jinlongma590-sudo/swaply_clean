@@ -3,6 +3,7 @@
 // ✅ [滚动优化] 增强滚动位置保持，多重保护机制
 // ✅ [性能优化] 缓存 + 骨架屏 + 图片优化
 // ✅ [用户体验] 滚动位置不会因为数据加载而重置
+// ✅ [UI修复] 分类文字自动缩放，防止长文本被遮挡
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -841,20 +842,26 @@ class _HomePageState extends State<HomePage>
                               ),
                             ),
                             const SizedBox(height: gap),
+
+                            // ✅ [UI修复] 只修改这部分：使用 FittedBox 自动缩放文字
                             ConstrainedBox(
                               constraints: BoxConstraints(maxHeight: labelMax),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 2.w),
-                                child: Text(
-                                  cat['label']!,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[700],
-                                    height: 1.1,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,  // ✅ 核心修复：自动缩小以适应
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    cat['label']!,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.sp,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[700],
+                                      height: 1.1,
+                                    ),
                                   ),
                                 ),
                               ),

@@ -23,8 +23,12 @@ import 'package:swaply/services/oauth_entry.dart';
 // 引入你的 App 入口
 import 'package:swaply/core/app.dart';
 
+// ✅ 前台通知实例
 final FlutterLocalNotificationsPlugin _localNotifications =
 FlutterLocalNotificationsPlugin();
+
+// ✅ [关键修复] 后台 isolate 需要自己的 FlutterLocalNotificationsPlugin 实例
+FlutterLocalNotificationsPlugin? _backgroundLocalNotifications;
 
 // ================================================
 // ✅ [推送通知] Firebase 后台消息处理器（顶级函数）
@@ -36,36 +40,91 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   debugPrint('🔔 [Background] 收到后台消息: ${message.notification?.title}');
+  debugPrint('📦 [Background] Data: ${message.data}');
+
+  // ✅ [关键修复] 初始化后台 isolate 的本地通知实例
+  if (_backgroundLocalNotifications == null) {
+    _backgroundLocalNotifications = FlutterLocalNotificationsPlugin();
+
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
+    await _backgroundLocalNotifications!.initialize(initSettings);
+    debugPrint('✅ [Background] 本地通知已初始化');
+  }
 
   // 显示本地通知
-  await _showLocalNotification(message);
+  await _showBackgroundLocalNotification(message);
 }
 
 // ✅ [推送通知] 本地通知点击处理（后台）
+// 注意：这个回调只处理本地通知点击，FCM 通知点击由 DeepLinkService 处理
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse details) {
   final payload = details.payload;
   if (payload != null && payload.isNotEmpty) {
-    debugPrint('🔔 [Background] 点击通知: $payload');
-    // ✅ 符合架构：通过 DeepLinkService 处理跳转
+    debugPrint('🔔 [LocalNotification-Background] 点击本地通知: $payload');
+    // ✅ 通过 DeepLinkService 处理跳转
     DeepLinkService.instance.handle(payload);
   }
 }
 
-// ✅ [推送通知] 显示本地通知的通用方法
-Future<void> _showLocalNotification(RemoteMessage message) async {
+// ✅ [关键修复] 后台专用的本地通知显示方法
+// ✅ [通知分组] 添加固定 ID、groupKey 和 threadIdentifier
+Future<void> _showBackgroundLocalNotification(RemoteMessage message) async {
+  if (_backgroundLocalNotifications == null) {
+    debugPrint('❌ [Background] 本地通知实例未初始化');
+    return;
+  }
+
   final notification = message.notification;
   final data = message.data;
 
-  if (notification == null) return;
+  // ✅ [关键修复] 即使 notification 为空，也尝试从 data 构建通知
+  final title = notification?.title ?? data['title'] ?? 'Notification';
+  final body = notification?.body ?? data['body'] ?? '';
 
-  // 构建深链 payload（符合 NotificationService.buildXXXPayload 格式）
+  // ✅ 统一字段查找（与 DeepLinkService 保持一致）
   final payload = data['payload'] ??
       data['deep_link'] ??
       data['link'] ??
+      data['deeplink'] ??
       '';
 
-  const androidDetails = AndroidNotificationDetails(
+  if (payload.isEmpty) {
+    debugPrint('⚠️ [Background] 没有 payload，跳过通知');
+    return;
+  }
+
+  // ✅ [通知分组] 提取 offer_id 和 listing_id 用于分组
+  final offerId = data['offer_id'] ?? '';
+  final listingId = data['listing_id'] ?? '';
+
+  debugPrint('🔗 [Background] Payload: $payload');
+  debugPrint('📋 [Background] Offer: $offerId, Listing: $listingId');
+
+  // ✅ [关键] 使用固定 ID：同一个 offer 总是相同的 ID
+  // 这样新消息会自动覆盖旧消息（Android + iOS 都支持）
+  final notificationId = offerId.isNotEmpty
+      ? offerId.hashCode.abs()
+      : (listingId.isNotEmpty ? listingId.hashCode.abs() : message.hashCode.abs());
+
+  // ✅ [通知分组] Android 分组 key
+  final groupKey = offerId.isNotEmpty
+      ? 'offer_$offerId'
+      : (listingId.isNotEmpty ? 'listing_$listingId' : 'swaply_messages');
+
+  // ✅ [通知分组] iOS 线程标识符（用于分组）
+  final threadIdentifier = groupKey;
+
+  debugPrint('🔔 [Background] ID: $notificationId, Group: $groupKey');
+
+  // ✅ [通知分组] Android 通知详情 - 移除 const，因为使用了动态值
+  final androidDetails = AndroidNotificationDetails(
     'swaply_notifications',
     'Swaply Notifications',
     channelDescription: 'Notifications for offers, messages, and updates',
@@ -75,22 +134,106 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
     enableVibration: true,
     playSound: true,
     icon: '@mipmap/ic_launcher',
-    color: Color(0xFF1877F2),
+    color: const Color(0xFF1877F2),
+    // ✅ [通知分组] Android 分组设置
+    groupKey: groupKey,
+    setAsGroupSummary: false,
+    onlyAlertOnce: true,  // 只震动一次
   );
 
-  const iosDetails = DarwinNotificationDetails(
+  // ✅ [通知分组] iOS 通知详情 - 移除 const，因为使用了动态值
+  final iosDetails = DarwinNotificationDetails(
     presentAlert: true,
     presentBadge: true,
     presentSound: true,
+    // ✅ [通知分组] iOS 线程分组（iOS 10+）
+    threadIdentifier: threadIdentifier,
   );
 
-  const details = NotificationDetails(
+  final details = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  try {
+    await _backgroundLocalNotifications!.show(
+      notificationId, // ✅ 固定 ID，新消息覆盖旧消息
+      title,
+      body,
+      details,
+      payload: payload,
+    );
+    debugPrint('✅ [Background] 通知已显示 (ID: $notificationId, Group: $groupKey)');
+  } catch (e) {
+    debugPrint('❌ [Background] 显示通知失败: $e');
+  }
+}
+
+// ✅ [推送通知] 显示本地通知的通用方法（前台使用）
+// ✅ [通知分组] 添加固定 ID、groupKey 和 threadIdentifier
+Future<void> _showLocalNotification(RemoteMessage message) async {
+  final notification = message.notification;
+  final data = message.data;
+
+  if (notification == null) return;
+
+  // ✅ 统一字段查找（与 DeepLinkService 保持一致）
+  final payload = data['payload'] ??
+      data['deep_link'] ??
+      data['link'] ??
+      data['deeplink'] ??
+      '';
+
+  // ✅ [通知分组] 提取 offer_id 和 listing_id 用于分组
+  final offerId = data['offer_id'] ?? '';
+  final listingId = data['listing_id'] ?? '';
+
+  // ✅ [关键] 使用固定 ID
+  final notificationId = offerId.isNotEmpty
+      ? offerId.hashCode.abs()
+      : (listingId.isNotEmpty ? listingId.hashCode.abs() : message.hashCode.abs());
+
+  // ✅ [通知分组] 分组 key
+  final groupKey = offerId.isNotEmpty
+      ? 'offer_$offerId'
+      : (listingId.isNotEmpty ? 'listing_$listingId' : 'swaply_messages');
+
+  final threadIdentifier = groupKey;
+
+  debugPrint('🔔 [Foreground] ID: $notificationId, Group: $groupKey');
+
+  // ✅ [通知分组] Android 通知详情 - 移除 const
+  final androidDetails = AndroidNotificationDetails(
+    'swaply_notifications',
+    'Swaply Notifications',
+    channelDescription: 'Notifications for offers, messages, and updates',
+    importance: Importance.high,
+    priority: Priority.high,
+    showWhen: true,
+    enableVibration: true,
+    playSound: true,
+    icon: '@mipmap/ic_launcher',
+    color: const Color(0xFF1877F2),
+    groupKey: groupKey,
+    setAsGroupSummary: false,
+    onlyAlertOnce: true,
+  );
+
+  // ✅ [通知分组] iOS 通知详情 - 移除 const
+  final iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    threadIdentifier: threadIdentifier,
+  );
+
+  final details = NotificationDetails(
     android: androidDetails,
     iOS: iosDetails,
   );
 
   await _localNotifications.show(
-    notification.hashCode,
+    notificationId, // ✅ 固定 ID
     notification.title,
     notification.body,
     details,
@@ -108,23 +251,40 @@ Future<void> _initLocalNotifications() async {
     requestSoundPermission: true,
   );
 
-  final initSettings = InitializationSettings(
+  const initSettings = InitializationSettings(
     android: androidInit,
     iOS: iosInit,
   );
 
   await _localNotifications.initialize(
     initSettings,
+    // ✅ 本地通知点击回调（前台显示的通知）
     onDidReceiveNotificationResponse: (details) {
       final payload = details.payload;
       if (payload != null && payload.isNotEmpty) {
-        debugPrint('🔔 [Foreground] 点击通知: $payload');
-        // ✅ 符合架构：通过 DeepLinkService 处理跳转
+        debugPrint('🔔 [LocalNotification-Foreground] 点击本地通知: $payload');
+        // ✅ 通过 DeepLinkService 处理跳转
         DeepLinkService.instance.handle(payload);
       }
     },
     onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
   );
+
+  // ✅ 【关键修复】检查 app 是否由本地通知启动
+  final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+  if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
+    final payload = launchDetails.notificationResponse?.payload;
+    if (payload != null && payload.isNotEmpty) {
+      debugPrint('🚀 [LocalNotification-Launch] App 由通知启动');
+      debugPrint('🔗 [LocalNotification-Launch] Payload: $payload');
+
+      // ✅ 延迟处理，确保 DeepLinkService 已初始化
+      Future.delayed(const Duration(milliseconds: 100), () {
+        debugPrint('🔗 [LocalNotification-Launch] 处理 payload...');
+        DeepLinkService.instance.handle(payload);
+      });
+    }
+  }
 
   // ✅ 创建 Android 通知渠道
   const channel = AndroidNotificationChannel(
@@ -141,7 +301,7 @@ Future<void> _initLocalNotifications() async {
 
 // ================================================
 // ✅ [推送通知] 初始化 Firebase Messaging
-// 🔧 修复：添加完整的错误处理，确保失败不会阻塞 App 启动
+// 🔧 修复：删除重复的通知点击监听，由 DeepLinkService 统一处理
 // ================================================
 Future<void> _initFirebaseMessaging() async {
   try {
@@ -189,41 +349,15 @@ Future<void> _initFirebaseMessaging() async {
       },
     );
 
-    // 4. 前台消息处理
+    // 4. 前台消息处理（只显示本地通知）
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('🔔 [Foreground] 收到消息: ${message.notification?.title}');
       _showLocalNotification(message);
     });
 
-    // 5. 点击通知打开 App
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('🔔 [Opened] 点击通知打开App');
-      final payload = message.data['payload'] ??
-          message.data['deep_link'] ??
-          message.data['link'] ??
-          '';
-      if (payload.isNotEmpty) {
-        // ✅ 符合架构：通过 DeepLinkService 处理跳转
-        DeepLinkService.instance.handle(payload);
-      }
-    });
-
-    // 6. 检查是否从通知启动
-    final initialMessage = await messaging.getInitialMessage();
-    if (initialMessage != null) {
-      debugPrint('🔔 [Initial] 从通知启动App');
-      final payload = initialMessage.data['payload'] ??
-          initialMessage.data['deep_link'] ??
-          initialMessage.data['link'] ??
-          '';
-      if (payload.isNotEmpty) {
-        // ✅ 符合架构：延迟处理，等待 App 完全初始化
-        // 不干预 AuthFlowObserver 的首次导航
-        Future.delayed(const Duration(seconds: 1), () {
-          DeepLinkService.instance.handle(payload);
-        });
-      }
-    }
+    // ✅ [架构修复] 通知点击处理已由 DeepLinkService._setupNotificationHandlers() 统一负责
+    // 删除了 onMessageOpenedApp 和 getInitialMessage 的重复监听
+    // 避免与 DeepLinkService 冲突
 
     debugPrint('✅ Firebase Messaging 初始化成功');
   } catch (e, stackTrace) {
@@ -276,7 +410,7 @@ Future<void> main() async {
   }
 
   // ================================================
-  // ✅ 初始化本地通知
+  // ✅ 初始化本地通知（包含启动检测）
   // ================================================
   try {
     await _initLocalNotifications();

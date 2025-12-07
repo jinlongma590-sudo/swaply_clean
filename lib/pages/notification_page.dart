@@ -766,6 +766,5 @@ class NoGlowScrollBehavior extends ScrollBehavior {
     return child;
   }
 }
-
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
 const _kDeleteUrl = 'https://www.swaply.cc/delete-account';

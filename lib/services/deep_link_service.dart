@@ -1,8 +1,10 @@
 ﻿// lib/services/deep_link_service.dart
 // ✅ [架构简化] 移除复杂的标志延迟清除逻辑
 // ✅ [协调优化] AuthFlowObserver 现在检查路由状态，不依赖标志时序
-// ✅ [通知处理] 支持 Firebase 通知点击跳转
+// ✅ [通知处理] 支持 Firebase 通知点击跳转 + 增强调试日志
 // ✅ [Completer 机制] 确保 bootstrap() 等待初始链接处理完成
+// ✅ [字段统一] 统一通知数据字段查找顺序
+// ✅ [自动就绪] 自动调用 markAppReady() 处理队列中的通知
 // 完全符合 Swaply 架构：
 //    1. 只负责业务跳转，不碰鉴权流程
 //    2. reset-password 使用 navReplaceAll（全局跳转）
@@ -173,31 +175,163 @@ class DeepLinkService {
     if (kDebugMode) {
       debugPrint('[DeepLink] 🔔 Notification handlers registered');
     }
+
+    // ✅ [关键修复] 在 handlers 注册完成后，自动标记 app 为 ready
+    // 这样可以确保队列中的通知消息会被处理
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 延迟 800ms，确保 AuthFlowObserver 导航完成
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!_appReady) {
+          if (kDebugMode) {
+            debugPrint('[DeepLink] ✅ Auto-marking app as ready');
+            debugPrint('[DeepLink] 📊 Pending notification queue size: ${_notificationQueue.length}');
+          }
+          markAppReady();
+        }
+      });
+    });
   }
 
-  /// ✅ [通知处理] 处理通知点击
+  /// ✅ [通知处理] 处理通知点击（增强调试版）
   void _handleNotification(RemoteMessage message, {required String source}) {
     if (kDebugMode) {
-      debugPrint('[DeepLink] 🔔 Notification clicked ($source)');
-      debugPrint('[DeepLink] 📋 Data: ${message.data}');
+      debugPrint('');
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║   [DeepLink] 🔔 NOTIFICATION RECEIVED                      ║');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('📍 Source: $source');
+      debugPrint('📋 Message ID: ${message.messageId}');
+      debugPrint('🕒 Sent time: ${message.sentTime}');
+      debugPrint('');
+      debugPrint('─────────────────────────────────────────────────────────────');
+      debugPrint('📦 FCM Data (Full Map):');
+      debugPrint('─────────────────────────────────────────────────────────────');
+
+      if (message.data.isEmpty) {
+        debugPrint('   ⚠️  Data is EMPTY!');
+      } else {
+        debugPrint('   Total fields: ${message.data.length}');
+        debugPrint('   Keys: ${message.data.keys.toList()}');
+        debugPrint('');
+        message.data.forEach((key, value) {
+          debugPrint('   [$key] = "$value"');
+        });
+      }
+
+      debugPrint('');
+      debugPrint('─────────────────────────────────────────────────────────────');
+      debugPrint('🔍 Checking for deep link fields:');
+      debugPrint('─────────────────────────────────────────────────────────────');
     }
 
-    final link = message.data['link'] ?? message.data['deeplink'];
+    // ✅ [关键修复] 统一字段查找顺序，覆盖所有可能的字段名
+    String? link;
+    String? foundIn;
 
+    // 按优先级检查所有可能的字段
+    if (message.data.containsKey('payload')) {
+      link = message.data['payload'];
+      foundIn = 'payload';
+    } else if (message.data.containsKey('deep_link')) {
+      link = message.data['deep_link'];
+      foundIn = 'deep_link';
+    } else if (message.data.containsKey('link')) {
+      link = message.data['link'];
+      foundIn = 'link';
+    } else if (message.data.containsKey('deeplink')) {
+      link = message.data['deeplink'];
+      foundIn = 'deeplink';
+    }
+
+    if (kDebugMode) {
+      debugPrint('   [payload]   : ${message.data['payload'] ?? "NULL"}');
+      debugPrint('   [deep_link] : ${message.data['deep_link'] ?? "NULL"}');
+      debugPrint('   [link]      : ${message.data['link'] ?? "NULL"}');
+      debugPrint('   [deeplink]  : ${message.data['deeplink'] ?? "NULL"}');
+      debugPrint('');
+
+      if (foundIn != null) {
+        debugPrint('✅ Found link in field: "$foundIn"');
+        debugPrint('✅ Link value: "$link"');
+      } else {
+        debugPrint('❌ No link field found in any of the expected fields!');
+      }
+
+      debugPrint('');
+      debugPrint('─────────────────────────────────────────────────────────────');
+      debugPrint('📱 Other notification fields:');
+      debugPrint('─────────────────────────────────────────────────────────────');
+      debugPrint('   [type]            : ${message.data['type'] ?? "NULL"}');
+      debugPrint('   [offer_id]        : ${message.data['offer_id'] ?? "NULL"}');
+      debugPrint('   [listing_id]      : ${message.data['listing_id'] ?? "NULL"}');
+      debugPrint('   [notification_id] : ${message.data['notification_id'] ?? "NULL"}');
+      debugPrint('   [click_action]    : ${message.data['click_action'] ?? "NULL"}');
+      debugPrint('');
+
+      if (message.notification != null) {
+        debugPrint('─────────────────────────────────────────────────────────────');
+        debugPrint('🔔 Notification object:');
+        debugPrint('─────────────────────────────────────────────────────────────');
+        debugPrint('   Title: ${message.notification?.title ?? "NULL"}');
+        debugPrint('   Body: ${message.notification?.body ?? "NULL"}');
+        debugPrint('');
+      }
+    }
+
+    // ✅ 验证链接有效性
     if (link == null || link.isEmpty) {
       if (kDebugMode) {
-        debugPrint('[DeepLink] ⚠️ Notification has no link, ignoring');
+        debugPrint('╔════════════════════════════════════════════════════════════╗');
+        debugPrint('║   ❌ ERROR: No valid deep link found!                     ║');
+        debugPrint('╚════════════════════════════════════════════════════════════╝');
+        debugPrint('');
+        debugPrint('⚠️  Notification has no deep link data!');
+        debugPrint('⚠️  Available data fields: ${message.data.keys.toList()}');
+        debugPrint('⚠️  Expected one of: payload, deep_link, link, deeplink');
+        debugPrint('');
+        debugPrint('📝 Troubleshooting:');
+        debugPrint('   1. Check Edge Function buildFcmBody() function');
+        debugPrint('   2. Verify "payload" field is included in FCM data');
+        debugPrint('   3. Check Edge Function logs for buildDeepLinkPayload()');
+        debugPrint('   4. Ensure notification record has offer_id/listing_id');
+        debugPrint('');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
       }
       return;
     }
 
+    if (kDebugMode) {
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║   ✅ Valid deep link found - Processing...                ║');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('🔗 Deep Link: $link');
+      debugPrint('📍 Source field: $foundIn');
+      debugPrint('⏳ App ready status: $_appReady');
+      debugPrint('');
+    }
+
+    // ✅ 检查 App 是否就绪
     if (!_appReady) {
       _notificationQueue.add(link);
       if (kDebugMode) {
-        debugPrint('[DeepLink] 📥 App not ready, queued notification link: $link');
-        debugPrint('[DeepLink] 📊 Queue size: ${_notificationQueue.length}');
+        debugPrint('⏸️  App not ready yet, queuing notification...');
+        debugPrint('📥 Added to queue: $link');
+        debugPrint('📊 Current queue size: ${_notificationQueue.length}');
+        debugPrint('');
+        debugPrint('ℹ️  Link will be processed after markAppReady() is called');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
       }
       return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('🚀 App is ready, processing immediately...');
+      debugPrint('════════════════════════════════════════════════════════════');
+      debugPrint('');
     }
 
     _processNotificationLink(link);
@@ -209,16 +343,46 @@ class DeepLinkService {
       final uri = Uri.parse(link);
 
       if (kDebugMode) {
-        debugPrint('[DeepLink] 🔗 Processing notification link: $link');
+        debugPrint('');
+        debugPrint('╔════════════════════════════════════════════════════════════╗');
+        debugPrint('║   [DeepLink] 🔗 Processing Notification Link              ║');
+        debugPrint('╚════════════════════════════════════════════════════════════╝');
+        debugPrint('');
+        debugPrint('📝 Raw link: $link');
+        debugPrint('🔍 Parsed URI:');
+        debugPrint('   Scheme: ${uri.scheme}');
+        debugPrint('   Host: ${uri.host}');
+        debugPrint('   Path: ${uri.path}');
+        debugPrint('   Query: ${uri.query}');
+        debugPrint('   Query params: ${uri.queryParameters}');
+        debugPrint('');
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (kDebugMode) {
+          debugPrint('📍 Post-frame callback: Handling deep link...');
+        }
         _handle(uri, isFromNotification: true);
         flushQueue();
+
+        if (kDebugMode) {
+          debugPrint('✅ Notification link processing completed');
+          debugPrint('════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
       });
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[DeepLink] ❌ Failed to parse notification link: $e');
+        debugPrint('');
+        debugPrint('╔════════════════════════════════════════════════════════════╗');
+        debugPrint('║   ❌ ERROR: Failed to process notification link          ║');
+        debugPrint('╚════════════════════════════════════════════════════════════╝');
+        debugPrint('');
+        debugPrint('🔴 Error: $e');
+        debugPrint('📝 Link that failed: $link');
+        debugPrint('');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
       }
     }
   }
@@ -228,16 +392,39 @@ class DeepLinkService {
     if (_notificationQueue.isEmpty) return;
 
     if (kDebugMode) {
-      debugPrint('[DeepLink] 🚀 Flushing ${_notificationQueue.length} queued notification(s)');
+      debugPrint('');
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║   [DeepLink] 🚀 Flushing Notification Queue               ║');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('📊 Queue size: ${_notificationQueue.length}');
+      debugPrint('');
     }
 
     final link = _notificationQueue.removeAt(0);
+
+    if (kDebugMode) {
+      debugPrint('🔗 Processing queued link: $link');
+    }
+
     _processNotificationLink(link);
 
     if (_notificationQueue.isNotEmpty) {
+      if (kDebugMode) {
+        debugPrint('⏳ Scheduling next item (${_notificationQueue.length} remaining)...');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
+      }
+
       Future.delayed(const Duration(milliseconds: 300), () {
         _flushNotificationQueue();
       });
+    } else {
+      if (kDebugMode) {
+        debugPrint('✅ Queue is now empty');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
+      }
     }
   }
 
@@ -297,8 +484,18 @@ class DeepLinkService {
     final path = (uri.path).toLowerCase();
 
     if (kDebugMode) {
-      debugPrint('[DeepLink] 🎯 route -> scheme=$scheme host=$host path=$path');
-      debugPrint('[DeepLink] 📋 full URI: $uri');
+      debugPrint('');
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║   [DeepLink] 🎯 Routing Deep Link                         ║');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('📝 Full URI: $uri');
+      debugPrint('🔍 Components:');
+      debugPrint('   Scheme: $scheme');
+      debugPrint('   Host: $host');
+      debugPrint('   Path: $path');
+      debugPrint('   Query: ${uri.queryParameters}');
+      debugPrint('');
     }
 
     try {
@@ -306,7 +503,11 @@ class DeepLinkService {
       // ✅ 忽略 Supabase OAuth 回调
       // ============================================================
       if (scheme == 'cc.swaply.app' && host == 'login-callback') {
-        if (kDebugMode) debugPrint('[DeepLink] ⏭️ skip supabase login-callback');
+        if (kDebugMode) {
+          debugPrint('⏭️  Skipping Supabase login callback');
+          debugPrint('════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
         _completeInitialLink();
         return;
       }
@@ -319,7 +520,10 @@ class DeepLinkService {
       final isResetByPath = path.contains('reset-password');
 
       if (isResetByHost || isResetByPath) {
-        if (kDebugMode) debugPrint('[DeepLink] 🔐 Processing reset-password link');
+        if (kDebugMode) {
+          debugPrint('🔐 Matched: Reset Password Link');
+          debugPrint('');
+        }
 
         final qp = uri.queryParameters;
         final fp = _parseFragmentParams(uri.fragment);
@@ -329,8 +533,8 @@ class DeepLinkService {
         final errDesc = qp['error_description'] ?? fp['error_description'];
 
         if (kDebugMode) {
-          debugPrint('[DeepLink] 🔍 Query params: $qp');
-          debugPrint('[DeepLink] 🔍 Fragment params: $fp');
+          debugPrint('🔍 Query params: $qp');
+          debugPrint('🔍 Fragment params: $fp');
         }
 
         String? code = qp['code'];
@@ -350,7 +554,7 @@ class DeepLinkService {
         final type = qp['type'] ?? fp['type'];
 
         if (kDebugMode) {
-          debugPrint('[DeepLink] 🔑 Extracted parameters:');
+          debugPrint('🔑 Extracted parameters:');
           debugPrint('   code=${code != null && code.isNotEmpty ? "***${code.substring(code.length > 10 ? code.length - 10 : 0)}" : "NULL"}');
           debugPrint('   token=${token != null && token.isNotEmpty ? "***${token.substring(token.length > 10 ? token.length - 10 : 0)}" : "NULL"}');
           debugPrint('   access_token=${accessToken != null && accessToken.isNotEmpty ? "***${accessToken.substring(accessToken.length > 10 ? accessToken.length - 10 : 0)}" : "NULL"}');
@@ -386,11 +590,19 @@ class DeepLinkService {
         }
 
         if (kDebugMode) {
-          debugPrint('[DeepLink] 📦 Passing to ResetPasswordPage: ${args.keys.toList()}');
+          debugPrint('📦 Arguments for ResetPasswordPage: ${args.keys.toList()}');
+          debugPrint('🚀 Navigating to: /reset-password');
+          debugPrint('');
         }
 
         await SchedulerBinding.instance.endOfFrame;
         navReplaceAll('/reset-password', arguments: args);
+
+        if (kDebugMode) {
+          debugPrint('✅ Navigation completed');
+          debugPrint('════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
 
         _completeInitialLink();
         return;
@@ -401,7 +613,8 @@ class DeepLinkService {
       // ============================================================
       _handlingBusinessDeepLink = true;
       if (kDebugMode) {
-        debugPrint('[DeepLink] 🚦 Business deep link handling started (flag=true)');
+        debugPrint('🚦 Business deep link handling: STARTED (flag=true)');
+        debugPrint('');
       }
 
       // ============================================================
@@ -415,9 +628,14 @@ class DeepLinkService {
         final listingId = uri.queryParameters['listing_id'] ??
             uri.queryParameters['listingid'] ??
             uri.queryParameters['listing'];
+
         if (offerId != null && offerId.isNotEmpty) {
           if (kDebugMode) {
-            debugPrint('[DeepLink] 💼 → OfferDetailPage: offer_id=$offerId');
+            debugPrint('💼 Matched: Offer Link');
+            debugPrint('   offer_id: $offerId');
+            debugPrint('   listing_id: ${listingId ?? "NULL"}');
+            debugPrint('🚀 Navigating to: /offer-detail');
+            debugPrint('');
           }
 
           await SchedulerBinding.instance.endOfFrame;
@@ -427,6 +645,13 @@ class DeepLinkService {
           });
 
           await Future.delayed(const Duration(milliseconds: 150));
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation completed');
+            debugPrint('════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
           _completeInitialLink();
           return;
         }
@@ -443,13 +668,23 @@ class DeepLinkService {
           final listingId = segments[1];
           if (listingId.isNotEmpty) {
             if (kDebugMode) {
-              debugPrint('[DeepLink] 🔗 → ProductDetailPage (short link): $listingId');
+              debugPrint('🔗 Matched: Short Link (/l/...)');
+              debugPrint('   listing_id: $listingId');
+              debugPrint('🚀 Navigating to: /listing');
+              debugPrint('');
             }
 
             await SchedulerBinding.instance.endOfFrame;
             navPush('/listing', arguments: {'id': listingId});
 
             await Future.delayed(const Duration(milliseconds: 150));
+
+            if (kDebugMode) {
+              debugPrint('✅ Navigation completed');
+              debugPrint('════════════════════════════════════════════════════════════');
+              debugPrint('');
+            }
+
             _completeInitialLink();
             return;
           }
@@ -466,13 +701,23 @@ class DeepLinkService {
         final listingId = uri.queryParameters['listing_id'] ?? uri.queryParameters['id'];
         if (listingId != null && listingId.isNotEmpty) {
           if (kDebugMode) {
-            debugPrint('[DeepLink] 📦 → ProductDetailPage: $listingId');
+            debugPrint('📦 Matched: Listing Link');
+            debugPrint('   listing_id: $listingId');
+            debugPrint('🚀 Navigating to: /listing');
+            debugPrint('');
           }
 
           await SchedulerBinding.instance.endOfFrame;
           navPush('/listing', arguments: {'id': listingId});
 
           await Future.delayed(const Duration(milliseconds: 150));
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation completed');
+            debugPrint('════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
           _completeInitialLink();
           return;
         }
@@ -481,7 +726,12 @@ class DeepLinkService {
       // ============================================================
       // 5) 默认：不匹配的链接
       // ============================================================
-      if (kDebugMode) debugPrint('[DeepLink] ❓ unmatched -> ignore: $uri');
+      if (kDebugMode) {
+        debugPrint('❓ No matching route found');
+        debugPrint('⏭️  Ignoring link: $uri');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
+      }
       _completeInitialLink();
 
     } finally {
@@ -492,7 +742,7 @@ class DeepLinkService {
       _handlingBusinessDeepLink = false;
 
       if (kDebugMode) {
-        debugPrint('[DeepLink] 🚦 Business deep link handling completed (flag=false)');
+        debugPrint('🚦 Business deep link handling: COMPLETED (flag=false)');
       }
 
       // ✅ 保险：确保 Completer 完成

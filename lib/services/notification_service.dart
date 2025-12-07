@@ -1,6 +1,7 @@
-// lib/services/notification_service.dart - 修复版（添加自我通知过滤）
-// 单例 + 全局广播流；"收藏后通知"走 RPC（notify_favorite）以绕过 RLS。
+// lib/services/notification_service.dart - 修复版（Token 管理使用 upsert）
+// ✅ [关键修复] 使用 upsert 避免 delete+insert 的竞态条件
 // ✅ [推送通知] 集成 Firebase Cloud Messaging
+// ✅ [自我通知过滤] 过滤自己发给自己的通知
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -167,7 +168,8 @@ class NotificationService {
   }
 
   // ================================================
-  // ✅ [推送通知] FCM Token 管理
+  // ✅ [Token 管理修复] FCM Token 管理
+  // ✅ [关键修复] 使用 upsert 避免竞态条件
   // ================================================
 
   static Future<void> initializeFCM() async {
@@ -182,7 +184,7 @@ class NotificationService {
 
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) {
-        _debugPrint('FCM: Token 为空');
+        _debugPrint('FCM: Token 为空（可能在模拟器上运行）');
         return;
       }
 
@@ -201,6 +203,8 @@ class NotificationService {
     }
   }
 
+  /// ✅ [关键修复] 使用 upsert 避免竞态条件
+  /// 确保一个 user_id + platform 组合只有一个 token
   static Future<void> _saveFcmToken(String token) async {
     try {
       final user = _client.auth.currentUser;
@@ -211,19 +215,30 @@ class NotificationService {
 
       final platform = Platform.isIOS ? 'ios' : 'android';
 
-      await _client.from('user_fcm_tokens').upsert({
-        'user_id': user.id,
-        'fcm_token': token,
-        'platform': platform,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      _debugPrint('FCM: 保存 Token 开始');
+      _debugPrint('  用户: ${user.id}');
+      _debugPrint('  平台: $platform');
+      _debugPrint('  Token: ${token.substring(0, 20)}...');
 
-      _debugPrint('FCM: Token 已保存到 Supabase (platform=$platform)');
+      // ✅ 使用 upsert 自动处理冲突
+      // onConflict 指定为 'user_id,platform'，匹配你的 unique constraint
+      await _client.from('user_fcm_tokens').upsert(
+        {
+          'user_id': user.id,
+          'fcm_token': token,
+          'platform': platform,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'user_id,platform', // 关键：指定冲突键
+      );
+
+      _debugPrint('FCM: ✅ Token 已保存/更新 (upsert)');
     } catch (e, st) {
-      _debugPrint('FCM: Token 保存失败: $e\n$st');
+      _debugPrint('FCM: ❌ Token 保存失败: $e\n$st');
     }
   }
 
+  /// ✅ [修复] 删除当前用户的所有 token
   static Future<void> removeFcmToken() async {
     try {
       final user = _client.auth.currentUser;
@@ -234,15 +249,18 @@ class NotificationService {
 
       final platform = Platform.isIOS ? 'ios' : 'android';
 
+      _debugPrint('FCM: 删除 Token (user_id=${user.id}, platform=$platform)');
+
+      // 删除当前用户 + 平台的 token
       await _client
           .from('user_fcm_tokens')
           .delete()
           .eq('user_id', user.id)
           .eq('platform', platform);
 
-      _debugPrint('FCM: Token 已从 Supabase 删除');
+      _debugPrint('FCM: ✅ Token 已从 Supabase 删除');
     } catch (e, st) {
-      _debugPrint('FCM: Token 删除失败: $e\n$st');
+      _debugPrint('FCM: ❌ Token 删除失败: $e\n$st');
     }
   }
 

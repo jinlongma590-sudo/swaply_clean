@@ -10,7 +10,7 @@
     <!-- ✅ [推送通知] 后台运行权限（保持 FCM 连接） -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
-    <!-- ✅ [推送通知] 前台服务权限（Android 9+） -->
+    <!-- ✅ [推送通知] 前台服务权限（Android 9+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
@@ -53,6 +53,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- ✅✅✅ [关键修复] FCM 通知点击处理 ✅✅✅ -->
+            <!-- 没有这个，点击通知不会触发 getInitialMessage() 或 onMessageOpenedApp -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- OAuth 回调：cc.swaply.app://login-callback -->
