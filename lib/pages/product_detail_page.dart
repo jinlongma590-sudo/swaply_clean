@@ -2,7 +2,8 @@
 // ✅ [iOS Deep Link 修复] 智能返回逻辑 - 根据登录状态决定返回目标
 // ✅ [性能优化] 图片预加载 + 渐进式加载 + 智能缓存
 // ✅ [UI修复] 修复分享弹窗锯齿问题
-// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿
+// ✅ [收藏优化] 乐观更新策略 - 立即响应用户操作，后台同步数据
+// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿 ⑥ 收藏速度优化
 // 严格遵守架构：不破坏 AuthFlowObserver/DeepLinkService/AppRouter 三层分离
 
 import 'dart:io';
@@ -690,6 +691,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
   }
 
+  // ✅ [收藏优化] 乐观更新策略 - 立即响应用户操作，后台同步数据
   Future<void> _toggleFavorites() async {
     final user = Supabase.instance.client.auth.currentUser;
     final id = widget.productId ?? product['id']?.toString();
@@ -706,8 +708,16 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
     if (_isFavoritesLoading) return;
 
-    setState(() => _isFavoritesLoading = true);
+    // ✅ [乐观更新 第1步] 立即更新 UI，用户感觉瞬间响应
+    final previousStatus = _isInFavorites;
+    final optimisticStatus = !_isInFavorites;
 
+    setState(() {
+      _isInFavorites = optimisticStatus;
+      _isFavoritesLoading = true;
+    });
+
+    // ✅ [乐观更新 第2步] 后台异步同步数据
     try {
       final connectionTest =
       await DualFavoritesService.testConnection(userId: user.id);
@@ -715,27 +725,48 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         throw Exception('Database connection failed');
       }
 
-      final newStatus = await DualFavoritesService.toggleFavorite(
+      final actualStatus = await DualFavoritesService.toggleFavorite(
         userId: user.id,
         listingId: id,
       );
 
       if (!mounted) return;
-      setState(() => _isInFavorites = newStatus);
 
+      // ✅ [乐观更新 第3步] 如果实际结果与预期不符，更正 UI
+      if (actualStatus != optimisticStatus) {
+        if (kDebugMode) {
+          print('⚠️ Optimistic update mismatch: expected=$optimisticStatus, actual=$actualStatus');
+        }
+        setState(() => _isInFavorites = actualStatus);
+      }
+
+      // 通知其他组件
       FavoritesUpdateService().notifyFavoriteChanged(
         listingId: id,
-        isAdded: newStatus,
-        listingData: newStatus ? Map<String, dynamic>.from(product) : null,
+        isAdded: actualStatus,
+        listingData: actualStatus ? Map<String, dynamic>.from(product) : null,
       );
 
-      _toast(newStatus
+      // 显示成功提示
+      _toast(actualStatus
           ? 'Added to favorites and wishlist successfully!'
           : 'Removed from favorites and wishlist');
 
-      if (newStatus) _sendWishlistNotification();
+      // 发送通知
+      if (actualStatus) _sendWishlistNotification();
     } catch (e) {
+      // ✅ [乐观更新 第4步] 失败时回滚 UI
+      if (kDebugMode) {
+        print('❌ Failed to update favorites: $e');
+        print('🔄 Rolling back to previous status: $previousStatus');
+      }
+
+      if (!mounted) return;
+      setState(() => _isInFavorites = previousStatus);
+
       _toast('Failed to update favorites');
+
+      // 重新检查真实状态
       _checkFavoritesStatus();
     } finally {
       if (mounted) setState(() => _isFavoritesLoading = false);

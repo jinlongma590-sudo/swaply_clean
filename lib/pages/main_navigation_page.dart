@@ -2,6 +2,7 @@
 // ✅ [OAuth闪屏修复] 移除独立Loading页面，避免OAuth期间的页面切换
 // ✅ [底部导航优化] 调整为微信标准高度（49dp），修复文字显示问题
 // ✅ [文字显示修复] 优化间距和字号，确保所有标签完整显示
+// ✅ [通知角标修复] 实时监听 NotificationService，解决角标闪烁消失问题
 import 'package:swaply/pages/saved_page.dart' as real_saved;
 import 'package:swaply/pages/notification_page.dart' as real_notif;
 import 'dart:io' show Platform;
@@ -26,7 +27,8 @@ import 'package:swaply/pages/profile_page.dart';
 import 'package:swaply/services/welcome_dialog_service.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:swaply/services/oauth_entry.dart';
-import 'package:swaply/services/auth_flow_observer.dart'; // ✅ [闪屏修复] 新增导入
+import 'package:swaply/services/auth_flow_observer.dart';
+import 'package:swaply/services/notification_service.dart'; // ✅ [修复] 导入 NotificationService
 
 const Color _PRIMARY_BLUE = Color(0xFF1877F2);
 
@@ -57,6 +59,9 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   late final _NotifRoot _notifRoot;
   late final _ProfileRoot _profileRoot;
 
+  // ✅ [修复] 添加未读通知监听器
+  VoidCallback? _unreadListener;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +87,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       WelcomeDialogService.scheduleCheck(context);
     });
 
+    // ✅ [修复] 从 NotificationService 监听未读数量
     _loadNotificationCount();
 
     _sellButtonController = AnimationController(
@@ -115,19 +121,40 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   void dispose() {
+    // ✅ [修复] 移除监听器
+    if (_unreadListener != null) {
+      NotificationService.unreadCountNotifier.removeListener(_unreadListener!);
+    }
     _sellButtonController.dispose();
     _loadingController.dispose();
     super.dispose();
   }
 
+  /// ✅ [修复] 从 NotificationService 读取真实的未读数量并监听变化
+  /// 符合架构：单一数据源原则 - NotificationService 是唯一的通知状态管理者
   Future<void> _loadNotificationCount() async {
     final isGuest = Supabase.instance.client.auth.currentSession == null;
     if (!isGuest) {
       try {
-        const count = 0;
+        // ✅ [修复] 从 NotificationService 读取真实的未读数量
+        final count = NotificationService.unreadCountNotifier.value;
         if (mounted) setState(() => _notificationCount = count);
+
+        // ✅ [修复] 监听未读数量变化
+        _unreadListener = () {
+          if (mounted) {
+            setState(() => _notificationCount = NotificationService.unreadCountNotifier.value);
+          }
+        };
+        NotificationService.unreadCountNotifier.addListener(_unreadListener!);
+
+        if (kDebugMode) {
+          debugPrint('[MainNavigationPage] 未读通知数量: $count');
+        }
       } catch (e) {
-        if (kDebugMode) {}
+        if (kDebugMode) {
+          debugPrint('[MainNavigationPage] 加载通知数量失败: $e');
+        }
       }
     }
   }
@@ -187,10 +214,17 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         false;
   }
 
+  /// ✅ [修复] 不再硬编码清零，让 NotificationService 的监听器自动更新
+  /// 符合架构：UI 层不直接修改状态，由 Service 层的监听器自动同步
   void _clearNotifications() {
-    setState(() => _notificationCount = 0);
+    // ❌ 删除硬编码：setState(() => _notificationCount = 0);
+    // ✅ 角标会由 NotificationService.unreadCountNotifier 的监听器自动更新
+    if (kDebugMode) {
+      debugPrint('[MainNavigationPage] 通知 Tab 已打开，角标将由 NotificationService 自动管理');
+    }
   }
 
+  /// ✅ 符合架构：不使用 Navigator.of(context)，使用封装的 navX 方法
   void _showLoginRequired(String feature, BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     showDialog(
@@ -209,7 +243,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           ),
           actions: [
             TextButton(
-              onPressed: () => navPop(),
+              onPressed: () => navPop(), // ✅ 符合架构：使用 navPop
               child: Text(
                 l10n.cancel,
                 style: TextStyle(fontSize: 13.sp, color: Colors.grey[600]),
@@ -224,7 +258,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
               ),
               child: TextButton(
                 onPressed: () {
-                  navReplaceAll('/welcome');
+                  navReplaceAll('/welcome'); // ✅ 符合架构：使用 navReplaceAll
                 },
                 child: Text(
                   l10n.login,
@@ -518,7 +552,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         }
         setState(() {
           _selectedIndex = index;
-          if (index == 3) _loadNotificationCount();
+          // ✅ [修复] 删除手动重新加载，让 NotificationService 的监听器自动管理
+          // ❌ 删除：if (index == 3) _loadNotificationCount();
         });
       },
       child: SizedBox(

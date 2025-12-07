@@ -7,9 +7,11 @@
 // ● HomePage / MainNavigationPage 只负责 UI，不负责全局逻辑
 // ● 全工程只有这一个 MaterialApp —— 根本解决黑屏 / GlobalKey 冲突
 //
+// ✅ [方案 2 修复] DeepLinkService.bootstrap() 现在会真正等待初始链接处理完成
+//    调用者无需额外等待，语义清晰，职责明确
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 // ✅ 1. 引入 ScreenUtil
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // ✅ [P0 修复] 引入 FlutterNativeSplash
@@ -51,10 +53,8 @@ class _SwaplyAppState extends State<SwaplyApp> {
     // 解决进程重启后 inFlight 状态丢失的问题
     OAuthEntry.restoreState();
 
-    // 启动全局认证流观察 —— 唯一导航源
-    AuthFlowObserver.I.start();
-
-    // ✅ [P0 修复] 深链 + Splash 移除：在首帧后统一处理
+    // ✅ [冷启动深链修复] 关键改动：在首帧后立即初始化 DeepLinkService
+    // 必须在 AuthFlowObserver.start() 之前完成，避免时序竞态
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _dlBooted) return;
       _dlBooted = true;
@@ -63,13 +63,37 @@ class _SwaplyAppState extends State<SwaplyApp> {
       // 这是全局唯一的 Splash 移除点，避免 iOS 冷启动黑屏
       FlutterNativeSplash.remove();
 
+      // ✅ [方案 2 - 关键修复] 先初始化深链服务
+      // bootstrap() 现在会真正等待初始链接处理完成
+      // 不需要额外的轮询等待，语义清晰，更可靠
       if (!kIsWeb) {
+        if (kDebugMode) {
+          debugPrint('[App] 🚀 Bootstrapping DeepLinkService...');
+        }
+
         await DeepLinkService.instance.bootstrap();
+
+        if (kDebugMode) {
+          debugPrint('[App] ✅ DeepLinkService bootstrap completed');
+        }
       }
+
+      // ✅ [关键] 深链初始化完成后，再启动认证流观察
+      // 这样 AuthFlowObserver 的 initialSession 事件处理时
+      // 就能正确检测到 _handlingBusinessDeepLink 标志
+      if (kDebugMode) {
+        debugPrint('[App] 🔐 Starting AuthFlowObserver...');
+      }
+
+      AuthFlowObserver.I.start();
 
       setState(() {
         _booted = true;
       });
+
+      if (kDebugMode) {
+        debugPrint('[App] ✅ App initialization completed');
+      }
     });
   }
 

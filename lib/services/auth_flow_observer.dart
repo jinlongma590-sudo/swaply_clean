@@ -1,12 +1,14 @@
 // lib/services/auth_flow_observer.dart
-// ✅ [Android Deep Link 修复] 增加等待时间并在检测到深链时跳过 /home 导航
-// ✅ [通知架构修复] 完整版：订阅生命周期收口到 AuthFlowObserver
-// ✅ [iOS 竞态修复] initialSession 增加协调等待，避免与 DeepLinkService 竞争
-// ✅ [协调机制] 检查 DeepLinkService 标志，等待业务深链处理完成
-// [完整修复版] OAuth导航优化 + 首次导航标志
+// ✅ [骨架屏修复] 优化 initialSession 逻辑，避免不必要的页面重建
+// ✅ [架构修复] AuthFlowObserver 成为真正的"智能协调器"
+// ✅ [业务状态尊重] 在导航前检查当前路由，不破坏业务页面
+// ✅ [深链协调] 与 DeepLinkService 完美配合，避免导航冲突
+// ✅ [用户体验] 保护用户主动导航，避免强制跳转
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 
@@ -15,7 +17,7 @@ import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/services/profile_service.dart';
 import 'package:swaply/services/reward_service.dart';
-import 'package:swaply/services/deep_link_service.dart'; // ✅ [协调机制] 引入 DeepLinkService
+import 'package:swaply/services/deep_link_service.dart';
 import 'package:swaply/auth/register_screen.dart';
 
 final _appStart = DateTime.now();
@@ -38,10 +40,7 @@ class AuthFlowObserver {
   bool _bootWatchdogArmed = false;
   bool _everNavigated = false;
 
-  // ✅ [闪屏修复] 全局标志：首次导航是否完成
   static bool _initialNavigationDone = false;
-
-  // ✅ [关键] Public getter，供外部访问
   static bool get hasCompletedInitialNavigation => _initialNavigationDone;
 
   void markManualSignOut() {
@@ -63,27 +62,122 @@ class AuthFlowObserver {
         now.difference(_lastAt!) < Duration(milliseconds: ms)) {
       return true;
     }
-    _lastRoute = route;
-    _lastAt = now;
     return false;
   }
 
+  /// ✅ [骨架屏修复] 优化获取当前路由逻辑
+  String? _getCurrentRoute() {
+    try {
+      final navigator = rootNavKey.currentState;
+      if (navigator == null) {
+        if (kDebugMode) {
+          debugPrint('[AuthFlowObserver] _getCurrentRoute: navigator is null, returning cached: $_lastRoute');
+        }
+        return _lastRoute;
+      }
+
+      final context = navigator.context;
+      if (context.mounted) {
+        final route = ModalRoute.of(context);
+        if (route != null && route.settings.name != null) {
+          final routeName = route.settings.name!;
+          if (kDebugMode) {
+            debugPrint('[AuthFlowObserver] _getCurrentRoute: $routeName');
+          }
+          return routeName;
+        }
+      }
+
+      // ✅ [关键修复] 如果无法获取路由名，但 navigator 存在且已渲染
+      // 很可能是在 initialRoute（/），应该返回 '/' 而不是 null
+      if (navigator.context.mounted && _lastRoute == null) {
+        if (kDebugMode) {
+          debugPrint('[AuthFlowObserver] _getCurrentRoute: likely on initialRoute, returning "/"');
+        }
+        return '/';
+      }
+
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] _getCurrentRoute: returning cached: $_lastRoute');
+      }
+      return _lastRoute;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] _getCurrentRoute error: $e');
+      }
+      return _lastRoute;
+    }
+  }
+
   Future<void> _goOnce(String route) async {
-    if (_navigating) return;
-    if (_throttle(route)) return;
+    if (_navigating) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ⏭️ Navigation already in progress, skipping');
+      }
+      return;
+    }
+
+    if (_throttle(route)) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ⏭️ Throttled navigation to $route (too soon)');
+      }
+      return;
+    }
+
+    final currentRoute = _getCurrentRoute();
+    if (currentRoute == route) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ⏭️ Already on $route, skip navigation');
+        debugPrint('[AuthFlowObserver] 📌 Preserving scroll position and page state');
+      }
+      _everNavigated = true;
+      _initialNavigationDone = true;
+      return;
+    }
 
     _navigating = true;
-    debugPrint('[AuthFlowObserver] NAV -> $route');
+    if (kDebugMode) {
+      debugPrint('[AuthFlowObserver] 🔄 NAV -> $route (from: $currentRoute)');
+    }
 
-    SchedulerBinding.instance.addPostFrameCallback((_) {
+    var waited = 0;
+    while (rootNavKey.currentState == null && waited < 5000) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      waited += 50;
+      if (kDebugMode && waited % 500 == 0) {
+        debugPrint('[AuthFlowObserver] ⏳ Waiting for navigation ready... (${waited}ms)');
+      }
+    }
+
+    if (rootNavKey.currentState == null) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ❌ Navigation timeout! rootNavKey.currentState is null');
+      }
+      _navigating = false;
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('[AuthFlowObserver] ✅ Navigation ready (waited ${waited}ms), executing navReplaceAll');
+    }
+
+    try {
       navReplaceAll(route);
-    });
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ✅ navReplaceAll($route) executed');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ❌ navReplaceAll error: $e');
+      }
+    }
 
     await Future.delayed(const Duration(milliseconds: 120));
+
+    _lastRoute = route;
+    _lastAt = DateTime.now();
     _navigating = false;
     _everNavigated = true;
-
-    // ✅ [闪屏修复] 标记首次导航完成
     _initialNavigationDone = true;
   }
 
@@ -95,7 +189,6 @@ class AuthFlowObserver {
   void _armBootWatchdogOnce() {
     if (_bootWatchdogArmed) return;
     _bootWatchdogArmed = true;
-    _everNavigated = true;
     if (kDebugMode) {
       debugPrint('[AuthFlowObserver] BOOT-WATCHDOG disabled (no-op)');
     }
@@ -110,7 +203,6 @@ class AuthFlowObserver {
     _sub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final sinceStart = DateTime.now().difference(_appStart);
 
-      // ✅ [通知架构修复] 修改1：改为标志，不要 return
       final isGraceWindowSignOut = sinceStart < const Duration(milliseconds: 1200) &&
           data.event == AuthChangeEvent.signedOut;
 
@@ -125,6 +217,9 @@ class AuthFlowObserver {
       OAuthEntry.clearGuardIfSignedIn(data);
 
       switch (data.event) {
+      // ============================================================
+      // CASE: signedIn（登录成功）
+      // ============================================================
         case AuthChangeEvent.signedIn:
           _manualSignOutOnce = false;
           _signOutDebounce?.cancel();
@@ -145,23 +240,25 @@ class AuthFlowObserver {
             } catch (_) {}
           }
 
-          // ✅ [OAuth闪屏修复] 增加短暂延迟，让MainNavigationPage有时间准备
           await Future.delayed(const Duration(milliseconds: 150));
           await _goOnce('/home');
           break;
 
+      // ============================================================
+      // CASE: initialSession（冷启动）
+      // ✅ [骨架屏修复] 优化导航逻辑，避免不必要的页面重建
+      // ============================================================
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
 
-          final hasSession =
-              Supabase.instance.client.auth.currentSession != null;
+          final hasSession = Supabase.instance.client.auth.currentSession != null;
 
           if (hasSession) {
+            // ✅ 步骤 1：预热 Profile 和订阅通知
             final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
               _preheatProfile(user);
 
-              // ✅ [通知架构修复] 修改2：冷启动时订阅
               try {
                 await NotificationService.subscribeUser(user.id);
               } catch (e) {
@@ -172,56 +269,58 @@ class AuthFlowObserver {
             }
 
             // ============================================================
-            // ✅ [协调机制] 等待 DeepLinkService 完成业务深链处理
-            // ✅ [Android Deep Link 修复] 增加等待时间到 2 秒
-            // ✅ [Android Deep Link 修复] 如果检测到深链，跳过 /home 导航
-            // 架构符合：
-            // - 不检查深链内容（职责分离）
-            // - 只检查标志：DeepLinkService 是否正在处理业务深链
-            // - 等待完成后再执行全局导航，避免冲突
+            // ✅ [关键修复] 步骤 2：智能检查当前路由状态
+            // 避免在用户已经在首页时重新导航，防止状态丢失
             // ============================================================
-            if (DeepLinkService.isHandlingBusinessDeepLink) {
-              if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🚦 DeepLinkService is handling business deep link, waiting...');
-              }
+            final currentRoute = _getCurrentRoute();
 
-              // ✅ [Android Deep Link 修复] 增加等待时间
-              var waited = 0;
-              const checkInterval = 50; // 每 50ms 检查一次
-              const maxWait = 2000; // ✅ 改为 2000ms（足够等待 DeepLinkService 的 150ms + 200ms = 350ms）
-
-              while (DeepLinkService.isHandlingBusinessDeepLink && waited < maxWait) {
-                await Future.delayed(const Duration(milliseconds: checkInterval));
-                waited += checkInterval;
-
-                if (kDebugMode && waited % 200 == 0) {
-                  debugPrint('[AuthFlowObserver] 🕐 Still waiting for business deep link... (${waited}ms)');
-                }
-              }
-
-              if (DeepLinkService.isHandlingBusinessDeepLink) {
-                if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] ⚠️ Timeout waiting for deep link (${waited}ms), proceeding to /home');
-                }
-                // ✅ 超时后仍然跳转到 /home（兜底逻辑）
-                await _goOnce('/home');
-              } else {
-                if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] ✅ Business deep link handled (waited ${waited}ms)');
-                  debugPrint('[AuthFlowObserver] 🎯 SKIP /home navigation to preserve deep link page');
-                }
-                // ✅ [Android Deep Link 修复] 关键：检测到深链已处理，跳过 /home 导航
-                // 这样 navPush 的 /listing 页面就会保留在栈上
-                return; // ← 直接返回，不执行后面的 _goOnce('/home')
-              }
-            } else {
-              if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] ℹ️ No business deep link detected, proceeding to /home');
-              }
-              // 没有深链，正常跳转到 /home
-              await _goOnce('/home');
+            if (kDebugMode) {
+              debugPrint('[AuthFlowObserver] initialSession check:');
+              debugPrint('  currentRoute: $currentRoute');
+              debugPrint('  _everNavigated: $_everNavigated');
             }
+
+            // ✅ 情况 1：已经在业务页面（由深链接导航）
+            if (currentRoute != null &&
+                currentRoute != '/' &&
+                currentRoute != '/welcome') {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] 🎯 Already on business page: $currentRoute');
+                debugPrint('[AuthFlowObserver] ✅ Skipping navigation (respecting business state)');
+              }
+
+              _everNavigated = true;
+              _initialNavigationDone = true;
+              return;
+            }
+
+            // ✅ [关键修复] 情况 2：已经在首页（/ 或 /home）
+            // 这是骨架屏场景：用户在 MainNavigationPage 内部交互，路由仍是 / 或 /home
+            // 不应该重新导航，否则会重建页面并丢失用户状态（滚动位置、Tab选择等）
+            if (currentRoute == '/' || currentRoute == '/home') {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] ✅ Already on home page: $currentRoute');
+                debugPrint('[AuthFlowObserver] ✅ Skipping navigation (preserving page state)');
+                debugPrint('[AuthFlowObserver] 📌 User interactions during skeleton screen will be preserved');
+              }
+
+              // 标记为已完成导航，避免后续问题
+              _everNavigated = true;
+              _initialNavigationDone = true;
+              return;
+            }
+
+            // ✅ 情况 3：在欢迎页或其他需要切换的页面
+            if (kDebugMode) {
+              debugPrint('[AuthFlowObserver] 🚀 Navigating from $currentRoute to /home');
+            }
+
+            await _goOnce('/home');
+
           } else {
+            // ============================================================
+            // 无会话流程：等待 OAuth 或跳转 welcome
+            // ============================================================
             Uri? initialLink;
             try {
               initialLink = await AppLinks().getInitialLink();
@@ -294,9 +393,6 @@ class AuthFlowObserver {
                 }
               }
 
-              // ✅ [iOS 竞态修复] 未登录时，稍微延迟跳转 /welcome
-              // 避免和 DeepLinkService 的初始化竞态
-              // 如果此时有 deep link 正在处理，先让它完成
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] No session, delaying /welcome by 150ms to avoid deep link race');
               }
@@ -307,13 +403,18 @@ class AuthFlowObserver {
           }
           break;
 
+      // ============================================================
+      // CASE: userUpdated
+      // ============================================================
         case AuthChangeEvent.userUpdated:
           _manualSignOutOnce = false;
           break;
 
+      // ============================================================
+      // CASE: signedOut / userDeleted
+      // ============================================================
         case AuthChangeEvent.signedOut:
         case AuthChangeEvent.userDeleted:
-        // ✅ [通知架构修复] 修改3：永远清理订阅（无论如何都执行）
           try {
             await NotificationService.unsubscribe();
           } catch (e) {
@@ -329,21 +430,18 @@ class AuthFlowObserver {
             _lastUserId = null;
           }
 
-          // 状态机：手动登出
           if (_manualSignOutOnce) {
             debugPrint('[AuthFlowObserver] signedOut fast-path (manual). swallow nav once.');
             _manualSignOutOnce = false;
             break;
           }
 
-          // 状态机：快速登出
           final now = DateTime.now();
           final fast = _manualSignOutAt != null &&
               now.difference(_manualSignOutAt!).inSeconds <= 3;
 
           if (fast) {
             _manualSignOutAt = null;
-            // ✅ grace-window 判断：只在这里拦截快速登出的导航
             if (!isGraceWindowSignOut) {
               await _goOnce('/login');
             } else {
@@ -352,17 +450,14 @@ class AuthFlowObserver {
             break;
           }
 
-          // ✅ grace-window 判断：拦截延迟导航
           if (isGraceWindowSignOut) {
             debugPrint('[AuthFlowObserver] grace-window: cleanup done, skip debounced navigation');
             break;
           }
 
-          // 正常的延迟导航
-          _signOutDebounce =
-              Timer(const Duration(milliseconds: 150), () async {
-                await _goOnce('/login');
-              });
+          _signOutDebounce = Timer(const Duration(milliseconds: 150), () async {
+            await _goOnce('/login');
+          });
           break;
 
         default:

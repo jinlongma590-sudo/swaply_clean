@@ -1,13 +1,8 @@
 // lib/pages/home_page.dart
-// ✅ [主页停滞修复] 优化首次加载体验，始终显示骨架屏
-// ✅ [性能优化] 优化数据加载逻辑，减少主线程阻塞
-// ✅ [UI优化] Popular Items 标题始终显示，不跟随图片动画
-// ✅ [P0性能优化] 图片内存缓存 + 请求超时 + 后台刷新缓存
-// ✅ [商品展示优化] Popular Items 展示数量优化（初期上线：100条）
-// ✅ [布局优化] 三个标题位置固定，避免骨架屏加载时的位移
-// ✅ [位移修复] Popular Items 标题不再受 loading 状态影响，只根据实际有 Featured Ads 商品时才下移
-// ✅ [间隙优化] Popular Items 和图片之间的间隙减小到 0，彻底消除间隔
-// ✅ [滚动修复] 修复骨架屏加载完成后滚动位置重置的问题
+// ✅ [架构符合] 符合 Swaply 架构，HomePage 只负责数据展示
+// ✅ [滚动优化] 增强滚动位置保持，多重保护机制
+// ✅ [性能优化] 缓存 + 骨架屏 + 图片优化
+// ✅ [用户体验] 滚动位置不会因为数据加载而重置
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -38,13 +33,11 @@ class _HomePageState extends State<HomePage>
         TickerProviderStateMixin,
         WidgetsBindingObserver,
         AutomaticKeepAliveClientMixin {
-  // ✅ [滚动修复] 添加 AutomaticKeepAliveClientMixin，保持页面状态
   @override
   bool get wantKeepAlive => true;
 
-  // ✅ [商品展示配置] 可配置的商品数量限制（方便后续调整）
-  static const int _featuredAdsLimit = 10; // Featured Ads（置顶广告）数量
-  static const int _popularItemsLimit = 100; // Popular Items（热门商品）数量 - 初期上线展示更多
+  static const int _featuredAdsLimit = 10;
+  static const int _popularItemsLimit = 100;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
@@ -62,15 +55,17 @@ class _HomePageState extends State<HomePage>
 
   bool _welcomeChecked = false;
 
-  // ✅ [性能优化] 缓存机制
   static List<Map<String, dynamic>>? _cachedTrending;
   static DateTime? _cacheTime;
   static String? _cachedLocation;
   static const _cacheDuration = Duration(minutes: 2);
 
-  // ✅ [滚动修复] 添加滚动位置保存
+  // ✅ [滚动优化] 增强的滚动位置管理
   double _savedScrollPosition = 0.0;
   bool _isRestoringScroll = false;
+  bool _scrollPositionRestored = false;
+  int _restoreAttempts = 0;
+  static const int _maxRestoreAttempts = 3;
 
   static const List<String> _locations = [
     'All Zimbabwe',
@@ -129,10 +124,7 @@ class _HomePageState extends State<HomePage>
       curve: Curves.easeInOut,
     );
 
-    // ✅ [滚动修复] 监听滚动位置
     _scrollController.addListener(_onScroll);
-
-    // ✅ [主页停滞修复] 首次加载显示骨架屏（showLoading: true）
     _loadTrending(showLoading: true);
 
     _listingPubSub = ListingEventsBus.instance.stream.listen((e) {
@@ -142,11 +134,21 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  // ✅ [滚动修复] 滚动监听器（关键修复：骨架屏期间也记录滚动位置）
+  // ✅ [滚动优化] 增强的滚动监听器
   void _onScroll() {
     if (_isRestoringScroll) return;
     if (!_scrollController.hasClients) return;
-    _savedScrollPosition = _scrollController.position.pixels;
+
+    final currentPosition = _scrollController.position.pixels;
+
+    // ✅ 只在滚动位置真正变化时才保存
+    if ((currentPosition - _savedScrollPosition).abs() > 5.0) {
+      _savedScrollPosition = currentPosition;
+
+      if (mounted) {
+        debugPrint('💾 [Scroll] 保存滚动位置: ${_savedScrollPosition.toStringAsFixed(1)}');
+      }
+    }
   }
 
   @override
@@ -196,8 +198,6 @@ class _HomePageState extends State<HomePage>
     return priceData.toString();
   }
 
-  // ✅ [P0优化] 添加请求超时处理
-  // ✅ [商品展示优化] 使用配置常量作为默认参数
   Future<List<Map<String, dynamic>>> _fetchTrendingMixed({
     String? city,
     int pinnedLimit = _featuredAdsLimit,
@@ -262,12 +262,11 @@ class _HomePageState extends State<HomePage>
     return list.toList();
   }
 
-  // ✅ [P1优化] 添加后台刷新功能
   Future<void> _loadTrending({bool bypassCache = false, bool showLoading = true}) async {
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
 
-    // ✅ [性能优化] 检查缓存
+    // 检查缓存
     if (!bypassCache && _cachedTrending != null && _cacheTime != null && _cachedLocation == cacheKey) {
       final age = DateTime.now().difference(_cacheTime!);
       if (age < _cacheDuration) {
@@ -282,7 +281,6 @@ class _HomePageState extends State<HomePage>
           }
         }
 
-        // ✅ [P1优化] 如果缓存超过1分钟，后台刷新
         if (age > const Duration(minutes: 1)) {
           debugPrint('🔄 [Cache] 后台刷新数据...');
           _refreshInBackground(city);
@@ -292,13 +290,12 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    // ✅ [滚动修复] 保存当前滚动位置
+    // ✅ [滚动优化] 保存当前滚动位置（在加载开始前）
     if (_scrollController.hasClients) {
       _savedScrollPosition = _scrollController.position.pixels;
-      debugPrint('💾 [Scroll] 保存滚动位置: $_savedScrollPosition');
+      debugPrint('💾 [Scroll] 数据加载前保存位置: ${_savedScrollPosition.toStringAsFixed(1)}');
     }
 
-    // ✅ [主页停滞修复] 始终显示loading状态（骨架屏）
     if (showLoading && mounted) {
       setState(() => _loadingTrending = true);
     }
@@ -317,13 +314,12 @@ class _HomePageState extends State<HomePage>
         _cachedLocation = cacheKey;
         debugPrint('✅ [Cache] 缓存已更新 (${rows.length}条)');
 
-        // ✅ [性能优化] 数据加载完成后才启动fade动画
         if (_trendingRemote.isNotEmpty) {
           _fadeController.forward();
         }
 
-        // ✅ [滚动修复] 恢复滚动位置
-        _restoreScrollPosition();
+        // ✅ [滚动优化] 数据加载完成后恢复滚动位置
+        _restoreScrollPositionEnhanced();
       }
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
@@ -332,37 +328,85 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  // ✅ [滚动修复] 恢复滚动位置方法（关键修复：不必要就不 jump，避免“加载完成跳回去”）
-  void _restoreScrollPosition() {
-    if (_savedScrollPosition > 0 && _scrollController.hasClients) {
-      _isRestoringScroll = true;
-      debugPrint('🔄 [Scroll] 恢复滚动位置: $_savedScrollPosition');
+  // ✅ [滚动优化] 增强的滚动位置恢复（多重保护 + 多次尝试）
+  void _restoreScrollPositionEnhanced() {
+    if (_savedScrollPosition <= 0 || !_scrollController.hasClients) {
+      _scrollPositionRestored = true;
+      return;
+    }
 
-      // 延迟到下一帧，确保布局完成
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) {
-          _isRestoringScroll = false;
-          return;
-        }
-        try {
-          final maxScroll = _scrollController.position.maxScrollExtent;
-          final targetPosition = _savedScrollPosition.clamp(0.0, maxScroll);
+    _isRestoringScroll = true;
+    _scrollPositionRestored = false;
+    _restoreAttempts = 0;
 
-          final current = _scrollController.position.pixels;
-          if ((current - targetPosition).abs() < 1.0) return; // ✅ 关键：同位置不跳
+    debugPrint('🔄 [Scroll] 开始恢复滚动位置: ${_savedScrollPosition.toStringAsFixed(1)}');
 
-          _scrollController.jumpTo(targetPosition);
-          debugPrint('✅ [Scroll] 滚动位置已恢复: $targetPosition (max: $maxScroll)');
-        } catch (e) {
-          debugPrint('❌ [Scroll] 恢复滚动位置失败: $e');
-        } finally {
-          _isRestoringScroll = false;
-        }
+    // ✅ 第一次尝试：立即恢复（postFrameCallback）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _attemptRestoreScroll(delay: 0);
+    });
+
+    // ✅ 第二次尝试：100ms 后（确保布局稳定）
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!_scrollPositionRestored && _restoreAttempts < _maxRestoreAttempts) {
+        _attemptRestoreScroll(delay: 1);
+      }
+    });
+
+    // ✅ 第三次尝试：300ms 后（图片加载可能影响布局）
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!_scrollPositionRestored && _restoreAttempts < _maxRestoreAttempts) {
+        _attemptRestoreScroll(delay: 2);
+      }
+    });
+  }
+
+  void _attemptRestoreScroll({required int delay}) {
+    if (!mounted || !_scrollController.hasClients || _scrollPositionRestored) {
+      return;
+    }
+
+    _restoreAttempts++;
+
+    try {
+      final position = _scrollController.position;
+      final maxScroll = position.maxScrollExtent;
+      final currentScroll = position.pixels;
+      final targetPosition = _savedScrollPosition.clamp(0.0, maxScroll);
+
+      // ✅ 关键优化：只在位置真正不同时才跳转（避免微小差异导致的闪烁）
+      final diff = (currentScroll - targetPosition).abs();
+      if (diff < 2.0) {
+        debugPrint('✅ [Scroll] 位置已正确 (diff: ${diff.toStringAsFixed(1)}px) - 尝试 $_restoreAttempts/$_maxRestoreAttempts');
+        _scrollPositionRestored = true;
+        _isRestoringScroll = false;
+        return;
+      }
+
+      // ✅ 检查布局是否稳定（maxScrollExtent 应该大于 0）
+      if (maxScroll <= 0) {
+        debugPrint('⚠️ [Scroll] 布局未稳定 (maxScroll=$maxScroll) - 尝试 $_restoreAttempts/$_maxRestoreAttempts');
+        return;
+      }
+
+      _scrollController.jumpTo(targetPosition);
+      debugPrint('✅ [Scroll] 位置已恢复: ${targetPosition.toStringAsFixed(1)} (max: ${maxScroll.toStringAsFixed(1)}, diff: ${diff.toStringAsFixed(1)}px) - 尝试 $_restoreAttempts');
+
+      _scrollPositionRestored = true;
+
+      // ✅ 延迟清除恢复标志，避免用户快速滚动时被打断
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _isRestoringScroll = false;
       });
+    } catch (e) {
+      debugPrint('❌ [Scroll] 恢复失败 (尝试 $_restoreAttempts): $e');
+      if (_restoreAttempts >= _maxRestoreAttempts) {
+        _isRestoringScroll = false;
+        _scrollPositionRestored = true;
+      }
     }
   }
 
-  // ✅ [P1优化] 新增：后台刷新方法
   Future<void> _refreshInBackground(String? city) async {
     try {
       final rows = await _fetchTrendingMixed(
@@ -372,9 +416,10 @@ class _HomePageState extends State<HomePage>
         bypassCache: true,
       );
       if (mounted) {
-        // ✅ [滚动修复] 后台刷新时也保存滚动位置
+        // ✅ [滚动优化] 后台刷新时也保存滚动位置
         if (_scrollController.hasClients) {
           _savedScrollPosition = _scrollController.position.pixels;
+          debugPrint('💾 [Scroll] 后台刷新前保存位置: ${_savedScrollPosition.toStringAsFixed(1)}');
         }
 
         setState(() {
@@ -384,8 +429,8 @@ class _HomePageState extends State<HomePage>
         });
         debugPrint('✅ [Cache] 后台刷新完成 (${rows.length}条)');
 
-        // ✅ [滚动修复] 恢复滚动位置
-        _restoreScrollPosition();
+        // ✅ [滚动优化] 恢复滚动位置
+        _restoreScrollPositionEnhanced();
       }
     } catch (e) {
       debugPrint('❌ [Cache] 后台刷新失败: $e');
@@ -467,14 +512,14 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // ✅ [滚动修复] AutomaticKeepAliveClientMixin 需要调用
+    super.build(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
           ListView(
-            key: const PageStorageKey<String>('home_page_list'), // ✅ 额外加固：Flutter 自带的滚动位置保持
+            key: const PageStorageKey<String>('home_page_list'),
             controller: _scrollController,
             padding: EdgeInsets.zero,
             children: [
@@ -837,7 +882,6 @@ class _HomePageState extends State<HomePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Trending 标题
         Padding(
           key: _trendingKey,
           padding: EdgeInsets.fromLTRB(
@@ -866,7 +910,6 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // 2. Featured Ads 标题
         Padding(
           padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
           child: Row(
@@ -909,7 +952,6 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // 3. Popular Items 标题
         Padding(
           padding: EdgeInsets.fromLTRB(
             16.w,
@@ -927,7 +969,6 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // 4. 图片网格区域
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
           child: _loadingTrending ? _buildTrendingLoading() : _buildTrendingGrid(),
@@ -936,7 +977,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [滚动修复] 修改骨架屏，使用与实际内容相同的 childAspectRatio
   Widget _buildTrendingLoading() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
@@ -948,11 +988,11 @@ class _HomePageState extends State<HomePage>
         padding: EdgeInsets.zero,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.66, // ✅ 修改：统一使用 0.66，与实际内容一致
+          childAspectRatio: 0.66,
           crossAxisSpacing: 8.w,
           mainAxisSpacing: 8.h,
         ),
-        itemCount: 6, // ✅ 保持 6 个，避免骨架屏过长
+        itemCount: 6,
         itemBuilder: (_, __) => Container(
           decoration: BoxDecoration(
             color: Colors.white,
