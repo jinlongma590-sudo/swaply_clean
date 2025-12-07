@@ -3,16 +3,19 @@
 // ✅ [DONE] 与 Sell / Notifications / Saved 一致的 iOS 顶部距离（statusBar + 44）
 // ✅ [UPDATED] 商品图片展示尺寸与主页保持一致（childAspectRatio: 0.66）
 // ✅ [P0性能优化] 分页提前加载（80%位置触发，而非200px）
+// ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage + memCache
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/listing_api.dart';
 import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/widgets/pinned_ad_card.dart';
 import 'package:swaply/router/safe_navigator.dart';
+
 class CategoryProductsPage extends StatefulWidget {
   final String categoryId;
   final String categoryName;
@@ -497,9 +500,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
-  // ✅ [MODIFIED] 已经替换为 verification_page.dart 的 iOS 布局标准
-  // (来自你的 "参考实现")
-  // 分类页 - 头部（与 verification_page 一致）
   PreferredSizeWidget _buildCompactAppBar() {
     final double statusBar = MediaQuery.of(context).padding.top;
     final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
@@ -535,13 +535,12 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
       );
     }
 
-    // ✅ [MODIFIED] iOS：自定义头部（认证页标准 44pt Row 布局）
-    const double kNavBarHeight = 44.0; // 标准导航条高度
-    const double kButtonSize = 32.0; // 标准按钮尺寸
-    const double kSidePadding = 16.0; // 标准左右内边距
-    const double kButtonSpacing = 12.0; // 标准间距
+    // iOS：自定义头部（认证页标准 44pt Row 布局）
+    const double kNavBarHeight = 44.0;
+    const double kButtonSize = 32.0;
+    const double kSidePadding = 16.0;
+    const double kButtonSpacing = 12.0;
 
-    // 1. 构建 32x32 返回按钮
     final Widget iosBackButton = SizedBox(
       width: kButtonSize,
       height: kButtonSize,
@@ -550,16 +549,15 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10), // 保持原圆角
+            borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
           child: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: Colors.white), // 保持原图标
+              size: 18, color: Colors.white),
         ),
       ),
     );
 
-    // 2. 构建 32x32 搜索按钮
     final Widget iosSearchButton = SizedBox(
       width: kButtonSize,
       height: kButtonSize,
@@ -570,7 +568,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10), // 保持原圆角
+            borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
           child: Icon(Icons.search, size: 20.sp, color: Colors.white),
@@ -578,15 +576,13 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
       ),
     );
 
-    // 3. 构建居中标题
     final Widget iosTitle = Expanded(
       child: Text(
         widget.categoryName,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center, // 保证居中
+        textAlign: TextAlign.center,
         style: TextStyle(
-          // 保持原字体
           color: Colors.white,
           fontWeight: FontWeight.w600,
           fontSize: 16.sp,
@@ -594,24 +590,23 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
       ),
     );
 
-    // 4. 组装
     return PreferredSize(
-      preferredSize: Size.fromHeight(statusBar + kNavBarHeight), // ✅ 44pt + statusBar
+      preferredSize: Size.fromHeight(statusBar + kNavBarHeight),
       child: Container(
-        color: const Color(0xFF1877F2), // ✅ 保持原 Facebook 蓝色
-        padding: EdgeInsets.only(top: statusBar), // 让出状态栏
+        color: const Color(0xFF1877F2),
+        padding: EdgeInsets.only(top: statusBar),
         child: SizedBox(
-          height: kNavBarHeight, // 44pt
+          height: kNavBarHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: kSidePadding), // 16
+            padding: const EdgeInsets.symmetric(horizontal: kSidePadding),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center, // 垂直居中
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                iosBackButton, // 32x32
-                const SizedBox(width: kButtonSpacing), // 12
-                iosTitle, // Expanded
-                const SizedBox(width: kButtonSpacing), // 12
-                iosSearchButton, // 32x32
+                iosBackButton,
+                const SizedBox(width: kButtonSpacing),
+                iosTitle,
+                const SizedBox(width: kButtonSpacing),
+                iosSearchButton,
               ],
             ),
           ),
@@ -623,7 +618,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
   Widget _buildCompactFilterBar() {
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h), // 更紧凑
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       child: Row(
         children: [
           Expanded(
@@ -795,13 +790,12 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                 ),
               ),
 
-            // ✅ [UPDATED] 常规广告网格 - 使用与主页一致的 childAspectRatio: 0.66
             SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: 12.w),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.66, // ✅ 与主页保持一致（原来是 0.9）
+                  childAspectRatio: 0.66,
                   crossAxisSpacing: 8.w,
                   mainAxisSpacing: 8.h,
                 ),
@@ -827,7 +821,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 特色标题
         Padding(
           padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 6.h),
           child: Row(
@@ -870,10 +863,8 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
           ),
         ),
 
-        // 特色广告网格
         if (_loadingPinned) _buildPinnedAdsLoading() else _buildPinnedAdsGrid(),
 
-        // 分隔线
         if (_pinnedAds.isNotEmpty) ...[
           SizedBox(height: 12.h),
           Container(
@@ -894,7 +885,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
-  // ✅ [UPDATED] Featured Ads 网格 - 使用与主页一致的 childAspectRatio: 0.66
   Widget _buildPinnedAdsGrid() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -903,7 +893,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         shrinkWrap: true,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.66, // ✅ 与主页保持一致（原来是 0.9）
+          childAspectRatio: 0.66,
           crossAxisSpacing: 8.w,
           mainAxisSpacing: 8.h,
         ),
@@ -929,7 +919,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
-  // ✅ [UPDATED] Loading skeleton - 使用与主页一致的 childAspectRatio: 0.66
   Widget _buildPinnedAdsLoading() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -938,7 +927,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         shrinkWrap: true,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.66, // ✅ 与主页保持一致（原来是 0.9）
+          childAspectRatio: 0.66,
           crossAxisSpacing: 8.w,
           mainAxisSpacing: 8.h,
         ),
@@ -1013,7 +1002,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
-  // ✅ [UPDATED] 普通商品卡片 - 保持与主页一致的样式
   Widget _buildProductCard(Map<String, dynamic> p) {
     return GestureDetector(
       onTap: () => _openDetail(p),
@@ -1088,6 +1076,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
+  // ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage
   Widget _buildThumb(Map<String, dynamic> p) {
     final imgs = p['images'];
     String? src;
@@ -1099,31 +1088,30 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
 
     if (src == null || src.isEmpty) return _buildImagePlaceholder();
 
-    // Jiji风格的自动图片显示 - 保持宽高比但填充容器
     Widget imageWidget;
 
     if (src.startsWith('http')) {
-      imageWidget = Image.network(
-        src,
-        fit: BoxFit.cover, // 像Jiji一样：覆盖容器同时保持宽高比
+      // ✅ 修复：使用 CachedNetworkImage 替代 Image.network
+      imageWidget = CachedNetworkImage(
+        imageUrl: src,
+        fit: BoxFit.cover,
         alignment: Alignment.center,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            color: Colors.grey[200],
-            child: Center(
+        memCacheWidth: 600,   // ✅ 性能优化：限制内存缓存大小
+        memCacheHeight: 600,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[200],
+          child: Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: _primaryBlue,
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
-                    : null,
               ),
             ),
-          );
-        },
-        errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+          ),
+        ),
+        errorWidget: (context, url, error) => _buildImagePlaceholder(),
       );
     } else if (src.startsWith('/') || src.startsWith('file:')) {
       imageWidget = Image.file(
@@ -1193,13 +1181,12 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     );
   }
 
-  // ✅ [UPDATED] Skeleton loading - 使用与主页一致的 childAspectRatio: 0.66
   Widget _buildSkeleton() {
     return GridView.builder(
       padding: EdgeInsets.all(12.w),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.66, // ✅ 与主页保持一致（原来是 0.9）
+        childAspectRatio: 0.66,
         crossAxisSpacing: 8.w,
         mainAxisSpacing: 8.h,
       ),

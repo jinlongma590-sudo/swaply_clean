@@ -1,13 +1,17 @@
 // lib/pages/search_results_page.dart
-import 'package:flutter/foundation.dart'; // ✅ 仅为平台判断与 kIsWeb
+// ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage + memCache
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/services/listing_service.dart';
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/router/safe_navigator.dart';
+
 class SearchResultsPage extends StatefulWidget {
-  final String keyword; // 由首页传入
-  final String? location; // 可选：城市筛选（'All Zimbabwe' 表示不过滤）
+  final String keyword;
+  final String? location;
 
   const SearchResultsPage({
     super.key,
@@ -87,7 +91,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         ? list
         : list.where((r) {
       final c = (r['city'] ?? '').toString();
-      // 允许 city 为空（全津巴布韦生效）或精确匹配
       return c.isEmpty || c == city;
     });
 
@@ -154,7 +157,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      // ✅ [MODIFIED] 替换 AppBar 为 _buildStandardAppBar 方法
       appBar: _buildStandardAppBar(context, title),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -220,8 +222,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                       children: [
                         // 顶部图：强制铺满
                         AspectRatio(
-                          aspectRatio:
-                          1.0, // 方形展示，视觉更稳定
+                          aspectRatio: 1.0,
                           child: ClipRRect(
                             borderRadius:
                             const BorderRadius.vertical(
@@ -297,14 +298,12 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     );
   }
 
-  // ✅ [MODIFIED] 替换为标准 44pt Row 布局（移除魔法数）
   PreferredSizeWidget _buildStandardAppBar(
       BuildContext context, String title) {
     final double statusBar = MediaQuery.of(context).padding.top;
     final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-    const Color kBgColor = Color(0xFF2196F3); // 保持本页原有蓝色
+    const Color kBgColor = Color(0xFF2196F3);
 
-    // Android/其它：保持原 AppBar
     if (!isIOS) {
       return AppBar(
         backgroundColor: kBgColor,
@@ -318,11 +317,10 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       );
     }
 
-    // iOS：标准 44pt 导航条（无任何魔法数）
     return PreferredSize(
       preferredSize: Size.fromHeight(statusBar + 44),
       child: Container(
-        color: kBgColor,                    // 颜色不变
+        color: kBgColor,
         padding: EdgeInsets.only(top: statusBar),
         child: SizedBox(
           height: 44,
@@ -331,7 +329,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 左侧返回（32×32）
                 SizedBox(
                   width: 32, height: 32,
                   child: GestureDetector(
@@ -342,20 +339,19 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.arrow_back, // 此页面的返回图标
+                      child: const Icon(Icons.arrow_back,
                           size: 18, color: Colors.white),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
 
-                // 标题 —— 与左右按钮垂直居中对齐
                 Expanded(
                   child: Text(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,   // 保持居中
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -364,7 +360,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                   ),
                 ),
 
-                // 右侧占位（保证标题绝对居中；将来有按钮可替换）
                 const SizedBox(width: 12),
                 const SizedBox(width: 32, height: 32),
               ],
@@ -375,18 +370,32 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     );
   }
 
-
-  /// 铺满容器（网络/本地都可），失败时灰底占位
+  // ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage
   Widget _thumb(Map<String, dynamic> p) {
-    // ... (此方法及以下所有方法保持不变)
     final imgs = p['images'];
     if (imgs is List && imgs.isNotEmpty) {
       final first = imgs.first.toString();
       if (first.startsWith('http')) {
-        return Image.network(
-          first,
+        // ✅ 修复：使用 CachedNetworkImage 替代 Image.network
+        return CachedNetworkImage(
+          imageUrl: first,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _imgPlaceholder(),
+          memCacheWidth: 600,   // ✅ 性能优化：限制内存缓存大小
+          memCacheHeight: 600,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[200],
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: const Color(0xFF2196F3),
+                ),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => _imgPlaceholder(),
         );
       } else {
         return Image.asset(
@@ -405,7 +414,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     child: const Icon(Icons.image, size: 50, color: Colors.grey),
   );
 
-  /// 左上角 PINNED 徽标（与你首页风格一致的橙色）
   Widget _pinnedRibbon() {
     return Positioned(
       left: 8,

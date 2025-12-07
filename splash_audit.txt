@@ -1,0 +1,33 @@
+﻿== FlutterNativeSplash.remove ==
+
+Path                                                     LineNumber Line                                               
+----                                                     ---------- ----                                               
+D:\Apps\swaply_clean\lib\main.dart                              479   // ✅ [P0 修复] 删除此处的 FlutterNativeSplash.remove()  
+D:\Apps\swaply_clean\lib\auth\welcome_screen.dart                41     // ✅ [P0 修复] 删除此处的 FlutterNativeSplash.remove()
+D:\Apps\swaply_clean\lib\core\app.dart                           64       FlutterNativeSplash.remove();                
+D:\Apps\swaply_clean\lib\pages\main_navigation_page.dart         73         FlutterNativeSplash.remove();              
+
+
+
+
+== Native Splash removed ==
+
+Path                                                     LineNumber Line                                                      
+----                                                     ---------- ----                                                      
+D:\Apps\swaply_clean\lib\pages\main_navigation_page.dart         75           debugPrint('[MainNavigationPage] Native Splas...
+
+
+
+
+== remove/hide/dismiss splash wrappers ==
+
+Path                                                     LineNumber Line                                                      
+----                                                     ---------- ----                                                      
+D:\Apps\swaply_clean\lib\main.dart                              479   // ✅ [P0 修复] 删除此处的 FlutterNativeSplash.remove()         
+D:\Apps\swaply_clean\lib\auth\welcome_screen.dart                41     // ✅ [P0 修复] 删除此处的 FlutterNativeSplash.remove()       
+D:\Apps\swaply_clean\lib\core\app.dart                           64       FlutterNativeSplash.remove();                       
+D:\Apps\swaply_clean\lib\pages\main_navigation_page.dart         73         FlutterNativeSplash.remove();                     
+D:\Apps\swaply_clean\lib\pages\main_navigation_page.dart         75           debugPrint('[MainNavigationPage] Native Splas...
+
+
+

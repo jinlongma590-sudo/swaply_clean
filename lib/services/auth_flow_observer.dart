@@ -4,6 +4,7 @@
 // ✅ [业务状态尊重] 在导航前检查当前路由，不破坏业务页面
 // ✅ [深链协调] 与 DeepLinkService 完美配合，避免导航冲突
 // ✅ [用户体验] 保护用户主动导航，避免强制跳转
+// ✅ [未登录深链修复] 未登录用户也可通过深链浏览商品详情
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -247,6 +248,7 @@ class AuthFlowObserver {
       // ============================================================
       // CASE: initialSession（冷启动）
       // ✅ [骨架屏修复] 优化导航逻辑，避免不必要的页面重建
+      // ✅ [未登录深链修复] 未登录用户也可通过深链浏览商品
       // ============================================================
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
@@ -254,6 +256,10 @@ class AuthFlowObserver {
           final hasSession = Supabase.instance.client.auth.currentSession != null;
 
           if (hasSession) {
+            // ============================================================
+            // 已登录流程
+            // ============================================================
+
             // ✅ 步骤 1：预热 Profile 和订阅通知
             final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
@@ -319,7 +325,8 @@ class AuthFlowObserver {
 
           } else {
             // ============================================================
-            // 无会话流程：等待 OAuth 或跳转 welcome
+            // 未登录流程：等待 OAuth 或跳转 welcome
+            // ✅ [未登录深链修复] 支持未登录用户通过深链浏览商品
             // ============================================================
             Uri? initialLink;
             try {
@@ -380,6 +387,72 @@ class AuthFlowObserver {
                     'delegating to signedIn event');
               }
             } else {
+              // ============================================================
+              // ✅ [未登录深链修复] 检查是否有业务深链
+              // 如果有，检查当前路由是否已经在业务页面
+              // 如果已在业务页面，不要强制跳转到 /welcome
+              // ============================================================
+
+              // 检查 initialLink 是否是业务深链（非 OAuth、非空）
+              final hasBusinessDeepLink = initialLink != null &&
+                  !isOAuthReturn &&
+                  initialLink.toString().isNotEmpty;
+
+              if (hasBusinessDeepLink) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] 🔗 Detected business deep link: $initialLink');
+                  debugPrint('[AuthFlowObserver] Checking if DeepLinkService has handled navigation...');
+                }
+
+                // 检查当前路由状态
+                final currentRoute = _getCurrentRoute();
+
+                // 如果已经在业务页面（由 DeepLinkService 导航），不要跳转到 /welcome
+                if (currentRoute != null &&
+                    currentRoute != '/' &&
+                    currentRoute != '/welcome') {
+                  if (kDebugMode) {
+                    debugPrint('[AuthFlowObserver] ✅ Already on business page: $currentRoute');
+                    debugPrint('[AuthFlowObserver] ✅ Skipping /welcome navigation (respecting business deep link)');
+                    debugPrint('[AuthFlowObserver] 📌 User can browse product without login');
+                  }
+
+                  // 标记为已完成导航
+                  _everNavigated = true;
+                  _initialNavigationDone = true;
+
+                  // ✅ 关键：不执行 /welcome 导航，保持在业务页面
+                  return;
+                }
+
+                // 如果还在初始路由，可能 DeepLinkService 还没完成导航
+                // 等待一小段时间再检查
+                if (currentRoute == '/' || currentRoute == null) {
+                  if (kDebugMode) {
+                    debugPrint('[AuthFlowObserver] ⏳ Still on initial route, waiting for DeepLinkService...');
+                  }
+
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  final updatedRoute = _getCurrentRoute();
+
+                  if (updatedRoute != null &&
+                      updatedRoute != '/' &&
+                      updatedRoute != '/welcome') {
+                    if (kDebugMode) {
+                      debugPrint('[AuthFlowObserver] ✅ Now on business page: $updatedRoute');
+                      debugPrint('[AuthFlowObserver] ✅ Skipping /welcome navigation');
+                    }
+
+                    _everNavigated = true;
+                    _initialNavigationDone = true;
+                    return;
+                  }
+                }
+              }
+
+              // ============================================================
+              // 正常流程：无业务深链，或深链处理失败，跳转到 welcome
+              // ============================================================
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] No session after wait (${spins * 300}ms), '
                     'going to welcome');

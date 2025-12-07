@@ -31,7 +31,7 @@ import 'package:swaply/widgets/verified_avatar.dart';
 import 'package:swaply/utils/share_utils.dart';
 import 'package:swaply/services/email_verification_service.dart';
 import 'package:swaply/router/root_nav.dart';
-
+import 'package:cached_network_image/cached_network_image.dart';
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
   final Map<String, dynamic>? productData;

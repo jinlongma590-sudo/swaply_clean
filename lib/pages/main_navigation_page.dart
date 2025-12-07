@@ -25,7 +25,6 @@ import 'package:swaply/pages/sell_page.dart';
 import 'package:swaply/pages/profile_page.dart';
 
 import 'package:swaply/services/welcome_dialog_service.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/services/auth_flow_observer.dart';
 import 'package:swaply/services/notification_service.dart'; // ✅ [修复] 导入 NotificationService
@@ -66,20 +65,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   void initState() {
     super.initState();
 
-    // ✅ [OAuth闪屏修复] 简化Native Splash逻辑
-    // 统一在首帧后移除，不再区分OAuth状态
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        FlutterNativeSplash.remove();
-        if (kDebugMode) {
-          debugPrint('[MainNavigationPage] Native Splash removed');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[MainNavigationPage] Failed to remove splash: $e');
-        }
-      }
-    });
+    // ✅ 注意：Native Splash 的 remove 已统一挪到 SwaplyApp（lib/core/app.dart）
+    // 页面层不再触碰 splash，避免 deep link / notification 冷启动时序竞争
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _welcomeChecked) return;
@@ -258,7 +245,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
               ),
               child: TextButton(
                 onPressed: () {
-                  navReplaceAll('/welcome'); // ✅ 符合架构：使用 navReplaceAll
+                  Navigator.of(context).pop();
+                  navPush('/login');
                 },
                 child: Text(
                   l10n.login,
@@ -471,6 +459,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       ),
     );
   }
+
 
   Widget _buildCompactNavItem({
     required IconData icon,

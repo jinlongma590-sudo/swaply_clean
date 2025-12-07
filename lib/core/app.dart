@@ -45,6 +45,29 @@ class _SwaplyAppState extends State<SwaplyApp> {
   // 确保 DeepLinkService.bootstrap() 全局只运行一次
   bool _dlBooted = false;
 
+  /// ✅ 统一启动屏一致性：等 “初始导航稳定” 再移除 Native Splash
+  /// - 桌面点 App：AuthFlowObserver 很快完成 initial navigation
+  /// - 网页/通知拉起：DeepLinkService 先处理初始链接，再由 AuthFlowObserver 做最终仲裁
+  /// 这样不会出现 “Splash 掀开 → 露出一帧 MainNavigation → 再跳转” 的不一致观感
+  Future<void> _waitUntilInitialNavigationOrTimeout() async {
+    // 这个超时只是兜底，避免极端情况下 splash 卡死
+    const timeout = Duration(seconds: 3);
+    final start = DateTime.now();
+
+    while (mounted) {
+      if (AuthFlowObserver.hasCompletedInitialNavigation) {
+        return;
+      }
+      if (DateTime.now().difference(start) >= timeout) {
+        if (kDebugMode) {
+          debugPrint('[App] ⏱️ Wait initial navigation timeout, removing splash anyway');
+        }
+        return;
+      }
+      await Future.delayed(const Duration(milliseconds: 16));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,10 +81,6 @@ class _SwaplyAppState extends State<SwaplyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _dlBooted) return;
       _dlBooted = true;
-
-      // ✅ 统一在这里移除 Splash（确保首帧已渲染）
-      // 这是全局唯一的 Splash 移除点，避免 iOS 冷启动黑屏
-      FlutterNativeSplash.remove();
 
       // ✅ [方案 2 - 关键修复] 先初始化深链服务
       // bootstrap() 现在会真正等待初始链接处理完成
@@ -86,6 +105,20 @@ class _SwaplyAppState extends State<SwaplyApp> {
       }
 
       AuthFlowObserver.I.start();
+
+      // ✅ 统一在这里移除 Splash（等初始导航稳定后再移除）
+      // 这是全局唯一的 Splash 移除点，保证桌面启动 / 网页拉起 / 通知拉起观感一致
+      await _waitUntilInitialNavigationOrTimeout();
+      try {
+        FlutterNativeSplash.remove();
+        if (kDebugMode) {
+          debugPrint('[App] ✅ Native Splash removed (after initial navigation ready)');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[App] ⚠️ Failed to remove splash: $e');
+        }
+      }
 
       setState(() {
         _booted = true;
