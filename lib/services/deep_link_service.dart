@@ -85,6 +85,77 @@ class DeepLinkService {
     }
   }
 
+  /// ✅ [公共接口] 处理本地通知点击
+  /// 用于 main.dart 中的本地通知点击处理
+  /// 这个方法会启动 Guard 保护，确保不被 AuthFlowObserver 覆盖
+  void handle(String link) {
+    if (link.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('[DeepLink] ⚠️ Empty link, ignoring');
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('');
+      debugPrint('╔════════════════════════════════════════════════════════════╗');
+      debugPrint('║   [DeepLink] 📱 Handle Local Notification Click           ║');
+      debugPrint('╚════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      debugPrint('🔗 Link: $link');
+    }
+
+    try {
+      final uri = Uri.parse(link);
+
+      if (kDebugMode) {
+        debugPrint('🔍 Parsed URI:');
+        debugPrint('   Scheme: ${uri.scheme}');
+        debugPrint('   Host: ${uri.host}');
+        debugPrint('   Path: ${uri.path}');
+        debugPrint('   Query: ${uri.queryParameters}');
+      }
+
+      // ✅ [关键] 检测是否是热启动
+      // 如果 _bootstrapped = true，说明 App 已经完成初始化，这是热启动
+      final isHotStart = _bootstrapped;
+
+      if (kDebugMode) {
+        debugPrint('🔥 Hot Start: $isHotStart (bootstrapped: $_bootstrapped)');
+      }
+
+      // ✅ 设置热启动标志
+      _isHotStart = isHotStart;
+
+      // ✅ 使用 postFrameCallback 确保在渲染后处理
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (kDebugMode) {
+          debugPrint('📍 Post-frame: Processing link...');
+        }
+
+        // ✅ 调用内部处理方法
+        _handle(uri, isFromNotification: true);
+
+        // ✅ 立即刷新队列
+        flushQueue();
+
+        if (kDebugMode) {
+          debugPrint('✅ Link queued for processing');
+          debugPrint('════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
+      });
+
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to parse link: $e');
+        debugPrint('Stack trace: $st');
+        debugPrint('════════════════════════════════════════════════════════════');
+        debugPrint('');
+      }
+    }
+  }
+
   /// 解析 URL fragment（形如 #a=1&b=2）为 Map
   Map<String, String> _parseFragmentParams(String fragment) {
     final m = <String, String>{};
@@ -245,7 +316,13 @@ class DeepLinkService {
   }
 
   /// ✅ [通知处理] 处理通知点击（增强调试版）
+  /// ✅ [热启动修复] 正确检测和设置热启动状态
   void _handleNotification(RemoteMessage message, {required String source}) {
+    // ✅ [热启动修复] 根据 source 检测是否是热启动
+    // 'initial' = 冷启动（App 被通知启动）
+    // 'opened' = 热启动（App 在后台，点击通知恢复）
+    final isNotificationHotStart = source == 'opened';
+
     if (kDebugMode) {
       debugPrint('');
       debugPrint('╔════════════════════════════════════════════════════════════╗');
@@ -253,6 +330,7 @@ class DeepLinkService {
       debugPrint('╚════════════════════════════════════════════════════════════╝');
       debugPrint('');
       debugPrint('📍 Source: $source');
+      debugPrint('🔥 Hot Start: $isNotificationHotStart');
       debugPrint('📋 Message ID: ${message.messageId}');
       debugPrint('🕒 Sent time: ${message.sentTime}');
       debugPrint('');
@@ -382,15 +460,17 @@ class DeepLinkService {
 
     if (kDebugMode) {
       debugPrint('🚀 App is ready, processing immediately...');
+      debugPrint('🔥 Hot Start: $isNotificationHotStart');
       debugPrint('════════════════════════════════════════════════════════════');
       debugPrint('');
     }
 
-    _processNotificationLink(link);
+    _processNotificationLink(link, isHotStart: isNotificationHotStart);
   }
 
   /// ✅ [通知处理] 处理通知链接
-  void _processNotificationLink(String link) {
+  /// ✅ [热启动修复] 传递热启动状态
+  void _processNotificationLink(String link, {bool isHotStart = false}) {
     try {
       final uri = Uri.parse(link);
 
@@ -401,6 +481,7 @@ class DeepLinkService {
         debugPrint('╚════════════════════════════════════════════════════════════╝');
         debugPrint('');
         debugPrint('📝 Raw link: $link');
+        debugPrint('🔥 Hot Start: $isHotStart');
         debugPrint('🔍 Parsed URI:');
         debugPrint('   Scheme: ${uri.scheme}');
         debugPrint('   Host: ${uri.host}');
@@ -410,9 +491,13 @@ class DeepLinkService {
         debugPrint('');
       }
 
+      // ✅ [热启动修复] 设置全局热启动标志
+      _isHotStart = isHotStart;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (kDebugMode) {
           debugPrint('📍 Post-frame callback: Handling deep link...');
+          debugPrint('🔥 _isHotStart set to: $_isHotStart');
         }
         _handle(uri, isFromNotification: true);
         flushQueue();
@@ -457,9 +542,12 @@ class DeepLinkService {
 
     if (kDebugMode) {
       debugPrint('🔗 Processing queued link: $link');
+      debugPrint('❄️  Queue flushing: Treating as cold start (isHotStart=false)');
     }
 
-    _processNotificationLink(link);
+    // ✅ [热启动修复] 队列中的通知视为冷启动
+    // 原因：通知被加入队列说明 App 刚启动，_appReady 还是 false
+    _processNotificationLink(link, isHotStart: false);
 
     if (_notificationQueue.isNotEmpty) {
       if (kDebugMode) {
@@ -477,19 +565,6 @@ class DeepLinkService {
         debugPrint('════════════════════════════════════════════════════════════');
         debugPrint('');
       }
-    }
-  }
-
-  /// 对外统一入口
-  void handle(String? payload) {
-    if (payload == null || payload.trim().isEmpty) return;
-    try {
-      final uri = Uri.parse(payload.trim());
-      if (kDebugMode) debugPrint('[DeepLink] 📱 handle(payload) -> $uri');
-      _handle(uri);
-      flushQueue();
-    } catch (e) {
-      if (kDebugMode) debugPrint('[DeepLink] ❌ handle(payload) parse error: $e');
     }
   }
 
