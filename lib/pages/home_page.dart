@@ -4,6 +4,7 @@
 // ✅ [性能优化] 缓存 + 骨架屏 + 图片优化
 // ✅ [用户体验] 滚动位置不会因为数据加载而重置
 // ✅ [UI修复] 分类文字自动缩放，防止长文本被遮挡
+// ✅ [下拉刷新] 支持下拉刷新商品列表
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -511,16 +512,6 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  // ✅ [下拉刷新] 刷新处理函数
-  Future<void> _onRefresh() async {
-    debugPrint('🔄 [Refresh] 用户下拉刷新');
-
-    // 清空缓存强制重新加载
-    await _loadTrending(bypassCache: true, showLoading: false);
-
-    debugPrint('✅ [Refresh] 刷新完成');
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -529,16 +520,17 @@ class _HomePageState extends State<HomePage>
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
-          // ✅ [下拉刷新] 用 RefreshIndicator 包裹 ListView
+          // ✅ [下拉刷新] 添加 RefreshIndicator
           RefreshIndicator(
-            onRefresh: _onRefresh,
+            onRefresh: () async {
+              // 下拉刷新时强制重新加载数据（绕过缓存）
+              await _loadTrending(bypassCache: true, showLoading: false);
+            },
             color: _primaryBlue,
             backgroundColor: Colors.white,
-            displacement: 60.0, // 下拉触发距离
             child: ListView(
               key: const PageStorageKey<String>('home_page_list'),
               controller: _scrollController,
-              physics: const ClampingScrollPhysics(), // ✅ 禁用iOS回弹效果
               padding: EdgeInsets.zero,
               children: [
                 _buildCompactHeader(),
@@ -861,13 +853,13 @@ class _HomePageState extends State<HomePage>
                             ),
                             const SizedBox(height: gap),
 
-                            // ✅ [UI修复] 只修改这部分：使用 FittedBox 自动缩放文字
+                            // ✅ [UI修复] 使用 FittedBox 自动缩放文字
                             ConstrainedBox(
                               constraints: BoxConstraints(maxHeight: labelMax),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 2.w),
                                 child: FittedBox(
-                                  fit: BoxFit.scaleDown,  // ✅ 核心修复：自动缩小以适应
+                                  fit: BoxFit.scaleDown,
                                   alignment: Alignment.center,
                                   child: Text(
                                     cat['label']!,
