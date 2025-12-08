@@ -1,8 +1,9 @@
 ﻿// lib/services/auth_service.dart
 // 登录/注册/OAuth 统一：回调 URI、最小权限、防重复确认；profile 创建与欢迎弹窗交给 ProfileService
-// 2.1 前端不再直接写 profiles 的“验证相关”字段（email_verified / is_verified / verification_type 由 DB 负责）
+// 2.1 前端不再直接写 profiles 的"验证相关"字段（email_verified / is_verified / verification_type 由 DB 负责）
 // 2.2 onEmailCodeVerified 仅本地会话刷新，不写 DB
 // 2.3 UI/模型以 auth 为准；profiles 做基础资料（见 verification_utils.dart）
+// ✅ [推送通知修复] 登录/注册成功后自动保存 FCM Token
 
 import 'dart:async';
 
@@ -13,6 +14,7 @@ import 'package:swaply/config/auth_config.dart';
 import 'package:swaply/services/profile_service.dart'; // 统一创建 profile / 欢迎弹窗
 import 'package:swaply/services/oauth_entry.dart';     // OAuthEntry 封装
 import 'package:swaply/services/auth_flow_observer.dart'; // ✅ 引入 Observer
+import 'package:swaply/services/notification_service.dart'; // ✅ [推送通知修复] FCM Token 管理
 
 // 统一移动端回调（已在 iOS Info.plist / Android Manifest 配好）
 const String _kMobileRedirect = 'cc.swaply.app://login-callback';
@@ -62,6 +64,10 @@ class AuthService {
         avatarUrl: user.userMetadata?['avatar_url'],
       );
 
+      // ✅ [推送通知修复] 登录成功后立即初始化 FCM 并保存 Token
+      // 这是业务逻辑，不涉及导航，符合架构原则
+      await NotificationService.initializeFCM();
+
       return isNew;
     } on AuthException catch (e) {
       throw Exception('Login failed: ${e.message}');
@@ -99,6 +105,9 @@ class AuthService {
         avatarUrl: user.userMetadata?['avatar_url'],
       );
 
+      // ✅ [推送通知修复] 注册成功后立即初始化 FCM 并保存 Token
+      await NotificationService.initializeFCM();
+
       return true;
     } on AuthException catch (e) {
       throw Exception('Registration failed: ${e.message}');
@@ -133,6 +142,9 @@ class AuthService {
         avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
+      // ✅ [推送通知修复] Google 登录成功后保存 Token
+      await NotificationService.initializeFCM();
+
       return isNew;
     } catch (e) {
       throw Exception('Google login failed: $e');
@@ -144,7 +156,7 @@ class AuthService {
       await OAuthEntry.signIn(
         OAuthProvider.facebook,
         scopes: 'public_profile,email',
-        // ✅ 仅 Web 传 popup；移动端不传，避免“双弹”
+        // ✅ 仅 Web 传 popup；移动端不传，避免"双弹"
         queryParams: kIsWeb ? const {'display': 'popup'} : null,
       );
 
@@ -164,6 +176,9 @@ class AuthService {
         fullName: user.userMetadata?['name'] ?? user.userMetadata?['full_name'],
         avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
+
+      // ✅ [推送通知修复] Facebook 登录成功后保存 Token
+      await NotificationService.initializeFCM();
 
       return isNew;
     } on AuthException catch (e) {
@@ -366,7 +381,7 @@ class AuthService {
   static bool _signingOut = false;
 
   /// 默认 LOCAL 登出，避免误伤其它设备会话；
-  /// 仅在“设置→退出登录(所有设备)”等场景传 global=true。
+  /// 仅在"设置→退出登录(所有设备)"等场景传 global=true。
   Future<void> signOut({bool global = false, String reason = ''}) async {
     AuthFlowObserver.I.markManualSignOut(); // ✅ 标记手动登出，触发快车道
 

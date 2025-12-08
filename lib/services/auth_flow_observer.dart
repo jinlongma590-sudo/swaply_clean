@@ -4,7 +4,9 @@
 // ✅ [业务状态尊重] 在导航前检查当前路由，不破坏业务页面
 // ✅ [深链协调] 与 DeepLinkService 完美配合，避免导航冲突
 // ✅ [用户体验] 保护用户主动导航，避免强制跳转
-// ✅ [未登录深链修复] 未登录用户也可通过深链浏览商品详情
+// ✅ [方案1+2修复] 未登录深链完全修复：等待深链完成 + 检查导航状态
+// ✅ [iOS 深链修复] 增加主动等待时间，解决 iOS Universal Links 延迟问题
+// ✅ [iOS 路由检查修复] 多次检查路由状态，确保深链导航完成后不被覆盖
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -108,6 +110,37 @@ class AuthFlowObserver {
       }
       return _lastRoute;
     }
+  }
+
+  /// ✅ [iOS 路由检查修复] 多次检查当前路由，等待路由切换完成
+  Future<String?> _getCurrentRouteWithRetry({int maxRetries = 5, int delayMs = 100}) async {
+    for (int i = 0; i < maxRetries; i++) {
+      final route = _getCurrentRoute();
+
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] 🔍 Route check attempt ${i + 1}/$maxRetries: $route');
+      }
+
+      // 如果已经在业务页面，立即返回
+      if (route != null && route != '/' && route != '/welcome' && route != '/home') {
+        if (kDebugMode) {
+          debugPrint('[AuthFlowObserver] ✅ Found business route: $route');
+        }
+        return route;
+      }
+
+      // 如果不是最后一次尝试，等待后重试
+      if (i < maxRetries - 1) {
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+    }
+
+    // 最后一次检查结果
+    final finalRoute = _getCurrentRoute();
+    if (kDebugMode) {
+      debugPrint('[AuthFlowObserver] 📍 Final route after $maxRetries attempts: $finalRoute');
+    }
+    return finalRoute;
   }
 
   Future<void> _goOnce(String route) async {
@@ -247,8 +280,9 @@ class AuthFlowObserver {
 
       // ============================================================
       // CASE: initialSession（冷启动）
-      // ✅ [骨架屏修复] 优化导航逻辑，避免不必要的页面重建
-      // ✅ [未登录深链修复] 未登录用户也可通过深链浏览商品
+      // ✅ [方案1+2修复] 完美解决未登录深链问题
+      // ✅ [iOS 深链修复] 增加主动等待时间
+      // ✅ [iOS 路由检查修复] 多次重试检查路由
       // ============================================================
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
@@ -258,6 +292,7 @@ class AuthFlowObserver {
           if (hasSession) {
             // ============================================================
             // 已登录流程
+            // ✅ [iOS 深链修复] 增加等待时间 + 多次检查路由
             // ============================================================
 
             // ✅ 步骤 1：预热 Profile 和订阅通知
@@ -274,14 +309,23 @@ class AuthFlowObserver {
               }
             }
 
+            // ✅ [iOS 深链修复] 给深链服务足够时间
+            if (kDebugMode) {
+              debugPrint('[AuthFlowObserver] ⏳ 等待深链服务（iOS 已登录场景）...');
+            }
+            await Future.delayed(const Duration(milliseconds: 500));
+
             // ============================================================
-            // ✅ [关键修复] 步骤 2：智能检查当前路由状态
-            // 避免在用户已经在首页时重新导航，防止状态丢失
+            // ✅ [关键修复] 步骤 2：多次检查路由状态
+            // 等待路由切换动画完成
             // ============================================================
-            final currentRoute = _getCurrentRoute();
+            final currentRoute = await _getCurrentRouteWithRetry(
+              maxRetries: 5,
+              delayMs: 100,
+            );
 
             if (kDebugMode) {
-              debugPrint('[AuthFlowObserver] initialSession check:');
+              debugPrint('[AuthFlowObserver] initialSession check (logged in):');
               debugPrint('  currentRoute: $currentRoute');
               debugPrint('  _everNavigated: $_everNavigated');
             }
@@ -289,7 +333,8 @@ class AuthFlowObserver {
             // ✅ 情况 1：已经在业务页面（由深链接导航）
             if (currentRoute != null &&
                 currentRoute != '/' &&
-                currentRoute != '/welcome') {
+                currentRoute != '/welcome' &&
+                currentRoute != '/home') {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] 🎯 Already on business page: $currentRoute');
                 debugPrint('[AuthFlowObserver] ✅ Skipping navigation (respecting business state)');
@@ -326,7 +371,9 @@ class AuthFlowObserver {
           } else {
             // ============================================================
             // 未登录流程：等待 OAuth 或跳转 welcome
-            // ✅ [未登录深链修复] 支持未登录用户通过深链浏览商品
+            // ✅ [方案1+2修复] 完美解决未登录深链问题
+            // ✅ [iOS 深链修复] 增加主动等待时间
+            // ✅ [iOS 路由检查修复] 多次重试检查路由
             // ============================================================
             Uri? initialLink;
             try {
@@ -388,74 +435,99 @@ class AuthFlowObserver {
               }
             } else {
               // ============================================================
-              // ✅ [未登录深链修复] 检查是否有业务深链
-              // 如果有，检查当前路由是否已经在业务页面
-              // 如果已在业务页面，不要强制跳转到 /welcome
+              // ✅ [iOS 深链修复] 核心改动：增加主动等待
               // ============================================================
 
-              // 检查 initialLink 是否是业务深链（非 OAuth、非空）
-              final hasBusinessDeepLink = initialLink != null &&
-                  !isOAuthReturn &&
-                  initialLink.toString().isNotEmpty;
+              final deepLinkService = DeepLinkService.instance;
 
-              if (hasBusinessDeepLink) {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] ⏳ 等待深链服务初始化（iOS 安全等待）...');
+              }
+
+              // ✅ [关键修复] 给 DeepLinkService 更多时间完成 bootstrap
+              // iOS 的 Universal Links 传递可能延迟 100-500ms
+              await Future.delayed(const Duration(milliseconds: 600));
+
+              // ✅ [方案1] 等待深链处理完成
+              if (deepLinkService.isHandlingInitialLink) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] 🔗 Detected business deep link: $initialLink');
-                  debugPrint('[AuthFlowObserver] Checking if DeepLinkService has handled navigation...');
+                  debugPrint('[AuthFlowObserver] 🔗 检测到深链正在处理，等待完成...');
                 }
 
-                // 检查当前路由状态
-                final currentRoute = _getCurrentRoute();
-
-                // 如果已经在业务页面（由 DeepLinkService 导航），不要跳转到 /welcome
-                if (currentRoute != null &&
-                    currentRoute != '/' &&
-                    currentRoute != '/welcome') {
+                try {
+                  await deepLinkService.initialLinkFuture?.timeout(
+                    const Duration(seconds: 5),  // iOS 需要更长的超时时间
+                    onTimeout: () {
+                      if (kDebugMode) {
+                        debugPrint('[AuthFlowObserver] ⚠️ 深链超时，继续鉴权流程');
+                      }
+                    },
+                  );
+                } catch (e) {
                   if (kDebugMode) {
-                    debugPrint('[AuthFlowObserver] ✅ Already on business page: $currentRoute');
-                    debugPrint('[AuthFlowObserver] ✅ Skipping /welcome navigation (respecting business deep link)');
-                    debugPrint('[AuthFlowObserver] 📌 User can browse product without login');
-                  }
-
-                  // 标记为已完成导航
-                  _everNavigated = true;
-                  _initialNavigationDone = true;
-
-                  // ✅ 关键：不执行 /welcome 导航，保持在业务页面
-                  return;
-                }
-
-                // 如果还在初始路由，可能 DeepLinkService 还没完成导航
-                // 等待一小段时间再检查
-                if (currentRoute == '/' || currentRoute == null) {
-                  if (kDebugMode) {
-                    debugPrint('[AuthFlowObserver] ⏳ Still on initial route, waiting for DeepLinkService...');
-                  }
-
-                  await Future.delayed(const Duration(milliseconds: 200));
-                  final updatedRoute = _getCurrentRoute();
-
-                  if (updatedRoute != null &&
-                      updatedRoute != '/' &&
-                      updatedRoute != '/welcome') {
-                    if (kDebugMode) {
-                      debugPrint('[AuthFlowObserver] ✅ Now on business page: $updatedRoute');
-                      debugPrint('[AuthFlowObserver] ✅ Skipping /welcome navigation');
-                    }
-
-                    _everNavigated = true;
-                    _initialNavigationDone = true;
-                    return;
+                    debugPrint('[AuthFlowObserver] ❌ 等待深链错误: $e');
                   }
                 }
               }
 
+              // ✅ [关键修复] 额外等待路由切换完成
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] ⏳ 等待路由切换完成...');
+              }
+              await Future.delayed(const Duration(milliseconds: 400));
+
+              // ✅ [方案2] 多次检查是否已通过深链导航
+              final currentRoute = await _getCurrentRouteWithRetry(
+                maxRetries: 5,
+                delayMs: 100,
+              );
+
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] initialSession check (not logged in):');
+                debugPrint('  hasNavigatedViaDeepLink: ${deepLinkService.hasNavigatedViaDeepLink}');
+                debugPrint('  currentRoute: $currentRoute');
+              }
+
+              // ✅ 检查1：深链服务标志
+              if (deepLinkService.hasNavigatedViaDeepLink) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] 🔗 深链服务已标记导航完成');
+                }
+
+                if (currentRoute != null &&
+                    currentRoute != '/' &&
+                    currentRoute != '/welcome') {
+                  if (kDebugMode) {
+                    debugPrint('[AuthFlowObserver] ✅ 保留深链目标页面: $currentRoute');
+                    debugPrint('[AuthFlowObserver] 📌 用户可在未登录状态浏览商品');
+                  }
+
+                  _everNavigated = true;
+                  _initialNavigationDone = true;
+                  return;
+                }
+              }
+
+              // ✅ 检查2：路由状态（最后防线）
+              if (currentRoute != null &&
+                  currentRoute != '/' &&
+                  currentRoute != '/welcome') {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] 🎯 发现已在业务页面: $currentRoute');
+                  debugPrint('[AuthFlowObserver] ✅ 保留业务页面（最后防线）');
+                }
+
+                _everNavigated = true;
+                _initialNavigationDone = true;
+                return;
+              }
+
               // ============================================================
-              // 正常流程：无业务深链，或深链处理失败，跳转到 welcome
+              // 正常流程：无深链导航，跳转到 welcome
               // ============================================================
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] No session after wait (${spins * 300}ms), '
-                    'going to welcome');
+                debugPrint('[AuthFlowObserver] No deep link navigation detected');
+                debugPrint('[AuthFlowObserver] 🚀 Going to welcome page');
               }
 
               try {
@@ -465,11 +537,6 @@ class AuthFlowObserver {
                   debugPrint('[AuthFlowObserver] OAuthEntry.finish() error: $e');
                 }
               }
-
-              if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] No session, delaying /welcome by 150ms to avoid deep link race');
-              }
-              await Future.delayed(const Duration(milliseconds: 150));
 
               await _goOnce('/welcome');
             }

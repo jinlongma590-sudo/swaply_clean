@@ -68,7 +68,7 @@ void notificationTapBackground(NotificationResponse details) {
   final payload = details.payload;
   if (payload != null && payload.isNotEmpty) {
     debugPrint('🔔 [LocalNotification-Background] 点击本地通知: $payload');
-    // ✅ 通过 DeepLinkService 处理跳转
+    // ✅ 通过 DeepLinkService 处理跳转（符合架构：深链是唯一导航源）
     DeepLinkService.instance.handle(payload);
   }
 }
@@ -259,6 +259,7 @@ Future<void> _initLocalNotifications() async {
   await _localNotifications.initialize(
     initSettings,
     // ✅ 本地通知点击回调（前台显示的通知）
+    // 符合架构：通过 DeepLinkService 统一处理，不直接导航
     onDidReceiveNotificationResponse: (details) {
       final payload = details.payload;
       if (payload != null && payload.isNotEmpty) {
@@ -301,7 +302,9 @@ Future<void> _initLocalNotifications() async {
 
 // ================================================
 // ✅ [推送通知] 初始化 Firebase Messaging
-// 🔧 修复：删除重复的通知点击监听，由 DeepLinkService 统一处理
+// ⚠️ 注意：这里只负责权限请求和监听器设置
+// 📌 FCM Token 的保存由 AuthService 在登录成功后调用 NotificationService.initializeFCM() 完成
+// 📌 符合架构：main.dart 负责初始化，业务逻辑由具体 Service 负责
 // ================================================
 Future<void> _initFirebaseMessaging() async {
   try {
@@ -321,12 +324,13 @@ Future<void> _initFirebaseMessaging() async {
       // 权限请求失败不应该阻塞启动，继续执行
     }
 
-    // 2. 获取 FCM Token（添加错误处理）
+    // 2. 获取 FCM Token（仅用于日志，不保存）
+    // ⚠️ Token 的保存由登录流程负责（AuthService → NotificationService.initializeFCM）
     try {
       final token = await messaging.getToken();
       if (token != null) {
-        debugPrint('🔔 FCM Token: $token');
-        // ✅ Token 会在 NotificationService.subscribeUser 时保存到 Supabase
+        debugPrint('🔔 FCM Token 已获取（长度: ${token.length}）');
+        debugPrint('📌 Token 将在登录成功后自动保存到数据库');
       } else {
         debugPrint('⚠️ FCM Token 为空（可能在模拟器上运行）');
       }
@@ -339,10 +343,11 @@ Future<void> _initFirebaseMessaging() async {
     }
 
     // 3. 监听 Token 刷新
+    // ⚠️ Token 刷新后的保存由 NotificationService 处理
     messaging.onTokenRefresh.listen(
           (newToken) {
-        debugPrint('🔔 FCM Token 刷新: $newToken');
-        // ✅ Token 刷新会在 NotificationService 中处理
+        debugPrint('🔔 FCM Token 已刷新');
+        debugPrint('📌 新 Token 将由 NotificationService 自动保存');
       },
       onError: (error) {
         debugPrint('⚠️ Token 刷新失败: $error');
@@ -357,7 +362,7 @@ Future<void> _initFirebaseMessaging() async {
 
     // ✅ [架构修复] 通知点击处理已由 DeepLinkService._setupNotificationHandlers() 统一负责
     // 删除了 onMessageOpenedApp 和 getInitialMessage 的重复监听
-    // 避免与 DeepLinkService 冲突
+    // 避免与 DeepLinkService 冲突，符合"三导航源原则"
 
     debugPrint('✅ Firebase Messaging 初始化成功');
   } catch (e, stackTrace) {
@@ -420,6 +425,7 @@ Future<void> main() async {
   }
 
   // ✅ [推送通知] 初始化 FCM（添加了完整错误处理）
+  // ⚠️ 注意：这里只负责权限和监听器，Token 保存由登录流程负责
   await _initFirebaseMessaging();
 
   // ================================================
@@ -487,6 +493,7 @@ Future<void> main() async {
   // ================================================
   // ✅ 启动应用
   // 符合架构：所有导航由 AuthFlowObserver 和 DeepLinkService 控制
+  // 📌 登录后的 FCM Token 保存由 AuthService 调用 NotificationService.initializeFCM() 完成
   // ================================================
   runApp(const SwaplyApp());
 }

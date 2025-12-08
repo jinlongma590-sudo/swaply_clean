@@ -79,11 +79,11 @@
             <!-- Custom task IDs (prefix with bundle id) -->
             <string>cc.swaply.app.bgrefresh</string>
             <string>cc.swaply.app.bgprocessing</string>
-
-            <!-- If plugins require fixed identifiers, add them too (examples commented) -->
-            <!-- <string>com.transistorsoft.fetch</string> -->
-            <!-- <string>be.tramckrijte.workmanager.background</string> -->
         </array>
+
+        <!-- ✅ [关键修复] Flutter 深链支持（iOS 必需配置） -->
+        <key>FlutterDeepLinkingEnabled</key>
+        <true/>
 
         <key>CFBundleURLTypes</key>
         <array>

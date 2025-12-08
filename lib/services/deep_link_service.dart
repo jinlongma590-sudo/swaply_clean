@@ -5,13 +5,16 @@
 // ✅ [Completer 机制] 确保 bootstrap() 等待初始链接处理完成
 // ✅ [字段统一] 统一通知数据字段查找顺序
 // ✅ [自动就绪] 自动调用 markAppReady() 处理队列中的通知
+// ✅ [方案1+2] 提供 Completer 和状态查询接口，供 AuthFlowObserver 协调
+// ✅ [iOS 修复] 增加等待时间，解决 iOS Universal Links 延迟传递问题
 // 完全符合 Swaply 架构：
 //    1. 只负责业务跳转，不碰鉴权流程
 //    2. reset-password 使用 navReplaceAll（全局跳转）
 //    3. 其他业务页面使用 navPush（业务跳转）
-//    4. 提供协调标志，但不再依赖复杂的时序控制
+//    4. 提供协调标志和 Completer，供 AuthFlowObserver 等待
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -37,14 +40,25 @@ class DeepLinkService {
   final List<String> _notificationQueue = [];
   bool _appReady = false;
 
-  // ✅ [协调机制] 标志：是否正在处理业务深链
-  static bool _handlingBusinessDeepLink = false;
+  // ✅ [方案2] 标记是否已通过深链导航
+  bool _hasNavigatedViaDeepLink = false;
 
-  // ✅ [Completer 机制] 等待初始链接处理完成
+  // ✅ [方案1] Completer 机制：等待初始链接处理完成
   Completer<void>? _initialLinkCompleter;
 
-  // ✅ Public getter，供 AuthFlowObserver 查询
-  static bool get isHandlingBusinessDeepLink => _handlingBusinessDeepLink;
+  // ============================================================
+  // ✅ Public Getters（供 AuthFlowObserver 查询）
+  // ============================================================
+
+  /// 是否正在处理初始深链（Completer 未完成）
+  bool get isHandlingInitialLink =>
+      _initialLinkCompleter != null && !_initialLinkCompleter!.isCompleted;
+
+  /// 是否已通过深链成功导航到业务页面
+  bool get hasNavigatedViaDeepLink => _hasNavigatedViaDeepLink;
+
+  /// 获取 Completer 的 Future（供 AuthFlowObserver 等待）
+  Future<void>? get initialLinkFuture => _initialLinkCompleter?.future;
 
   /// ✅ [通知处理] 在 MainNavigationPage 首帧稳定后调用
   void markAppReady() {
@@ -108,7 +122,7 @@ class DeepLinkService {
       if (initial != null && !_initialHandled) {
         _initialHandled = true;
 
-        // ✅ 创建 Completer，等待处理完成
+        // ✅ [方案1] 创建 Completer，等待处理完成
         _initialLinkCompleter = Completer<void>();
 
         if (kDebugMode) {
@@ -118,12 +132,22 @@ class DeepLinkService {
 
         await SchedulerBinding.instance.endOfFrame;
 
-        // ✅ 减少延迟到 50ms（比 AuthFlowObserver 更早执行）
-        await Future.delayed(const Duration(milliseconds: 50));
+        // ✅ [iOS 关键修复] iOS 需要更长的等待时间
+        // Universal Links 从系统传递到 Flutter 需要 100-500ms
+        // Android 的 App Links 传递更快（20-50ms）
+        final waitTime = Platform.isIOS
+            ? const Duration(milliseconds: 300)  // iOS: 300ms
+            : const Duration(milliseconds: 50);   // Android: 50ms
+
+        if (kDebugMode) {
+          debugPrint('[DeepLink] ⏳ Waiting ${waitTime.inMilliseconds}ms for deep link propagation (${Platform.isIOS ? "iOS" : "Android"})...');
+        }
+
+        await Future.delayed(waitTime);
 
         _handle(initial, isInitial: true);
 
-        // ✅ 等待初始链接处理完成（带超时保护）
+        // ✅ [方案1] 等待初始链接处理完成（带超时保护）
         try {
           await _initialLinkCompleter!.future.timeout(
             const Duration(seconds: 5),
@@ -148,6 +172,11 @@ class DeepLinkService {
         if (kDebugMode) {
           debugPrint('[DeepLink] ℹ️ No initial link');
         }
+
+        // ✅ 即使没有初始链接，也要创建并完成 Completer
+        // 这样 AuthFlowObserver 不会无限等待
+        _initialLinkCompleter = Completer<void>();
+        _initialLinkCompleter!.complete();
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[DeepLink] ❌ initial link error: $e');
@@ -604,16 +633,16 @@ class DeepLinkService {
           debugPrint('');
         }
 
+        // Reset password 不算业务深链导航
         _completeInitialLink();
         return;
       }
 
       // ============================================================
-      // ✅ [协调机制] 开始处理业务深链
+      // ✅ [方案2] 标记：开始处理业务深链
       // ============================================================
-      _handlingBusinessDeepLink = true;
       if (kDebugMode) {
-        debugPrint('🚦 Business deep link handling: STARTED (flag=true)');
+        debugPrint('🚦 Business deep link handling: STARTED');
         debugPrint('');
       }
 
@@ -645,6 +674,9 @@ class DeepLinkService {
           });
 
           await Future.delayed(const Duration(milliseconds: 150));
+
+          // ✅ [方案2] 标记已成功导航
+          _hasNavigatedViaDeepLink = true;
 
           if (kDebugMode) {
             debugPrint('✅ Navigation completed');
@@ -679,6 +711,9 @@ class DeepLinkService {
 
             await Future.delayed(const Duration(milliseconds: 150));
 
+            // ✅ [方案2] 标记已成功导航
+            _hasNavigatedViaDeepLink = true;
+
             if (kDebugMode) {
               debugPrint('✅ Navigation completed');
               debugPrint('════════════════════════════════════════════════════════════');
@@ -712,6 +747,9 @@ class DeepLinkService {
 
           await Future.delayed(const Duration(milliseconds: 150));
 
+          // ✅ [方案2] 标记已成功导航
+          _hasNavigatedViaDeepLink = true;
+
           if (kDebugMode) {
             debugPrint('✅ Navigation completed');
             debugPrint('════════════════════════════════════════════════════════════');
@@ -734,23 +772,19 @@ class DeepLinkService {
       }
       _completeInitialLink();
 
-    } finally {
-      // ============================================================
-      // ✅ [架构简化] 立即清除标志
-      // AuthFlowObserver 现在检查路由状态，不依赖标志时序
-      // ============================================================
-      _handlingBusinessDeepLink = false;
-
+    } catch (e) {
       if (kDebugMode) {
-        debugPrint('🚦 Business deep link handling: COMPLETED (flag=false)');
+        debugPrint('❌ Route error: $e');
       }
-
-      // ✅ 保险：确保 Completer 完成
       _completeInitialLink();
+    } finally {
+      if (kDebugMode) {
+        debugPrint('🚦 Business deep link handling: COMPLETED');
+      }
     }
   }
 
-  /// ✅ 完成初始链接处理
+  /// ✅ [方案1] 完成初始链接处理
   void _completeInitialLink() {
     if (_initialLinkCompleter != null && !_initialLinkCompleter!.isCompleted) {
       _initialLinkCompleter!.complete();
