@@ -511,6 +511,16 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  // ✅ [下拉刷新] 刷新处理函数
+  Future<void> _onRefresh() async {
+    debugPrint('🔄 [Refresh] 用户下拉刷新');
+
+    // 清空缓存强制重新加载
+    await _loadTrending(bypassCache: true, showLoading: false);
+
+    debugPrint('✅ [Refresh] 刷新完成');
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -519,15 +529,23 @@ class _HomePageState extends State<HomePage>
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
-          ListView(
-            key: const PageStorageKey<String>('home_page_list'),
-            controller: _scrollController,
-            padding: EdgeInsets.zero,
-            children: [
-              _buildCompactHeader(),
-              _buildTrendingSection(),
-              SizedBox(height: 80.h),
-            ],
+          // ✅ [下拉刷新] 用 RefreshIndicator 包裹 ListView
+          RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: _primaryBlue,
+            backgroundColor: Colors.white,
+            displacement: 60.0, // 下拉触发距离
+            child: ListView(
+              key: const PageStorageKey<String>('home_page_list'),
+              controller: _scrollController,
+              physics: const ClampingScrollPhysics(), // ✅ 禁用iOS回弹效果
+              padding: EdgeInsets.zero,
+              children: [
+                _buildCompactHeader(),
+                _buildTrendingSection(),
+                SizedBox(height: 80.h),
+              ],
+            ),
           ),
           Positioned(
             right: 16.w,
