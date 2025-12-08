@@ -1,4 +1,5 @@
 ﻿// lib/pages/saved_page.dart
+// ✅ [热启动修复] 添加深链 Guard 保护
 import 'dart:async'; // Timer, StreamSubscription
 import 'package:flutter/foundation.dart'; // ✅ 修改：引入完整 foundation 以使用 defaultTargetPlatform
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:swaply/core/l10n/app_localizations.dart';
 // === 项目内服务 ===
 import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/favorites_update_service.dart';
+import '../services/deep_link_service.dart'; // ✅ [热启动修复] 添加导入
 
 // === 全局常量 ===
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
@@ -57,10 +59,30 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // ✅ [热启动修复] 修改后的方法
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !widget.isGuest) {
-      _loadFavorites();
+      // ✅ 检查是否有深链正在处理
+      // 如果有深链，稍微延迟加载，避免干扰深链导航
+      if (DeepLinkService.isHandlingDeepLink) {
+        if (kDebugMode) {
+          debugPrint('[SavedPage] 🔒 深链处理中，延迟加载收藏');
+        }
+
+        // 延迟 500ms 后再加载
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && !DeepLinkService.isHandlingDeepLink) {
+            if (kDebugMode) {
+              debugPrint('[SavedPage] ✅ 深链完成，现在加载收藏');
+            }
+            _loadFavorites();
+          }
+        });
+      } else {
+        // 没有深链，正常加载
+        _loadFavorites();
+      }
     }
   }
 

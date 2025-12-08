@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- ✅ 背景：统一使用 colors.xml 的 splash_blue（#319AFF） -->
     <item android:drawable="@color/splash_blue" />
-
-    <!-- ✅ 居中显示 Android 12 Splash 图标（你已有 android12splash.png 多密度） -->
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@drawable/android12splash" />
+            android:src="@drawable/splash_logo" />
     </item>
-
 </layer-list>

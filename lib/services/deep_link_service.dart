@@ -1,4 +1,6 @@
 ﻿// lib/services/deep_link_service.dart
+// ✅ [热启动修复] 增加 Guard 保护，防止生命周期监听器干扰
+// ✅ [iOS 优化] 区分冷热启动，热启动使用更长等待时间
 // ✅ [架构简化] 移除复杂的标志延迟清除逻辑
 // ✅ [协调优化] AuthFlowObserver 现在检查路由状态，不依赖标志时序
 // ✅ [通知处理] 支持 Firebase 通知点击跳转 + 增强调试日志
@@ -23,6 +25,7 @@ import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:swaply/router/root_nav.dart';
+import 'deep_link_navigation_guard.dart';
 
 class DeepLinkService {
   DeepLinkService._();
@@ -46,8 +49,14 @@ class DeepLinkService {
   // ✅ [方案1] Completer 机制：等待初始链接处理完成
   Completer<void>? _initialLinkCompleter;
 
+  // ✅ [热启动修复] Guard 实例
+  final _guard = DeepLinkNavigationGuard();
+
+  // ✅ [热启动检测] 标记当前是否是热启动场景
+  bool _isHotStart = false;
+
   // ============================================================
-  // ✅ Public Getters（供 AuthFlowObserver 查询）
+  // ✅ Public Getters（供 AuthFlowObserver 和生命周期监听器查询）
   // ============================================================
 
   /// 是否正在处理初始深链（Completer 未完成）
@@ -59,6 +68,13 @@ class DeepLinkService {
 
   /// 获取 Completer 的 Future（供 AuthFlowObserver 等待）
   Future<void>? get initialLinkFuture => _initialLinkCompleter?.future;
+
+  /// ✅ [热启动修复] 静态方法：供生命周期监听器检查
+  static bool get isHandlingDeepLink =>
+      DeepLinkNavigationGuard().isHandlingDeepLink;
+
+  static bool get wasRecentDeepLink =>
+      DeepLinkNavigationGuard().wasRecentDeepLink;
 
   /// ✅ [通知处理] 在 MainNavigationPage 首帧稳定后调用
   void markAppReady() {
@@ -110,6 +126,10 @@ class DeepLinkService {
     // 前台深链
     _appLinks.uriLinkStream.listen((uri) {
       if (kDebugMode) debugPrint('[DeepLink] 🔗 uriLinkStream -> $uri');
+
+      // ✅ [热启动检测] 前台链接标记为热启动
+      _isHotStart = true;
+
       _handle(uri);
     }, onError: (err) {
       if (kDebugMode) debugPrint('[DeepLink] ❌ stream error: $err');
@@ -121,6 +141,9 @@ class DeepLinkService {
 
       if (initial != null && !_initialHandled) {
         _initialHandled = true;
+
+        // ✅ 冷启动标记
+        _isHotStart = false;
 
         // ✅ [方案1] 创建 Completer，等待处理完成
         _initialLinkCompleter = Completer<void>();
@@ -524,6 +547,7 @@ class DeepLinkService {
       debugPrint('   Host: $host');
       debugPrint('   Path: $path');
       debugPrint('   Query: ${uri.queryParameters}');
+      debugPrint('   Hot Start: $_isHotStart');
       debugPrint('');
     }
 
@@ -639,7 +663,7 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // ✅ [方案2] 标记：开始处理业务深链
+      // ✅ [热启动修复] 开始处理业务深链，启动 Guard 保护
       // ============================================================
       if (kDebugMode) {
         debugPrint('🚦 Business deep link handling: STARTED');
@@ -659,10 +683,36 @@ class DeepLinkService {
             uri.queryParameters['listing'];
 
         if (offerId != null && offerId.isNotEmpty) {
+          // ✅ [热启动修复] 启动 Guard 保护
+          _guard.startHandling('/offer-detail', arguments: {
+            'offer_id': offerId,
+            if (listingId != null && listingId.isNotEmpty) 'listing_id': listingId,
+          });
+
           if (kDebugMode) {
             debugPrint('💼 Matched: Offer Link');
             debugPrint('   offer_id: $offerId');
             debugPrint('   listing_id: ${listingId ?? "NULL"}');
+            debugPrint('🔒 Guard 保护已启动');
+          }
+
+          // ✅ [iOS 热启动修复] 区分冷热启动的等待时间
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)  // iOS 热启动：1500ms
+                : const Duration(milliseconds: 800);   // iOS 冷启动：800ms
+          } else {
+            waitTime = const Duration(milliseconds: 50);  // Android：50ms
+          }
+
+          if (kDebugMode) {
+            debugPrint('⏳ 等待 ${waitTime.inMilliseconds}ms (${_isHotStart ? "热启动" : "冷启动"})...');
+          }
+
+          await Future.delayed(waitTime);
+
+          if (kDebugMode) {
             debugPrint('🚀 Navigating to: /offer-detail');
             debugPrint('');
           }
@@ -673,13 +723,18 @@ class DeepLinkService {
             if (listingId != null && listingId.isNotEmpty) 'listing_id': listingId,
           });
 
-          await Future.delayed(const Duration(milliseconds: 150));
+          // ✅ 延长保护时间
+          await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1000 : 300));
 
           // ✅ [方案2] 标记已成功导航
           _hasNavigatedViaDeepLink = true;
 
+          // ✅ [热启动修复] 释放 Guard 保护
+          _guard.finishHandling();
+
           if (kDebugMode) {
             debugPrint('✅ Navigation completed');
+            debugPrint('🔓 Guard 保护已释放');
             debugPrint('════════════════════════════════════════════════════════════');
             debugPrint('');
           }
@@ -699,9 +754,32 @@ class DeepLinkService {
         if (segments.length >= 2 && segments[0] == 'l') {
           final listingId = segments[1];
           if (listingId.isNotEmpty) {
+            // ✅ [热启动修复] 启动 Guard 保护
+            _guard.startHandling('/listing', arguments: {'id': listingId});
+
             if (kDebugMode) {
               debugPrint('🔗 Matched: Short Link (/l/...)');
               debugPrint('   listing_id: $listingId');
+              debugPrint('🔒 Guard 保护已启动');
+            }
+
+            // ✅ [iOS 热启动修复] 区分冷热启动的等待时间
+            Duration waitTime;
+            if (Platform.isIOS) {
+              waitTime = _isHotStart
+                  ? const Duration(milliseconds: 1500)  // iOS 热启动：1500ms
+                  : const Duration(milliseconds: 800);   // iOS 冷启动：800ms
+            } else {
+              waitTime = const Duration(milliseconds: 50);  // Android：50ms
+            }
+
+            if (kDebugMode) {
+              debugPrint('⏳ 等待 ${waitTime.inMilliseconds}ms (${_isHotStart ? "热启动" : "冷启动"})...');
+            }
+
+            await Future.delayed(waitTime);
+
+            if (kDebugMode) {
               debugPrint('🚀 Navigating to: /listing');
               debugPrint('');
             }
@@ -709,13 +787,18 @@ class DeepLinkService {
             await SchedulerBinding.instance.endOfFrame;
             navPush('/listing', arguments: {'id': listingId});
 
-            await Future.delayed(const Duration(milliseconds: 150));
+            // ✅ 延长保护时间
+            await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1000 : 300));
 
             // ✅ [方案2] 标记已成功导航
             _hasNavigatedViaDeepLink = true;
 
+            // ✅ [热启动修复] 释放 Guard 保护
+            _guard.finishHandling();
+
             if (kDebugMode) {
               debugPrint('✅ Navigation completed');
+              debugPrint('🔓 Guard 保护已释放');
               debugPrint('════════════════════════════════════════════════════════════');
               debugPrint('');
             }
@@ -735,9 +818,32 @@ class DeepLinkService {
       if (isListingByHost || isListingByPath) {
         final listingId = uri.queryParameters['listing_id'] ?? uri.queryParameters['id'];
         if (listingId != null && listingId.isNotEmpty) {
+          // ✅ [热启动修复] 启动 Guard 保护
+          _guard.startHandling('/listing', arguments: {'id': listingId});
+
           if (kDebugMode) {
             debugPrint('📦 Matched: Listing Link');
             debugPrint('   listing_id: $listingId');
+            debugPrint('🔒 Guard 保护已启动');
+          }
+
+          // ✅ [iOS 热启动修复] 区分冷热启动的等待时间
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)  // iOS 热启动：1500ms
+                : const Duration(milliseconds: 800);   // iOS 冷启动：800ms
+          } else {
+            waitTime = const Duration(milliseconds: 50);  // Android：50ms
+          }
+
+          if (kDebugMode) {
+            debugPrint('⏳ 等待 ${waitTime.inMilliseconds}ms (${_isHotStart ? "热启动" : "冷启动"})...');
+          }
+
+          await Future.delayed(waitTime);
+
+          if (kDebugMode) {
             debugPrint('🚀 Navigating to: /listing');
             debugPrint('');
           }
@@ -745,13 +851,18 @@ class DeepLinkService {
           await SchedulerBinding.instance.endOfFrame;
           navPush('/listing', arguments: {'id': listingId});
 
-          await Future.delayed(const Duration(milliseconds: 150));
+          // ✅ 延长保护时间
+          await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1000 : 300));
 
           // ✅ [方案2] 标记已成功导航
           _hasNavigatedViaDeepLink = true;
 
+          // ✅ [热启动修复] 释放 Guard 保护
+          _guard.finishHandling();
+
           if (kDebugMode) {
             debugPrint('✅ Navigation completed');
+            debugPrint('🔓 Guard 保护已释放');
             debugPrint('════════════════════════════════════════════════════════════');
             debugPrint('');
           }
@@ -776,6 +887,7 @@ class DeepLinkService {
       if (kDebugMode) {
         debugPrint('❌ Route error: $e');
       }
+      _guard.finishHandling();  // 确保异常时也释放 Guard
       _completeInitialLink();
     } finally {
       if (kDebugMode) {

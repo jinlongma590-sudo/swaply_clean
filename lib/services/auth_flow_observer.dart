@@ -1,4 +1,5 @@
 // lib/services/auth_flow_observer.dart
+// ✅ [热启动修复] 添加 Guard 检查，防止覆盖深链导航
 // ✅ [骨架屏修复] 优化 initialSession 逻辑，避免不必要的页面重建
 // ✅ [架构修复] AuthFlowObserver 成为真正的"智能协调器"
 // ✅ [业务状态尊重] 在导航前检查当前路由，不破坏业务页面
@@ -22,6 +23,7 @@ import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/services/profile_service.dart';
 import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/services/deep_link_service.dart';
+import 'package:swaply/services/deep_link_navigation_guard.dart';
 import 'package:swaply/auth/register_screen.dart';
 
 final _appStart = DateTime.now();
@@ -43,6 +45,9 @@ class AuthFlowObserver {
   String? _lastUserId;
   bool _bootWatchdogArmed = false;
   bool _everNavigated = false;
+
+  // ✅ [热启动修复] Guard 实例
+  final _guard = DeepLinkNavigationGuard();
 
   static bool _initialNavigationDone = false;
   static bool get hasCompletedInitialNavigation => _initialNavigationDone;
@@ -155,6 +160,15 @@ class AuthFlowObserver {
     if (_throttle(route)) {
       if (kDebugMode) {
         debugPrint('[AuthFlowObserver] ⏭️ Throttled navigation to $route (too soon)');
+      }
+      return;
+    }
+
+    // ✅ [热启动修复] 检查 Guard 保护
+    if (_guard.shouldBlockNavigation(route)) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] 🚫 Navigation to $route blocked by Guard');
+        debugPrint('[AuthFlowObserver] 📊 Guard status: ${_guard.getStatus()}');
       }
       return;
     }
@@ -284,6 +298,7 @@ class AuthFlowObserver {
       // ✅ [方案1+2修复] 完美解决未登录深链问题
       // ✅ [iOS 深链修复] 增加主动等待时间
       // ✅ [iOS 路由检查修复] 多次重试检查路由
+      // ✅ [热启动修复] 添加 Guard 检查
       // ============================================================
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
@@ -294,6 +309,7 @@ class AuthFlowObserver {
             // ============================================================
             // 已登录流程
             // ✅ [iOS 深链修复] 增加等待时间 + 多次检查路由
+            // ✅ [热启动修复] 添加 Guard 检查
             // ============================================================
 
             // ✅ 步骤 1：预热 Profile 和订阅通知
@@ -307,6 +323,19 @@ class AuthFlowObserver {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] subscribeUser (initialSession) error: $e');
                 }
+              }
+            }
+
+            // ✅ [热启动修复] 检查 Guard 状态
+            if (_guard.isHandlingDeepLink) {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] 🔒 Guard 保护激活中，等待深链完成...');
+              }
+
+              // 等待 Guard 保护结束（最多 3 秒）
+              for (int i = 0; i < 30; i++) {
+                await Future.delayed(const Duration(milliseconds: 100));
+                if (!_guard.isHandlingDeepLink) break;
               }
             }
 
@@ -329,6 +358,26 @@ class AuthFlowObserver {
               debugPrint('[AuthFlowObserver] initialSession check (logged in):');
               debugPrint('  currentRoute: $currentRoute');
               debugPrint('  _everNavigated: $_everNavigated');
+              debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
+            }
+
+            // ✅ [热启动修复] 检查 Guard 最近活动
+            if (_guard.wasRecentDeepLink) {
+              if (kDebugMode) {
+                debugPrint('[AuthFlowObserver] 🔗 检测到最近的深链活动');
+              }
+
+              if (currentRoute != null &&
+                  currentRoute != '/' &&
+                  currentRoute != '/welcome' &&
+                  currentRoute != '/home') {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] ✅ 保留深链目标页面: $currentRoute');
+                }
+                _everNavigated = true;
+                _initialNavigationDone = true;
+                return;
+              }
             }
 
             // ✅ 情况 1：已经在业务页面（由深链接导航）
@@ -375,6 +424,7 @@ class AuthFlowObserver {
             // ✅ [方案1+2修复] 完美解决未登录深链问题
             // ✅ [iOS 深链修复] 增加主动等待时间
             // ✅ [iOS 路由检查修复] 多次重试检查路由
+            // ✅ [热启动修复] 添加 Guard 检查
             // ============================================================
             Uri? initialLink;
             try {
@@ -437,9 +487,23 @@ class AuthFlowObserver {
             } else {
               // ============================================================
               // ✅ [iOS 深链修复] 核心改动：增加主动等待
+              // ✅ [热启动修复] 添加 Guard 检查
               // ============================================================
 
               final deepLinkService = DeepLinkService.instance;
+
+              // ✅ [热启动修复] 检查 Guard 状态
+              if (_guard.isHandlingDeepLink) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] 🔒 Guard 保护激活中，等待深链完成...');
+                }
+
+                // 等待 Guard 保护结束（最多 3 秒）
+                for (int i = 0; i < 30; i++) {
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  if (!_guard.isHandlingDeepLink) break;
+                }
+              }
 
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] ⏳ 等待深链服务初始化（iOS 安全等待）...');
@@ -487,6 +551,25 @@ class AuthFlowObserver {
                 debugPrint('[AuthFlowObserver] initialSession check (not logged in):');
                 debugPrint('  hasNavigatedViaDeepLink: ${deepLinkService.hasNavigatedViaDeepLink}');
                 debugPrint('  currentRoute: $currentRoute');
+                debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
+              }
+
+              // ✅ [热启动修复] 检查 Guard 最近活动
+              if (_guard.wasRecentDeepLink) {
+                if (kDebugMode) {
+                  debugPrint('[AuthFlowObserver] 🔗 Guard 检测到最近的深链活动');
+                }
+
+                if (currentRoute != null &&
+                    currentRoute != '/' &&
+                    currentRoute != '/welcome') {
+                  if (kDebugMode) {
+                    debugPrint('[AuthFlowObserver] ✅ 保留深链目标页面: $currentRoute');
+                  }
+                  _everNavigated = true;
+                  _initialNavigationDone = true;
+                  return;
+                }
               }
 
               // ✅ 检查1：深链服务标志
