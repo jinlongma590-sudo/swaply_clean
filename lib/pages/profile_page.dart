@@ -786,7 +786,8 @@ class _ProfilePageState extends State<ProfilePage>
 
                                     if (mounted) {
                                       Navigator.of(context).pop();
-                                      navReplaceAll('/welcome');
+                                      // ✅ [架构符合性修复] 删除了 navReplaceAll('/welcome') 避免重复导航
+                                      // AuthFlowObserver 会自动监听 signedOut 事件并导航到 /welcome
                                     }
                                   } catch (e) {
                                     AuthFlowObserver.I.clearManualSignOutFlag();
