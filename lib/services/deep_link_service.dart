@@ -133,10 +133,10 @@ class DeepLinkService {
         await SchedulerBinding.instance.endOfFrame;
 
         // ✅ [iOS 关键修复] iOS 需要更长的等待时间
-        // Universal Links 从系统传递到 Flutter 需要 100-500ms
+        // Universal Links 从系统传递到 Flutter 需要 200-800ms（不稳定！）
         // Android 的 App Links 传递更快（20-50ms）
         final waitTime = Platform.isIOS
-            ? const Duration(milliseconds: 300)  // iOS: 300ms
+            ? const Duration(milliseconds: 800)  // iOS: 800ms ← 修复竞态条件
             : const Duration(milliseconds: 50);   // Android: 50ms
 
         if (kDebugMode) {

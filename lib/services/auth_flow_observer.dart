@@ -9,6 +9,7 @@
 // ✅ [iOS 路由检查修复] 多次检查路由状态，确保深链导航完成后不被覆盖
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -313,7 +314,7 @@ class AuthFlowObserver {
             if (kDebugMode) {
               debugPrint('[AuthFlowObserver] ⏳ 等待深链服务（iOS 已登录场景）...');
             }
-            await Future.delayed(const Duration(milliseconds: 500));
+            await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1500 : 500));
 
             // ============================================================
             // ✅ [关键修复] 步骤 2：多次检查路由状态
@@ -446,7 +447,7 @@ class AuthFlowObserver {
 
               // ✅ [关键修复] 给 DeepLinkService 更多时间完成 bootstrap
               // iOS 的 Universal Links 传递可能延迟 100-500ms
-              await Future.delayed(const Duration(milliseconds: 600));
+              await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1200 : 600));
 
               // ✅ [方案1] 等待深链处理完成
               if (deepLinkService.isHandlingInitialLink) {
@@ -474,7 +475,7 @@ class AuthFlowObserver {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] ⏳ 等待路由切换完成...');
               }
-              await Future.delayed(const Duration(milliseconds: 400));
+              await Future.delayed(Duration(milliseconds: Platform.isIOS ? 800 : 400));
 
               // ✅ [方案2] 多次检查是否已通过深链导航
               final currentRoute = await _getCurrentRouteWithRetry(
