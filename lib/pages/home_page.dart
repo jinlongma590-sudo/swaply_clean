@@ -1,5 +1,5 @@
 // lib/pages/home_page.dart
-// ✅ [关键优化] 使用 Stack + AnimatedOpacity 实现平滑过渡，避免 Widget 树结构改变
+// ✅ [关键优化] 使用同一 Widget 树结构，通过条件渲染骨架/真实内容，避免高度突变
 // ✅ [原理] 让 Flutter 自带的 AutomaticKeepAliveClientMixin + PageStorageKey 自动管理滚动位置
 // ✅ [效果] 用户滚动到哪里就停在哪里，永远不会被重置
 
@@ -37,6 +37,7 @@ class _HomePageState extends State<HomePage>
 
   static const int _featuredAdsLimit = 10;
   static const int _popularItemsLimit = 100;
+  static const int _skeletonDefaultCount = 10; // ✅ 默认骨架项数量
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
@@ -277,7 +278,6 @@ class _HomePageState extends State<HomePage>
       );
 
       if (mounted) {
-        // ✅ 合并 setState，同时更新数据和移除骨架屏
         setState(() {
           _trendingRemote = rows;
           _loadingTrending = false;
@@ -291,9 +291,6 @@ class _HomePageState extends State<HomePage>
         if (_trendingRemote.isNotEmpty) {
           _fadeController.forward();
         }
-
-        // ✅ 不调用任何恢复滚动位置的方法
-        // ✅ 让 Flutter 的 AutomaticKeepAliveClientMixin 自动管理
       }
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
@@ -319,8 +316,6 @@ class _HomePageState extends State<HomePage>
         _cachedTrending = rows;
         _cacheTime = DateTime.now();
         debugPrint('✅ [Cache] 后台刷新完成 (${rows.length}条)');
-
-        // ✅ 不调用任何恢复滚动位置的方法
       }
     } catch (e) {
       debugPrint('❌ [Cache] 后台刷新失败: $e');
@@ -776,8 +771,6 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildTrendingSection() {
     final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
-    final hasRegular = _trendingRemote.where((r) => r['pinned'] != true).isNotEmpty;
-
     final double popularItemsTopPadding = hasPinned ? 16.h : 0.0;
 
     return Column(
@@ -870,126 +863,23 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ 关键修改：使用 Stack 叠加，通过透明度控制显示
+        // ✅ 直接渲染内容（统一处理骨架和真实内容）
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child: Stack(
-            children: [
-              // ✅ 真实内容（始终存在，通过透明度控制显示）
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: _loadingTrending ? 0.0 : 1.0,
-                child: IgnorePointer(
-                  ignoring: _loadingTrending, // 加载时禁用交互
-                  child: _buildTrendingGrid(),
-                ),
-              ),
-
-              // ✅ 骨架屏（仅在加载时显示）
-              if (_loadingTrending)
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: 1.0,
-                  child: _buildTrendingLoading(),
-                ),
-            ],
-          ),
+          child: _buildTrendingGrid(),
         ),
       ],
     );
   }
 
-  Widget _buildTrendingLoading() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      period: const Duration(milliseconds: 1500),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.66,
-          crossAxisSpacing: 8.w,
-          mainAxisSpacing: 8.h,
-        ),
-        itemCount: 6,
-        itemBuilder: (_, __) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(8.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 60.w,
-                      height: 16.h,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                    ),
-                    SizedBox(height: 6.h),
-                    Container(
-                      width: double.infinity,
-                      height: 12.h,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Container(
-                      width: 80.w,
-                      height: 12.h,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                    ),
-                    SizedBox(height: 6.h),
-                    Container(
-                      width: 50.w,
-                      height: 10.h,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  // ✅ [关键修改] 在同一个 GridView 中根据加载状态显示骨架或真实内容
   Widget _buildTrendingGrid() {
-    if (_trendingRemote.isEmpty) {
+    // ✅ 如果正在加载且没有缓存数据，生成占位数据
+    final items = _loadingTrending && _trendingRemote.isEmpty
+        ? List.generate(_skeletonDefaultCount, (i) => <String, dynamic>{'_skeleton': true})
+        : _trendingRemote;
+
+    if (items.isEmpty && !_loadingTrending) {
       return Container(
         height: 100.h,
         decoration: BoxDecoration(
@@ -1019,33 +909,38 @@ class _HomePageState extends State<HomePage>
       );
     }
 
+    // ✅ 分离 pinned 和 regular 项
+    final pinnedItems = items.where((r) => r['pinned'] == true || (r['_skeleton'] == true && items.indexOf(r) < _skeletonDefaultCount ~/ 2)).toList();
+    final regularItems = items.where((r) => r['pinned'] != true && r['_skeleton'] != true || (r['_skeleton'] == true && items.indexOf(r) >= _skeletonDefaultCount ~/ 2)).toList();
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_trendingRemote.where((r) => r['pinned'] == true).isNotEmpty) ...[
-            _buildFeaturedTrendingGrid(),
-            Container(
-              margin: EdgeInsets.symmetric(vertical: 12.h),
-              height: 1.h,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.transparent, Colors.orange[300]!, Colors.transparent],
+          if (pinnedItems.isNotEmpty) ...[
+            _buildGridSection(pinnedItems, isPinned: true),
+            if (regularItems.isNotEmpty)
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 12.h),
+                height: 1.h,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.transparent, Colors.orange[300]!, Colors.transparent],
+                  ),
                 ),
               ),
-            ),
           ],
-          if (_trendingRemote.where((r) => r['pinned'] != true).isNotEmpty) ...[
-            _buildRegularTrendingGrid(),
+          if (regularItems.isNotEmpty) ...[
+            _buildGridSection(regularItems, isPinned: false),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildFeaturedTrendingGrid() {
-    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
+  // ✅ 统一的 GridView 渲染方法
+  Widget _buildGridSection(List<Map<String, dynamic>> items, {required bool isPinned}) {
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -1056,31 +951,97 @@ class _HomePageState extends State<HomePage>
         crossAxisSpacing: 8.w,
         childAspectRatio: 0.66,
       ),
-      itemCount: pinnedItems.length,
+      itemCount: items.length,
       itemBuilder: (context, i) {
-        final r = pinnedItems[i];
-        return _buildPremiumCard(r);
+        final item = items[i];
+
+        // ✅ 如果是骨架项，显示骨架卡片
+        if (item['_skeleton'] == true || _loadingTrending) {
+          return _buildSkeletonCard(isPinned: isPinned);
+        }
+
+        // ✅ 否则显示真实内容
+        return isPinned ? _buildPremiumCard(item) : _buildRegularCard(item);
       },
     );
   }
 
-  Widget _buildRegularTrendingGrid() {
-    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 8.h,
-        crossAxisSpacing: 8.w,
-        childAspectRatio: 0.66,
+  // ✅ 骨架卡片
+  Widget _buildSkeletonCard({bool isPinned = false}) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      period: const Duration(milliseconds: 1500),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10.r),
+          border: isPinned ? Border.all(color: Colors.orange.shade300, width: 1.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 60.w,
+                    height: 16.h,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Container(
+                    width: double.infinity,
+                    height: 12.h,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Container(
+                    width: 80.w,
+                    height: 12.h,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Container(
+                    width: 50.w,
+                    height: 10.h,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      itemCount: regularItems.length,
-      itemBuilder: (context, i) {
-        final r = regularItems[i];
-        return _buildRegularCard(r);
-      },
     );
   }
 
