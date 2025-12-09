@@ -28,25 +28,26 @@
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
 		<string>Main</string>
+
+		<!-- iPhone 方向 -->
 		<key>UISupportedInterfaceOrientations</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
-		<key>UISupportedInterfaceOrientations~ipad</key>
-		<array>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationPortraitUpsideDown</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
-		</array>
+
+		<!-- 仅 iPhone，全屏运行，避免 iPad 截图要求 -->
+		<key>UIRequiresFullScreen</key>
+		<true/>
+
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<true/>
+
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photos so you can upload item pictures to your listings.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
@@ -57,9 +58,11 @@
 		<string>We use the microphone when recording videos or voice messages.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>We use your location to show nearby listings and improve search results.</string>
+
 		<!-- Push notification permission text -->
 		<key>NSUserNotificationsUsageDescription</key>
 		<string>Allow Swaply to send you notifications about offers, messages, and important updates</string>
+
 		<!-- Background modes -->
 		<key>UIBackgroundModes</key>
 		<array>
@@ -67,14 +70,15 @@
 			<string>fetch</string>
 			<string>processing</string>
 		</array>
-		<!-- ✅ BGTask identifiers required when using 'processing' -->
+
+		<!-- BGTask identifiers -->
 		<key>BGTaskSchedulerPermittedIdentifiers</key>
 		<array>
-			<!-- Custom task IDs (prefix with bundle id) -->
 			<string>cc.swaply.app.bgrefresh</string>
 			<string>cc.swaply.app.bgprocessing</string>
 		</array>
-		<!-- ✅ [关键修复] Flutter 深链支持（iOS 必需配置） -->
+
+		<!-- Flutter deep link support -->
 		<key>FlutterDeepLinkingEnabled</key>
 		<true/>
 		<key>CFBundleURLTypes</key>
@@ -104,6 +108,7 @@
 				</array>
 			</dict>
 		</array>
+
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>fbapi</string>
@@ -115,8 +120,10 @@
 			<string>whatsapp-business</string>
 			<string>tg</string>
 		</array>
+
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+
 		<key>com.apple.developer.associated-domains</key>
 		<array>
 			<string>applinks:swaply.cc</string>
