@@ -1,5 +1,5 @@
 // lib/pages/home_page.dart
-// ✅ [关键修复] 删除所有主动恢复滚动位置的代码
+// ✅ [关键优化] 使用 Stack + AnimatedOpacity 实现平滑过渡，避免 Widget 树结构改变
 // ✅ [原理] 让 Flutter 自带的 AutomaticKeepAliveClientMixin + PageStorageKey 自动管理滚动位置
 // ✅ [效果] 用户滚动到哪里就停在哪里，永远不会被重置
 
@@ -870,9 +870,30 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
+        // ✅ 关键修改：使用 Stack 叠加，通过透明度控制显示
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child: _loadingTrending ? _buildTrendingLoading() : _buildTrendingGrid(),
+          child: Stack(
+            children: [
+              // ✅ 真实内容（始终存在，通过透明度控制显示）
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _loadingTrending ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _loadingTrending, // 加载时禁用交互
+                  child: _buildTrendingGrid(),
+                ),
+              ),
+
+              // ✅ 骨架屏（仅在加载时显示）
+              if (_loadingTrending)
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: 1.0,
+                  child: _buildTrendingLoading(),
+                ),
+            ],
+          ),
         ),
       ],
     );

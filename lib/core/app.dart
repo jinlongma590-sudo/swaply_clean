@@ -1,14 +1,9 @@
 ﻿// lib/core/app.dart
 //
-// 全局唯一 App 入口（唯一 MaterialApp）
-// ● 挂 rootNavKey
-// ● 深链 DeepLinkService 单例集中 bootstrap（首帧后启动）
-// ● 登录后调用 ensureWelcomeForCurrentUser（写 pending flag）
-// ● HomePage / MainNavigationPage 只负责 UI，不负责全局逻辑
-// ● 全工程只有这一个 MaterialApp —— 根本解决黑屏 / GlobalKey 冲突
-//
-// ✅ [方案 2 修复] DeepLinkService.bootstrap() 现在会真正等待初始链接处理完成
-//    调用者无需额外等待，语义清晰，职责明确
+// ✅ [性能优化] 关键改动：
+// 1. 减少 splash 等待超时时间（3秒 → 1.5秒）
+// 2. 优化初始导航等待逻辑
+// 3. 减少不必要的延迟
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
@@ -27,8 +22,8 @@ import 'package:swaply/services/welcome_dialog_service.dart';
 import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/providers/language_provider.dart';
 import 'package:swaply/services/auth_flow_observer.dart';
-import 'package:swaply/services/oauth_entry.dart';  // ✅ [P0 修复] 新增：恢复 OAuth 状态
-import 'package:swaply/pages/main_navigation_page.dart'; // ✅ 兜底路由所需
+import 'package:swaply/services/oauth_entry.dart';
+import 'package:swaply/pages/main_navigation_page.dart';
 
 // ✅ 类名修改为 SwaplyApp (匹配 main.dart)
 class SwaplyApp extends StatefulWidget {
@@ -45,26 +40,30 @@ class _SwaplyAppState extends State<SwaplyApp> {
   // 确保 DeepLinkService.bootstrap() 全局只运行一次
   bool _dlBooted = false;
 
-  /// ✅ 统一启动屏一致性：等 “初始导航稳定” 再移除 Native Splash
-  /// - 桌面点 App：AuthFlowObserver 很快完成 initial navigation
-  /// - 网页/通知拉起：DeepLinkService 先处理初始链接，再由 AuthFlowObserver 做最终仲裁
-  /// 这样不会出现 “Splash 掀开 → 露出一帧 MainNavigation → 再跳转” 的不一致观感
+  /// ✅ [性能优化] 减少等待超时时间
+  /// 原来：3秒超时
+  /// 优化后：1.5秒超时（大部分情况下初始导航在500ms内完成）
   Future<void> _waitUntilInitialNavigationOrTimeout() async {
-    // 这个超时只是兜底，避免极端情况下 splash 卡死
-    const timeout = Duration(seconds: 3);
+    // ✅ 减少超时时间：3秒 → 1.5秒
+    const timeout = Duration(milliseconds: 1500);
     final start = DateTime.now();
+
+    // ✅ 优化轮询频率：16ms → 50ms（减少CPU占用）
+    const pollInterval = Duration(milliseconds: 50);
 
     while (mounted) {
       if (AuthFlowObserver.hasCompletedInitialNavigation) {
+        final elapsed = DateTime.now().difference(start).inMilliseconds;
+        debugPrint('✅ [App] 初始导航完成，耗时: ${elapsed}ms');
         return;
       }
       if (DateTime.now().difference(start) >= timeout) {
         if (kDebugMode) {
-          debugPrint('[App] ⏱️ Wait initial navigation timeout, removing splash anyway');
+          debugPrint('[App] ⏱️ Wait initial navigation timeout (1.5s), removing splash anyway');
         }
         return;
       }
-      await Future.delayed(const Duration(milliseconds: 16));
+      await Future.delayed(pollInterval);
     }
   }
 
@@ -82,6 +81,8 @@ class _SwaplyAppState extends State<SwaplyApp> {
       if (!mounted || _dlBooted) return;
       _dlBooted = true;
 
+      final startTime = DateTime.now();
+
       // ✅ [方案 2 - 关键修复] 先初始化深链服务
       // bootstrap() 现在会真正等待初始链接处理完成
       // 不需要额外的轮询等待，语义清晰，更可靠
@@ -90,10 +91,12 @@ class _SwaplyAppState extends State<SwaplyApp> {
           debugPrint('[App] 🚀 Bootstrapping DeepLinkService...');
         }
 
-        await DeepLinkService.instance.bootstrap();
-
-        if (kDebugMode) {
-          debugPrint('[App] ✅ DeepLinkService bootstrap completed');
+        try {
+          await DeepLinkService.instance.bootstrap();
+          final bootstrapTime = DateTime.now().difference(startTime).inMilliseconds;
+          debugPrint('[App] ✅ DeepLinkService bootstrap completed (${bootstrapTime}ms)');
+        } catch (e) {
+          debugPrint('[App] ⚠️ DeepLinkService bootstrap failed: $e');
         }
       }
 
@@ -104,29 +107,36 @@ class _SwaplyAppState extends State<SwaplyApp> {
         debugPrint('[App] 🔐 Starting AuthFlowObserver...');
       }
 
-      AuthFlowObserver.I.start();
+      try {
+        AuthFlowObserver.I.start();
+        final authTime = DateTime.now().difference(startTime).inMilliseconds;
+        debugPrint('[App] ✅ AuthFlowObserver started (${authTime}ms)');
+      } catch (e) {
+        debugPrint('[App] ⚠️ AuthFlowObserver start failed: $e');
+      }
 
-      // ✅ 统一在这里移除 Splash（等初始导航稳定后再移除）
-      // 这是全局唯一的 Splash 移除点，保证桌面启动 / 网页拉起 / 通知拉起观感一致
+      // ✅ [性能优化] 等待初始导航或超时（最多1.5秒）
       await _waitUntilInitialNavigationOrTimeout();
+
+      // ✅ 移除 Splash
       try {
         FlutterNativeSplash.remove();
-        if (kDebugMode) {
-          debugPrint('[App] ✅ Native Splash removed (after initial navigation ready)');
-        }
+        final totalTime = DateTime.now().difference(startTime).inMilliseconds;
+        debugPrint('[App] ✅ Native Splash removed (总耗时: ${totalTime}ms)');
       } catch (e) {
         if (kDebugMode) {
           debugPrint('[App] ⚠️ Failed to remove splash: $e');
         }
       }
 
-      setState(() {
-        _booted = true;
-      });
-
-      if (kDebugMode) {
-        debugPrint('[App] ✅ App initialization completed');
+      if (mounted) {
+        setState(() {
+          _booted = true;
+        });
       }
+
+      final totalBootTime = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint('[App] ✅ App initialization completed (${totalBootTime}ms)');
     });
   }
 

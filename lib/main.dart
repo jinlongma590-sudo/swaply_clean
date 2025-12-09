@@ -30,6 +30,9 @@ FlutterLocalNotificationsPlugin();
 // ✅ [关键修复] 后台 isolate 需要自己的 FlutterLocalNotificationsPlugin 实例
 FlutterLocalNotificationsPlugin? _backgroundLocalNotifications;
 
+// ✅ [性能优化] 标记初始化状态，避免重复初始化
+bool _fcmInitialized = false;
+
 // ================================================
 // ✅ [推送通知] Firebase 后台消息处理器（顶级函数）
 // 必须在 main() 之外定义，这样 App 被清理后也能接收通知
@@ -241,7 +244,7 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
   );
 }
 
-// ✅ [推送通知] 初始化本地通知
+// ✅ [性能优化] 推送通知初始化（延迟到首屏后）
 Future<void> _initLocalNotifications() async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -300,13 +303,13 @@ Future<void> _initLocalNotifications() async {
       ?.createNotificationChannel(channel);
 }
 
-// ================================================
-// ✅ [推送通知] 初始化 Firebase Messaging
-// ⚠️ 注意：这里只负责权限请求和监听器设置
-// 📌 FCM Token 的保存由 AuthService 在登录成功后调用 NotificationService.initializeFCM() 完成
-// 📌 符合架构：main.dart 负责初始化，业务逻辑由具体 Service 负责
-// ================================================
+// ✅ [性能优化] Firebase Messaging 初始化（延迟到首屏后）
 Future<void> _initFirebaseMessaging() async {
+  if (_fcmInitialized) {
+    debugPrint('⚠️ Firebase Messaging 已经初始化，跳过');
+    return;
+  }
+
   try {
     final messaging = FirebaseMessaging.instance;
 
@@ -360,10 +363,7 @@ Future<void> _initFirebaseMessaging() async {
       _showLocalNotification(message);
     });
 
-    // ✅ [架构修复] 通知点击处理已由 DeepLinkService._setupNotificationHandlers() 统一负责
-    // 删除了 onMessageOpenedApp 和 getInitialMessage 的重复监听
-    // 避免与 DeepLinkService 冲突，符合"三导航源原则"
-
+    _fcmInitialized = true;
     debugPrint('✅ Firebase Messaging 初始化成功');
   } catch (e, stackTrace) {
     // 🔧 最外层兜底：即使整个 Firebase Messaging 失败，也不能阻塞启动
@@ -374,14 +374,43 @@ Future<void> _initFirebaseMessaging() async {
   }
 }
 
+// ✅ [性能优化] 延迟初始化推送通知（首屏后执行）
+void _initPushNotificationsLazy() {
+  // 延迟1秒，确保首屏已经渲染
+  Future.delayed(const Duration(seconds: 1), () async {
+    debugPrint('🔔 [Lazy] 开始延迟初始化推送通知...');
+
+    try {
+      // 1. 初始化本地通知
+      await _initLocalNotifications();
+      debugPrint('✅ [Lazy] 本地通知初始化成功');
+    } catch (e) {
+      debugPrint('❌ [Lazy] 本地通知初始化失败: $e');
+    }
+
+    try {
+      // 2. 初始化 Firebase Messaging
+      await _initFirebaseMessaging();
+      debugPrint('✅ [Lazy] Firebase Messaging 初始化成功');
+    } catch (e) {
+      debugPrint('❌ [Lazy] Firebase Messaging 初始化失败: $e');
+    }
+  });
+}
+
 Future<void> main() async {
-  // ✅ 2. 确保绑定初始化
+  // ================================================
+  // 🚀 [性能优化] 关键改动：最小化启动时的同步操作
+  // 只保留必要的初始化，其他延迟到首屏后执行
+  // ================================================
+
+  // ✅ 1. 确保绑定初始化
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ 3. 保留启动图，等首屏就绪再移除
+  // ✅ 2. 保留启动图，等首屏就绪再移除
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  // 错误处理
+  // ✅ 3. 错误处理（轻量级）
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('[GlobalFlutterError] ${details.exceptionAsString()}');
@@ -393,20 +422,70 @@ Future<void> main() async {
   };
 
   // ================================================
-  // ✅ [推送通知] Firebase 初始化（必须在最前面）
+  // ✅ [性能优化] 并行初始化关键服务
+  // Firebase 和 Supabase 同时初始化，节省时间
   // ================================================
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint('✅ Firebase 初始化成功');
-  } catch (e) {
-    debugPrint('❌ Firebase 初始化失败: $e');
-    debugPrint('💡 App 将继续运行，但 Firebase 功能可能不可用');
-    // 不抛出异常，让 App 继续启动
-  }
+  final startTime = DateTime.now();
+  debugPrint('⏱️ [Startup] 开始初始化...');
 
-  // ✅ [推送通知] 设置后台消息处理器（必须在 runApp 之前）
+  await Future.wait([
+    // ✅ Firebase 初始化（必需）
+    Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).then((_) {
+      debugPrint('✅ Firebase 初始化成功');
+    }).catchError((e) {
+      debugPrint('❌ Firebase 初始化失败: $e');
+      debugPrint('💡 App 将继续运行，但 Firebase 功能可能不可用');
+    }),
+
+    // ✅ Supabase 初始化（必需）
+    Supabase.initialize(
+      url: 'https://rhckybselarzglkmlyqs.supabase.co',
+      anonKey:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoY2t5YnNlbGFyemdsa21seXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTM0NTgsImV4cCI6MjA3MDU4OTQ1OH0.3I0T2DidiF-q9l2tWeHOjB31QogXHDqRtEjDn0RfVbU',
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+        autoRefreshToken: true,
+      ),
+    ).then((_) {
+      debugPrint('✅ Supabase 初始化成功');
+    }).catchError((e) {
+      debugPrint('❌ Supabase 初始化失败: $e');
+    }),
+
+    // ✅ 状态栏配置（轻量级，可以并行）
+    Future(() async {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.edgeToEdge,
+        overlays: [
+          SystemUiOverlay.top,
+          SystemUiOverlay.bottom,
+        ],
+      );
+
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ));
+
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+
+      debugPrint('✅ 系统 UI 配置完成');
+    }),
+  ]);
+
+  final initDuration = DateTime.now().difference(startTime).inMilliseconds;
+  debugPrint('⏱️ [Startup] 核心初始化完成，耗时: ${initDuration}ms');
+
+  // ✅ [推送通知] 注册后台消息处理器（必须在 runApp 之前）
   try {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     debugPrint('✅ Firebase 后台消息处理器注册成功');
@@ -414,86 +493,21 @@ Future<void> main() async {
     debugPrint('⚠️ Firebase 后台消息处理器注册失败: $e');
   }
 
-  // ================================================
-  // ✅ 初始化本地通知（包含启动检测）
-  // ================================================
-  try {
-    await _initLocalNotifications();
-    debugPrint('✅ 本地通知初始化成功');
-  } catch (e) {
-    debugPrint('❌ 本地通知初始化失败: $e');
-  }
-
-  // ✅ [推送通知] 初始化 FCM（添加了完整错误处理）
-  // ⚠️ 注意：这里只负责权限和监听器，Token 保存由登录流程负责
-  await _initFirebaseMessaging();
-
-  // ================================================
-  // ✅ [Session 持久化修复] Supabase 初始化
-  // 添加 authOptions 配置，解决从外部应用返回后
-  // Session 丢失导致跳到登录页的问题
-  // 注意：persistSession 在新版本中默认启用，无需显式设置
-  // ================================================
-  await Supabase.initialize(
-    url: 'https://rhckybselarzglkmlyqs.supabase.co',
-    anonKey:
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoY2t5YnNlbGFyemdsa21seXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTM0NTgsImV4cCI6MjA3MDU4OTQ1OH0.3I0T2DidiF-q9l2tWeHOjB31QogXHDqRtEjDn0RfVbU',
-    authOptions: const FlutterAuthClientOptions(
-      authFlowType: AuthFlowType.pkce, // ✅ 使用 PKCE 流程（更安全的持久化）
-      autoRefreshToken: true, // ✅ 自动刷新 token（防止过期）
-      // persistSession 在新版本中默认启用，无需显式设置
-    ),
-  );
-
-  // ================================================
-  // ✅ 【状态栏修复】全局唯一配置
-  // 符合 Swaply 单一导航源架构
-  // 所有页面自动继承此配置
-  // ================================================
-
-  // ✅ 修复 1：显式启用状态栏和导航栏
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
-    overlays: [
-      SystemUiOverlay.top, // 显示顶部状态栏
-      SystemUiOverlay.bottom, // 显示底部导航栏
-    ],
-  );
-
-  // ✅ 修复 2：设置全局状态栏样式
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    // iOS 配置
-    statusBarBrightness: Brightness.light, // iOS：浅色状态栏（深色文字）
-
-    // Android 配置
-    statusBarIconBrightness:
-    Brightness.dark, // ✅ 修复：深色图标（黑色），在浅色背景上清晰可见
-    statusBarColor: Colors.transparent, // 透明背景（让页面颜色透出来）
-
-    // 底部导航栏配置
-    systemNavigationBarColor: Colors.black,
-    systemNavigationBarIconBrightness: Brightness.light,
-    systemNavigationBarDividerColor: Colors.transparent,
-  ));
-
-  // 设置竖屏模式
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // ✅ [P0 修复] 删除此处的 FlutterNativeSplash.remove()
-  // Splash 移除逻辑已移至 app.dart 的 postFrameCallback 中
-  // 确保首帧渲染完成后再移除，避免 iOS 冷启动黑屏
-
-  // ✅ [OAuth 修复] 在 runApp 之前恢复 OAuth 状态
-  // 确保 MainNavigationPage 第一次 build 时，OAuthEntry.inFlight 已经是正确的值
+  // ✅ [OAuth 修复] 恢复 OAuth 状态（轻量级操作）
   await OAuthEntry.restoreState();
+  debugPrint('✅ OAuth 状态恢复完成');
+
+  // ================================================
+  // ✅ [性能优化] 推送通知延迟初始化
+  // 不阻塞首屏渲染，在后台异步初始化
+  // ================================================
+  _initPushNotificationsLazy();
+
+  debugPrint('⏱️ [Startup] 总耗时: ${DateTime.now().difference(startTime).inMilliseconds}ms');
+  debugPrint('🚀 [Startup] 启动应用...');
 
   // ================================================
   // ✅ 启动应用
-  // 符合架构：所有导航由 AuthFlowObserver 和 DeepLinkService 控制
-  // 📌 登录后的 FCM Token 保存由 AuthService 调用 NotificationService.initializeFCM() 完成
   // ================================================
   runApp(const SwaplyApp());
 }
