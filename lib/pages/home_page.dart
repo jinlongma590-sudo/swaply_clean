@@ -770,8 +770,8 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildTrendingSection() {
-    final hasPinned = _trendingRemote.where((r) => r['pinned'] == true).isNotEmpty;
-    final double popularItemsTopPadding = hasPinned ? 16.h : 0.0;
+    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
+    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +805,7 @@ class _HomePageState extends State<HomePage>
         ),
 
         Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
           child: Row(
             children: [
               Container(
@@ -846,12 +846,21 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
+        if (pinnedItems.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildGridSection(pinnedItems, isPinned: true),
+            ),
+          ),
+
         Padding(
           padding: EdgeInsets.fromLTRB(
             16.w,
-            popularItemsTopPadding,
+            pinnedItems.isNotEmpty ? 16.h : 0,
             16.w,
-            0,
+            4.h,
           ),
           child: Text(
             'Popular Items',
@@ -863,7 +872,6 @@ class _HomePageState extends State<HomePage>
           ),
         ),
 
-        // ✅ 直接渲染内容（统一处理骨架和真实内容）
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w),
           child: _buildTrendingGrid(),
@@ -872,12 +880,10 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ [关键修改] 在同一个 GridView 中根据加载状态显示骨架或真实内容
   Widget _buildTrendingGrid() {
-    // ✅ 如果正在加载且没有缓存数据，生成占位数据
     final items = _loadingTrending && _trendingRemote.isEmpty
         ? List.generate(_skeletonDefaultCount, (i) => <String, dynamic>{'_skeleton': true})
-        : _trendingRemote;
+        : _trendingRemote.where((r) => r['pinned'] != true).toList();
 
     if (items.isEmpty && !_loadingTrending) {
       return Container(
@@ -909,37 +915,12 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    // ✅ 分离 pinned 和 regular 项
-    final pinnedItems = items.where((r) => r['pinned'] == true || (r['_skeleton'] == true && items.indexOf(r) < _skeletonDefaultCount ~/ 2)).toList();
-    final regularItems = items.where((r) => r['pinned'] != true && r['_skeleton'] != true || (r['_skeleton'] == true && items.indexOf(r) >= _skeletonDefaultCount ~/ 2)).toList();
-
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (pinnedItems.isNotEmpty) ...[
-            _buildGridSection(pinnedItems, isPinned: true),
-            if (regularItems.isNotEmpty)
-              Container(
-                margin: EdgeInsets.symmetric(vertical: 12.h),
-                height: 1.h,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.transparent, Colors.orange[300]!, Colors.transparent],
-                  ),
-                ),
-              ),
-          ],
-          if (regularItems.isNotEmpty) ...[
-            _buildGridSection(regularItems, isPinned: false),
-          ],
-        ],
-      ),
+      child: _buildGridSection(items, isPinned: false),
     );
   }
 
-  // ✅ 统一的 GridView 渲染方法
   Widget _buildGridSection(List<Map<String, dynamic>> items, {required bool isPinned}) {
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
@@ -955,18 +936,15 @@ class _HomePageState extends State<HomePage>
       itemBuilder: (context, i) {
         final item = items[i];
 
-        // ✅ 如果是骨架项，显示骨架卡片
         if (item['_skeleton'] == true || _loadingTrending) {
           return _buildSkeletonCard(isPinned: isPinned);
         }
 
-        // ✅ 否则显示真实内容
         return isPinned ? _buildPremiumCard(item) : _buildRegularCard(item);
       },
     );
   }
 
-  // ✅ 骨架卡片
   Widget _buildSkeletonCard({bool isPinned = false}) {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
