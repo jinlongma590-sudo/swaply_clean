@@ -1,14 +1,8 @@
 ﻿// lib/auth/register_screen.dart
+// ✅ 增强版：添加网络错误检测和友好提示
 // ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
 // ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
 // ✅ [新增] 监听 App 生命周期，从后台返回时自动清理 OAuth 状态
-// ⛔ 删除生命周期监听
-// ⛔ 删除 OAuthEntry.finish()
-// ⛔ 删除 clearGuardIfSignedIn()
-// ⛔ 统一 OAuth 入口，与 login_screen 完全一致
-// ⛔ 注册成功后的导航由 AuthFlowObserver 统一处理
-// ⛔ 保留: 邀请码绑定 + UI + 邮箱注册 + ProfileService 同步
-
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/router/root_nav.dart';
 
@@ -21,6 +15,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/config/auth_config.dart';
 import 'package:swaply/services/profile_service.dart';
 import 'dart:async';
+import 'dart:io'; // ✅ 新增：用于网络错误检测
 
 class RegisterScreen extends StatefulWidget {
   final String? invitationCode;
@@ -53,8 +48,6 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
-
-    // ✅ 添加生命周期监听
     WidgetsBinding.instance.addObserver(this);
 
     final code = widget.invitationCode;
@@ -66,12 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
-    // ✅ 移除生命周期监听
     WidgetsBinding.instance.removeObserver(this);
-
-    // ========== ✅ [关键修复] 添加这行：清理OAuth状态 ==========
-    // 用户离开注册页时（点击返回按钮），取消进行中的OAuth
-    // 防止：点击OAuth登录 → 返回App → 按钮锁死
     OAuthEntry.cancelIfInFlight();
 
     _emailController.dispose();
@@ -83,20 +71,125 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     super.dispose();
   }
 
-  // ⛔ [已删除] didChangeAppLifecycleState
-  // 删除原因：从外部应用（WhatsApp/分享）返回时，此监听会导致用户被误推到登录页
-  // OAuth 生命周期已由 AuthFlowObserver 统一管理，此处监听是多余的且会造成问题
+  // ========== ✅ 新增：网络错误检测工具（与登录页相同） ==========
 
+  /// 判断是否为网络相关错误
+  bool _isNetworkError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
 
-  /// 统一 OAuth 启动器（位置参数 + 20s 超时 + finally 复位）
-  /// 注意：此文件按你项目的变量使用 _busy
+    if (error is SocketException) return true;
+    if (error is TimeoutException) return true;
+
+    final networkKeywords = [
+      'connection',
+      'network',
+      'socket',
+      'timeout',
+      'reset by peer',
+      'connection refused',
+      'connection reset',
+      'failed host lookup',
+      'no internet',
+      'unreachable',
+    ];
+
+    return networkKeywords.any((keyword) => errorStr.contains(keyword));
+  }
+
+  /// 获取友好的网络错误提示
+  String _getNetworkErrorMessage(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+
+    if (errorStr.contains('timeout')) {
+      return 'Connection timeout. Please check your network and try again.';
+    }
+
+    if (errorStr.contains('connection refused') ||
+        errorStr.contains('connection reset')) {
+      return 'Unable to connect to server. Please check your network.';
+    }
+
+    if (errorStr.contains('failed host lookup') ||
+        errorStr.contains('no internet')) {
+      return 'No internet connection. Please check your network settings.';
+    }
+
+    return 'Network error. Please check your connection and try again.';
+  }
+
+  /// 显示增强的网络错误提示 - 匹配您的UI风格
+  void _showNetworkError(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+              child: Icon(
+                Icons.wifi_off_rounded,
+                color: Colors.white,
+                size: 18.r,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Network Error',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.r),
+        ),
+        margin: EdgeInsets.all(16.r),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: Colors.white,
+          onPressed: () {
+            // 用户可以点击重试
+          },
+        ),
+      ),
+    );
+  }
+
+  // ========== 原有方法增强版 ==========
+
+  /// 统一 OAuth 启动器（增强版：添加网络错误处理）
   Future<void> _oauthSignIn(
       OAuthProvider provider, {
         Map<String, String>? queryParams,
       }) async {
     if (!mounted || _busy) return;
 
-    // ✅ 软防死锁：若仍在交互中，则先取消并提示"再点一次重试"
     if (!OAuthEntry.mayStartInteractive()) {
       OAuthEntry.forceCancel();
       if (mounted) {
@@ -120,18 +213,26 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
       OAuthEntry.finish();
       debugPrint('[Register._oauthSignIn] timeout/canceled');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login canceled')),
-        );
+        // ✅ 使用新的网络错误提示
+        _showNetworkError('Registration timeout. Please try again.');
       }
     } catch (e, st) {
       OAuthEntry.finish();
       debugPrint('[Register._oauthSignIn] error: $e');
       debugPrint(st.toString());
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign-in failed')),
-        );
+        // ✅ 区分网络错误和其他错误
+        if (_isNetworkError(e)) {
+          _showNetworkError(_getNetworkErrorMessage(e));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sign-in failed: ${e.toString()}'),
+              backgroundColor: Colors.red[400],
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -202,9 +303,28 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
         _showInfo('Account created.');
       }
     } on AuthException catch (e) {
-      _showError(e.message);
+      // ✅ 检查是否为网络导致的认证错误
+      if (_isNetworkError(e)) {
+        _showNetworkError(_getNetworkErrorMessage(e));
+      } else {
+        _showError(e.message);
+      }
+    } on SocketException catch (e) {
+      // ✅ 专门捕获 Socket 异常
+      _showNetworkError('Unable to connect. Please check your network.');
+      debugPrint('[Register] SocketException: $e');
+    } on TimeoutException catch (e) {
+      // ✅ 专门捕获超时异常
+      _showNetworkError('Connection timeout. Please try again.');
+      debugPrint('[Register] TimeoutException: $e');
     } catch (e) {
-      _showError('Register failed: $e');
+      // ✅ 其他错误的通用检查
+      if (_isNetworkError(e)) {
+        _showNetworkError(_getNetworkErrorMessage(e));
+      } else {
+        _showError('Register failed: $e');
+      }
+      debugPrint('[Register] Generic error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -238,8 +358,10 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
         content: Text(msg),
         backgroundColor: Colors.red[400],
         behavior: SnackBarBehavior.floating,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.r),
+        ),
+        margin: EdgeInsets.all(16.r),
       ),
     );
   }
@@ -249,34 +371,26 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: Colors.black87,
+        backgroundColor: Colors.green[600],
         behavior: SnackBarBehavior.floating,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.r),
+        ),
+        margin: EdgeInsets.all(16.r),
       ),
     );
   }
 
-  void _goBack() {
-    // ✅ 清理OAuth状态
-    OAuthEntry.cancelIfInFlight();
-
-    // ✅ 重置 _busy 状态
-    if (mounted) setState(() => _busy = false);
-
-    navPop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final showApple =
+    final bool showApple =
         !kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _goBack();
+        navPop();
       },
       child: Scaffold(
         backgroundColor: Colors.grey[50],
@@ -290,7 +404,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
               color: Colors.grey[800],
               size: 20.r,
             ),
-            onPressed: _goBack,
+            onPressed: () => navPop(),
           ),
         ),
         body: SafeArea(
@@ -301,7 +415,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 16.h),
                   Text(
                     'Create Account',
                     style: TextStyle(
@@ -316,21 +430,21 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     'Sign up to get started with Swaply',
                     style: TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
                   ),
-                  SizedBox(height: 22.h),
+                  SizedBox(height: 28.h),
 
                   _input(
                     controller: _nameController,
                     label: 'Full Name',
-                    hint: 'Enter your name',
+                    hint: 'Enter your full name',
                     icon: Icons.person_outline,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
+                      if (v == null || v.isEmpty) {
                         return 'Please enter your name';
                       }
                       return null;
                     },
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
 
                   _input(
                     controller: _emailController,
@@ -348,34 +462,29 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                       return null;
                     },
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
 
                   _input(
                     controller: _phoneController,
-                    label: 'Phone Number (Optional)',
+                    label: 'Phone Number',
                     hint: 'Enter your phone number',
                     icon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+                      return null;
+                    },
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
 
                   _input(
                     controller: _passwordController,
                     label: 'Password',
-                    hint: 'Enter your password',
+                    hint: 'Create a password',
                     icon: Icons.lock_outline,
                     obscureText: !_isPasswordVisible,
-                    suffixIcon: IconButton(
-                      onPressed: () =>
-                          setState(() => _isPasswordVisible = !_isPasswordVisible),
-                      icon: Icon(
-                        _isPasswordVisible
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 18.r,
-                        color: Colors.grey[500],
-                      ),
-                    ),
                     validator: (v) {
                       if (v == null || v.isEmpty) {
                         return 'Please enter a password';
@@ -385,8 +494,22 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                       }
                       return null;
                     },
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: Colors.grey[600],
+                        size: 18.r,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
 
                   _input(
                     controller: _confirmPasswordController,
@@ -394,17 +517,6 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     hint: 'Re-enter your password',
                     icon: Icons.lock_outline,
                     obscureText: !_isConfirmPasswordVisible,
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                              () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
-                      icon: Icon(
-                        _isConfirmPasswordVisible
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 18.r,
-                        color: Colors.grey[500],
-                      ),
-                    ),
                     validator: (v) {
                       if (v == null || v.isEmpty) {
                         return 'Please confirm your password';
@@ -414,80 +526,131 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                       }
                       return null;
                     },
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isConfirmPasswordVisible
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: Colors.grey[600],
+                        size: 18.r,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
-                  SizedBox(height: 16.h),
-
-                  _buildInvitationCodeSection(),
 
                   SizedBox(height: 14.h),
+
+                  _invitationCodeCard(),
+
+                  SizedBox(height: 16.h),
 
                   Row(
                     children: [
                       SizedBox(
-                        width: 20.w,
-                        height: 20.h,
+                        width: 18.w,
+                        height: 18.h,
                         child: Checkbox(
                           value: _agreeToTerms,
-                          onChanged: (v) => setState(() => _agreeToTerms = v ?? false),
-                          side: BorderSide(color: Colors.grey[400]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
+                          activeColor: const Color(0xFF2196F3),
+                          onChanged: (v) {
+                            setState(() => _agreeToTerms = v ?? false);
+                          },
                         ),
                       ),
-                      SizedBox(width: 6.w),
+                      SizedBox(width: 8.w),
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
-                          child: Text.rich(
-                            TextSpan(
-                              style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-                              children: [
-                                const TextSpan(text: 'I agree to '),
-                                TextSpan(
-                                  text: 'Terms of Service',
-                                  style: const TextStyle(
-                                    color: Color(0xFF2196F3),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: const TextStyle(
-                                    color: Color(0xFF2196F3),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                        child: Wrap(
+                          children: [
+                            Text(
+                              'I agree to the ',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[700],
+                              ),
                             ),
-                          ),
+                            GestureDetector(
+                              onTap: () {
+                                // TODO: 显示服务条款
+                              },
+                              child: Text(
+                                'Terms of Service',
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: const Color(0xFF2196F3),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              ' and ',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // TODO: 显示隐私政策
+                              },
+                              child: Text(
+                                'Privacy Policy',
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: const Color(0xFF2196F3),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+
                   SizedBox(height: 20.h),
 
-                  // ✅ 使用 ValueListenableBuilder 监听 OAuth 状态
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
                       return Container(
+                        height: 44.h,
                         width: double.infinity,
-                        height: 48.h,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF2196F3), Color(0xFF1E88E5)],
-                          ),
                           borderRadius: BorderRadius.circular(12.r),
+                          gradient: (_isLoading || isOAuthInFlight)
+                              ? null
+                              : const LinearGradient(
+                            colors: [
+                              Color(0xFF2196F3),
+                              Color(0xFF1976D2),
+                            ],
+                          ),
+                          color: (_isLoading || isOAuthInFlight)
+                              ? Colors.grey[300]
+                              : null,
+                          boxShadow: (_isLoading || isOAuthInFlight)
+                              ? null
+                              : [
+                            BoxShadow(
+                              color: const Color(0xFF2196F3)
+                                  .withOpacity(0.3),
+                              blurRadius: 8.r,
+                              offset: Offset(0, 4.h),
+                            ),
+                          ],
                         ),
                         child: InkWell(
-                          onTap: (_isLoading || isOAuthInFlight) ? null : _register,
+                          onTap: _isLoading || isOAuthInFlight ? null : _register,
                           child: Center(
                             child: _isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
+                                ? const CircularProgressIndicator(
+                                color: Colors.white)
                                 : Text(
-                              'Sign Up',
+                              'Create Account',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14.sp,
@@ -500,7 +663,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     },
                   ),
 
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 18.h),
 
                   Row(
                     children: [
@@ -516,9 +679,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     ],
                   ),
 
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 18.h),
 
-                  // ✅ 使用 ValueListenableBuilder 监听 OAuth 状态
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
@@ -530,7 +692,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                               Colors.red[600]!,
                               Icons.g_mobiledata,
                               _googleRegister,
-                              disabled: _isLoading || isOAuthInFlight,
+                              disabled: isOAuthInFlight,
                             ),
                           ),
                           SizedBox(width: 12.w),
@@ -540,7 +702,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                               Colors.blue[800]!,
                               Icons.facebook,
                               _facebookRegister,
-                              disabled: _isLoading || isOAuthInFlight,
+                              disabled: isOAuthInFlight,
                             ),
                           ),
                         ],
@@ -550,17 +712,14 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
 
                   if (showApple) SizedBox(height: 12.h),
                   if (showApple)
-                  // ✅ 使用 ValueListenableBuilder 监听 OAuth 状态
                     ValueListenableBuilder<bool>(
                       valueListenable: OAuthEntry.inFlightNotifier,
                       builder: (context, isOAuthInFlight, child) {
-                        return _appleSignInButtonIOS(
-                          disabled: _isLoading || isOAuthInFlight,
-                        );
+                        return _appleSignInButtonIOS(disabled: isOAuthInFlight);
                       },
                     ),
 
-                  SizedBox(height: 18.h),
+                  SizedBox(height: 22.h),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -592,14 +751,15 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     );
   }
 
-  Widget _buildInvitationCodeSection() {
+  Widget _invitationCodeCard() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 8.r,
             offset: Offset(0, 2.h),
           ),
@@ -782,12 +942,11 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
       Color color,
       IconData icon,
       Future<void> Function() onTap, {
-        bool disabled = false,  // ✅ 新增参数
+        bool disabled = false,
       }) {
     return SizedBox(
       height: 42.h,
       child: OutlinedButton(
-        // ✅ 使用传入的 disabled 参数
         onPressed: disabled ? null : () => onTap(),
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: Colors.grey[200]!),
@@ -814,12 +973,11 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     );
   }
 
-  Widget _appleSignInButtonIOS({bool disabled = false}) {  // ✅ 新增参数
+  Widget _appleSignInButtonIOS({bool disabled = false}) {
     return SizedBox(
       width: double.infinity,
       height: 44.h,
       child: ElevatedButton(
-        // ✅ 使用传入的 disabled 参数
         onPressed: disabled ? null : _appleRegister,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,
