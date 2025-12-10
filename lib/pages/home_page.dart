@@ -1,8 +1,7 @@
 // lib/pages/home_page.dart
-// ✅ [最佳方案] 使用 CustomScrollView + SliverGrid 替代 ListView + GridView.builder
-// ✅ [核心优势] 统一滚动容器，Flutter 自动管理滚动位置，无需任何 hack
-// ✅ [性能优化] 按需加载，骨架屏数量不影响性能
-// ✅ [效果] 完美保持滚动位置，无卡顿，无跳动
+// ✅ [Gold Standard] SWR + HybridGrid + 稳定 key + 首次锁滚动
+// ✅ [核心优势] 旧数据先显示，后台刷新无闪烁，滚动位置完美保持
+// ✅ [性能优化] 单一 SliverGrid，高度恒定，无跳动
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -38,7 +37,7 @@ class _HomePageState extends State<HomePage>
 
   static const int _featuredAdsLimit = 10;
   static const int _popularItemsLimit = 100;
-  static const int _skeletonCount = 6; // ✅ 减少骨架数量，不影响性能
+  static const int _minFeaturedPlaceholder = 2; // ✅ Featured Ads 最小占位（1行2个）
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
@@ -46,7 +45,8 @@ class _HomePageState extends State<HomePage>
   String _selectedLocation = 'All Zimbabwe';
 
   List<Map<String, dynamic>> _trendingRemote = [];
-  bool _loadingTrending = false;
+  bool _isFirstLoad = true; // ✅ 区分首次加载 vs 后台刷新
+  bool _isBackgroundRefreshing = false; // ✅ 后台刷新状态
   StreamSubscription? _listingPubSub;
 
   static const Color _primaryBlue = Color(0xFF1877F2);
@@ -223,20 +223,20 @@ class _HomePageState extends State<HomePage>
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
 
-    // 检查缓存
+    // ✅ SWR：检查缓存，有旧数据立即显示
     if (!bypassCache && _cachedTrending != null && _cacheTime != null && _cachedLocation == cacheKey) {
       final age = DateTime.now().difference(_cacheTime!);
       if (age < _cacheDuration) {
-        debugPrint('✅ [Cache] 使用缓存数据 (${age.inSeconds}秒前, ${_cachedTrending!.length}条)');
+        debugPrint('✅ [SWR] 使用缓存数据 (${age.inSeconds}秒前, ${_cachedTrending!.length}条)');
         if (mounted) {
           setState(() {
             _trendingRemote = _cachedTrending!;
-            _loadingTrending = false;
+            _isFirstLoad = false; // ✅ 有缓存就不算首次加载
           });
         }
 
         if (age > const Duration(minutes: 1)) {
-          debugPrint('🔄 [Cache] 后台刷新数据...');
+          debugPrint('🔄 [SWR] 后台刷新数据...');
           _refreshInBackground(city);
         }
 
@@ -244,8 +244,17 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    if (showLoading && mounted) {
-      setState(() => _loadingTrending = true);
+    // ✅ 区分首次加载和后台刷新
+    if (_trendingRemote.isEmpty) {
+      // 首次加载：显示骨架，锁定滚动
+      if (mounted) {
+        setState(() => _isFirstLoad = true);
+      }
+    } else {
+      // 后台刷新：保持旧数据，只显示 "Updating..." 提示
+      if (mounted) {
+        setState(() => _isBackgroundRefreshing = true);
+      }
     }
 
     try {
@@ -259,7 +268,8 @@ class _HomePageState extends State<HomePage>
       if (mounted) {
         setState(() {
           _trendingRemote = rows;
-          _loadingTrending = false;
+          _isFirstLoad = false;
+          _isBackgroundRefreshing = false;
         });
 
         _cachedTrending = rows;
@@ -270,12 +280,19 @@ class _HomePageState extends State<HomePage>
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
       if (mounted) {
-        setState(() => _loadingTrending = false);
+        setState(() {
+          _isFirstLoad = false;
+          _isBackgroundRefreshing = false;
+        });
       }
     }
   }
 
   Future<void> _refreshInBackground(String? city) async {
+    if (_isBackgroundRefreshing) return; // 防止重复刷新
+
+    setState(() => _isBackgroundRefreshing = true);
+
     try {
       final rows = await _fetchTrendingMixed(
         city: city,
@@ -286,13 +303,17 @@ class _HomePageState extends State<HomePage>
       if (mounted) {
         setState(() {
           _trendingRemote = rows;
+          _isBackgroundRefreshing = false;
         });
         _cachedTrending = rows;
         _cacheTime = DateTime.now();
-        debugPrint('✅ [Cache] 后台刷新完成 (${rows.length}条)');
+        debugPrint('✅ [SWR] 后台刷新完成 (${rows.length}条)');
       }
     } catch (e) {
-      debugPrint('❌ [Cache] 后台刷新失败: $e');
+      debugPrint('❌ [SWR] 后台刷新失败: $e');
+      if (mounted) {
+        setState(() => _isBackgroundRefreshing = false);
+      }
     }
   }
 
@@ -376,14 +397,60 @@ class _HomePageState extends State<HomePage>
     final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
     final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
 
-    // ✅ 关键：显示骨架还是真实数据
-    final showPinnedSkeleton = _loadingTrending && pinnedItems.isEmpty;
-    final showRegularSkeleton = _loadingTrending && regularItems.isEmpty;
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
+          // ✅ 后台刷新提示（轻量级 pill）
+          if (_isBackgroundRefreshing)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10.h,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 2,
+                  borderRadius: BorderRadius.circular(20.r),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14.w,
+                          height: 14.h,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(_primaryBlue),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Updating...',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           RefreshIndicator(
             onRefresh: () async {
               await _loadTrending(bypassCache: true, showLoading: false);
@@ -393,6 +460,10 @@ class _HomePageState extends State<HomePage>
             child: CustomScrollView(
               key: const PageStorageKey<String>('home_page_scroll'),
               controller: _scrollController,
+              // ✅ 首次加载锁定滚动，避免高度突变
+              physics: _isFirstLoad
+                  ? const NeverScrollableScrollPhysics()
+                  : const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // Header
                 SliverToBoxAdapter(child: _buildCompactHeader()),
@@ -473,12 +544,15 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // ✅ Featured Ads Grid (使用 SliverPadding + SliverGrid)
+                // ✅ HybridGrid: Featured Ads（统一处理骨架、真实数据、空态）
                 SliverPadding(
+                  key: const ValueKey('featured_ads_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  sliver: showPinnedSkeleton
-                      ? _buildSkeletonGrid(count: _skeletonCount, isPinned: true)
-                      : _buildSliverGrid(pinnedItems, isPinned: true),
+                  sliver: _buildHybridGrid(
+                    items: pinnedItems,
+                    isPinned: true,
+                    isLoading: _isFirstLoad,
+                  ),
                 ),
 
                 // Popular Items Header
@@ -496,12 +570,15 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // ✅ Popular Items Grid (使用 SliverPadding + SliverGrid)
+                // ✅ HybridGrid: Popular Items（统一处理骨架、真实数据、空态）
                 SliverPadding(
+                  key: const ValueKey('popular_items_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  sliver: showRegularSkeleton
-                      ? _buildSkeletonGrid(count: _skeletonCount, isPinned: false)
-                      : _buildSliverGrid(regularItems, isPinned: false),
+                  sliver: _buildHybridGrid(
+                    items: regularItems,
+                    isPinned: false,
+                    isLoading: _isFirstLoad,
+                  ),
                 ),
 
                 // Bottom spacing
@@ -536,40 +613,114 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ 核心方法：构建 SliverGrid
-  Widget _buildSliverGrid(List<Map<String, dynamic>> items, {required bool isPinned}) {
-    if (items.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Container(
-          height: 100.h,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.trending_up, size: 28.sp, color: Colors.grey[400]),
-                SizedBox(height: 6.h),
-                Text(
-                  'No items available',
-                  style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
+  // ✅ 核心方法：HybridGrid（统一处理骨架、真实数据、空态）
+  Widget _buildHybridGrid({
+    required List<Map<String, dynamic>> items,
+    required bool isPinned,
+    required bool isLoading,
+  }) {
+    // ✅ 首次加载：显示骨架（Featured Ads 至少2个，Popular Items 6个）
+    if (isLoading) {
+      final skeletonCount = isPinned ? _minFeaturedPlaceholder : 6;
+      return SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 8.h,
+          crossAxisSpacing: 8.w,
+          childAspectRatio: 0.66,
+        ),
+        delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildSkeletonCard(isPinned: isPinned),
+          childCount: skeletonCount,
         ),
       );
     }
 
+    // ✅ 加载完成 + 无数据：显示空态（Featured Ads 至少保持一行高度）
+    if (items.isEmpty) {
+      if (isPinned) {
+        // Featured Ads 空态：保持最小高度（一行2个格子的占位）
+        return SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 8.h,
+            crossAxisSpacing: 8.w,
+            childAspectRatio: 0.66,
+          ),
+          delegate: SliverChildBuilderDelegate(
+                (context, index) {
+              if (index == 0) {
+                // 第一个格子显示空态信息
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.stars, size: 24.sp, color: Colors.grey[400]),
+                        SizedBox(height: 6.h),
+                        Text(
+                          'No featured ads',
+                          style: TextStyle(fontSize: 10.sp, color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              } else {
+                // 第二个格子透明占位
+                return const SizedBox.shrink();
+              }
+            },
+            childCount: _minFeaturedPlaceholder,
+          ),
+        );
+      } else {
+        // Popular Items 空态：紧凑显示
+        return SliverToBoxAdapter(
+          child: Container(
+            height: 100.h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.trending_up, size: 28.sp, color: Colors.grey[400]),
+                  SizedBox(height: 6.h),
+                  Text(
+                    'No items available',
+                    style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // ✅ 有数据：显示真实卡片（每个 item 带稳定 key）
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -580,25 +731,15 @@ class _HomePageState extends State<HomePage>
       delegate: SliverChildBuilderDelegate(
             (context, index) {
           final item = items[index];
-          return isPinned ? _buildPremiumCard(item) : _buildRegularCard(item);
+          final itemId = item['id']?.toString() ?? 'unknown_$index';
+
+          // ✅ 关键：每个 item 都有稳定的 key
+          return KeyedSubtree(
+            key: ValueKey('${isPinned ? 'p' : 'r'}_$itemId'),
+            child: isPinned ? _buildPremiumCard(item) : _buildRegularCard(item),
+          );
         },
         childCount: items.length,
-      ),
-    );
-  }
-
-  // ✅ 核心方法：构建骨架屏 SliverGrid
-  Widget _buildSkeletonGrid({required int count, required bool isPinned}) {
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 8.h,
-        crossAxisSpacing: 8.w,
-        childAspectRatio: 0.66,
-      ),
-      delegate: SliverChildBuilderDelegate(
-            (context, index) => _buildSkeletonCard(isPinned: isPinned),
-        childCount: count,
       ),
     );
   }
