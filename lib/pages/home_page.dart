@@ -1,7 +1,8 @@
 // lib/pages/home_page.dart
-// ✅ [关键优化] 使用同一 Widget 树结构，通过条件渲染骨架/真实内容，避免高度突变
-// ✅ [原理] 让 Flutter 自带的 AutomaticKeepAliveClientMixin + PageStorageKey 自动管理滚动位置
-// ✅ [效果] 用户滚动到哪里就停在哪里，永远不会被重置
+// ✅ [最佳方案] 使用 CustomScrollView + SliverGrid 替代 ListView + GridView.builder
+// ✅ [核心优势] 统一滚动容器，Flutter 自动管理滚动位置，无需任何 hack
+// ✅ [性能优化] 按需加载，骨架屏数量不影响性能
+// ✅ [效果] 完美保持滚动位置，无卡顿，无跳动
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -37,13 +38,11 @@ class _HomePageState extends State<HomePage>
 
   static const int _featuredAdsLimit = 10;
   static const int _popularItemsLimit = 100;
-  static const int _skeletonDefaultCount = 10; // ✅ 默认骨架项数量
+  static const int _skeletonCount = 6; // ✅ 减少骨架数量，不影响性能
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
   final TextEditingController _searchCtrl = TextEditingController();
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
   String _selectedLocation = 'All Zimbabwe';
 
   List<Map<String, dynamic>> _trendingRemote = [];
@@ -52,8 +51,6 @@ class _HomePageState extends State<HomePage>
 
   static const Color _primaryBlue = Color(0xFF1877F2);
   static const Color _successGreen = Color(0xFF4CAF50);
-
-  bool _welcomeChecked = false;
 
   static List<Map<String, dynamic>>? _cachedTrending;
   static DateTime? _cacheTime;
@@ -108,14 +105,6 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    );
 
     _loadTrending(showLoading: true);
 
@@ -127,16 +116,10 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 保留占位
-  }
-
-  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _searchCtrl.dispose();
-    _fadeController.dispose();
     _listingPubSub?.cancel();
     super.dispose();
   }
@@ -236,7 +219,6 @@ class _HomePageState extends State<HomePage>
     return list.toList();
   }
 
-  // ✅ [关键修复] 删除所有主动恢复滚动位置的逻辑
   Future<void> _loadTrending({bool bypassCache = false, bool showLoading = true}) async {
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
@@ -251,9 +233,6 @@ class _HomePageState extends State<HomePage>
             _trendingRemote = _cachedTrending!;
             _loadingTrending = false;
           });
-          if (_trendingRemote.isNotEmpty) {
-            _fadeController.forward();
-          }
         }
 
         if (age > const Duration(minutes: 1)) {
@@ -287,10 +266,6 @@ class _HomePageState extends State<HomePage>
         _cacheTime = DateTime.now();
         _cachedLocation = cacheKey;
         debugPrint('✅ [Cache] 缓存已更新 (${rows.length}条)');
-
-        if (_trendingRemote.isNotEmpty) {
-          _fadeController.forward();
-        }
       }
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
@@ -300,7 +275,6 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  // ✅ [关键修复] 删除所有主动恢复滚动位置的逻辑
   Future<void> _refreshInBackground(String? city) async {
     try {
       final rows = await _fetchTrendingMixed(
@@ -399,6 +373,13 @@ class _HomePageState extends State<HomePage>
   Widget build(BuildContext context) {
     super.build(context);
 
+    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
+    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
+
+    // ✅ 关键：显示骨架还是真实数据
+    final showPinnedSkeleton = _loadingTrending && pinnedItems.isEmpty;
+    final showRegularSkeleton = _loadingTrending && regularItems.isEmpty;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
@@ -409,14 +390,122 @@ class _HomePageState extends State<HomePage>
             },
             color: _primaryBlue,
             backgroundColor: Colors.white,
-            child: ListView(
-              key: const PageStorageKey<String>('home_page_list'),
+            child: CustomScrollView(
+              key: const PageStorageKey<String>('home_page_scroll'),
               controller: _scrollController,
-              padding: EdgeInsets.zero,
-              children: [
-                _buildCompactHeader(),
-                _buildTrendingSection(),
-                SizedBox(height: 80.h),
+              slivers: [
+                // Header
+                SliverToBoxAdapter(child: _buildCompactHeader()),
+
+                // Trending Section Header
+                SliverToBoxAdapter(
+                  child: Padding(
+                    key: _trendingKey,
+                    padding: EdgeInsets.fromLTRB(
+                      16.w,
+                      Platform.isIOS ? 10.h : 20.h,
+                      16.w,
+                      Platform.isIOS ? 8.h : 10.h,
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Trending',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        Icon(
+                          Icons.local_fire_department,
+                          color: Colors.orange[600],
+                          size: 20.sp,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Featured Ads Header
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4.w),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[100],
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'Featured Ads',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        SizedBox(width: 4.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[600],
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Text(
+                            'PREMIUM',
+                            style: TextStyle(
+                              fontSize: 6.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ✅ Featured Ads Grid (使用 SliverPadding + SliverGrid)
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
+                  sliver: showPinnedSkeleton
+                      ? _buildSkeletonGrid(count: _skeletonCount, isPinned: true)
+                      : _buildSliverGrid(pinnedItems, isPinned: true),
+                ),
+
+                // Popular Items Header
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 4.h),
+                    child: Text(
+                      'Popular Items',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ✅ Popular Items Grid (使用 SliverPadding + SliverGrid)
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
+                  sliver: showRegularSkeleton
+                      ? _buildSkeletonGrid(count: _skeletonCount, isPinned: false)
+                      : _buildSliverGrid(regularItems, isPinned: false),
+                ),
+
+                // Bottom spacing
+                SliverToBoxAdapter(child: SizedBox(height: 80.h)),
               ],
             ),
           ),
@@ -443,6 +532,73 @@ class _HomePageState extends State<HomePage>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ✅ 核心方法：构建 SliverGrid
+  Widget _buildSliverGrid(List<Map<String, dynamic>> items, {required bool isPinned}) {
+    if (items.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Container(
+          height: 100.h,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.trending_up, size: 28.sp, color: Colors.grey[400]),
+                SizedBox(height: 6.h),
+                Text(
+                  'No items available',
+                  style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8.h,
+        crossAxisSpacing: 8.w,
+        childAspectRatio: 0.66,
+      ),
+      delegate: SliverChildBuilderDelegate(
+            (context, index) {
+          final item = items[index];
+          return isPinned ? _buildPremiumCard(item) : _buildRegularCard(item);
+        },
+        childCount: items.length,
+      ),
+    );
+  }
+
+  // ✅ 核心方法：构建骨架屏 SliverGrid
+  Widget _buildSkeletonGrid({required int count, required bool isPinned}) {
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8.h,
+        crossAxisSpacing: 8.w,
+        childAspectRatio: 0.66,
+      ),
+      delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildSkeletonCard(isPinned: isPinned),
+        childCount: count,
       ),
     );
   }
@@ -766,182 +922,6 @@ class _HomePageState extends State<HomePage>
           );
         },
       ),
-    );
-  }
-
-  Widget _buildTrendingSection() {
-    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
-    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          key: _trendingKey,
-          padding: EdgeInsets.fromLTRB(
-            16.w,
-            Platform.isIOS ? 10.h : 20.h,
-            16.w,
-            Platform.isIOS ? 8.h : 10.h,
-          ),
-          child: Row(
-            children: [
-              Text(
-                'Trending',
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
-              SizedBox(width: 6.w),
-              Icon(
-                Icons.local_fire_department,
-                color: Colors.orange[600],
-                size: 20.sp,
-              ),
-            ],
-          ),
-        ),
-
-        Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(4.w),
-                decoration: BoxDecoration(
-                  color: Colors.orange[100],
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
-                child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
-              ),
-              SizedBox(width: 6.w),
-              Text(
-                'Featured Ads',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-              SizedBox(width: 4.w),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
-                decoration: BoxDecoration(
-                  color: Colors.orange[600],
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
-                child: Text(
-                  'PREMIUM',
-                  style: TextStyle(
-                    fontSize: 6.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        if (pinnedItems.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: _buildGridSection(pinnedItems, isPinned: true),
-            ),
-          ),
-
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            16.w,
-            pinnedItems.isNotEmpty ? 16.h : 0,
-            16.w,
-            4.h,
-          ),
-          child: Text(
-            'Popular Items',
-            style: TextStyle(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-        ),
-
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child: _buildTrendingGrid(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrendingGrid() {
-    final items = _loadingTrending && _trendingRemote.isEmpty
-        ? List.generate(_skeletonDefaultCount, (i) => <String, dynamic>{'_skeleton': true})
-        : _trendingRemote.where((r) => r['pinned'] != true).toList();
-
-    if (items.isEmpty && !_loadingTrending) {
-      return Container(
-        height: 100.h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10.r),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.trending_up, size: 28.sp, color: Colors.grey[400]),
-              SizedBox(height: 6.h),
-              Text(
-                'No trending items available',
-                style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: _buildGridSection(items, isPinned: false),
-    );
-  }
-
-  Widget _buildGridSection(List<Map<String, dynamic>> items, {required bool isPinned}) {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 8.h,
-        crossAxisSpacing: 8.w,
-        childAspectRatio: 0.66,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, i) {
-        final item = items[i];
-
-        if (item['_skeleton'] == true || _loadingTrending) {
-          return _buildSkeletonCard(isPinned: isPinned);
-        }
-
-        return isPinned ? _buildPremiumCard(item) : _buildRegularCard(item);
-      },
     );
   }
 

@@ -40,7 +40,7 @@ import 'package:swaply/core/l10n/app_localizations.dart';
 import 'package:swaply/providers/language_provider.dart';
 
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
-const _kDeleteUrl  = 'https://www.swaply.cc/delete';
+const _kDeleteUrl  = 'https://www.swaply.cc/delete-account';
 
 class _L10n {
   const _L10n();
