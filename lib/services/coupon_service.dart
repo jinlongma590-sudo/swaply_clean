@@ -5,7 +5,8 @@
 // 3) 统一调用后端 RPC：featured/search 走 `redeem_search_popular_coupon`；其他置顶走 `use_coupon_for_pinning`。
 // 4) getTrendingPinnedAds 等 clamp 返回值强转为 int，避免 `num` 传给 `.limit()` 的类型告警。
 // 5) 提供 30s TTL 的内存缓存与并发去重；提供 clearCache()。
-// 6) ✅ [MODIFIED] getTrendingPinnedAds 已修改为“随机洗牌”逻辑。
+// 6) ✅ getTrendingPinnedAds 为“随机洗牌”逻辑，并增加 DB 端上限以避免全表扫描。
+// 7) ✅ getTrendingQuotaStatus 改为 DB 精确计数；healthCheck 更严谨。
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -205,7 +206,7 @@ class CouponService {
         'source': 'referral_reward',
         'title': title,
         'description': description,
-        'duration_days': durationDays,
+        'pin_days': durationDays, // ✅ 与表字段一致
         'max_uses': 1,
         'used_count': 0,
         'created_at': now.toIso8601String(),
@@ -366,7 +367,7 @@ class CouponService {
         'source': source,
         'title': title,
         'description': description,
-        'duration_days': durationDays,
+        'pin_days': durationDays, // ✅ 与表字段一致
         'max_uses': maxUses,
         'used_count': 0,
         'created_at': now.toIso8601String(),
@@ -431,17 +432,22 @@ class CouponService {
     try {
       _debugPrint('检查 trending 置顶配额状态: city=$city');
 
-      final trendingAds = await getTrendingPinnedAds(city: city, limit: 100);
+      final nowIso = DateTime.now().toIso8601String();
+      final rows = await _client
+          .from('pinned_ads')
+          .select('id')
+          .eq('status', 'active')
+          .eq('pinning_type', 'trending')
+          .gt('expires_at', nowIso);
+
+      final usedCount = (rows as List).length;
       const maxTrendingSlots = 20;
-      final usedCount = trendingAds.length;
-      final available = usedCount < maxTrendingSlots;
-      final remaining = maxTrendingSlots - usedCount;
 
       return {
         'used_count': usedCount,
         'max_count': maxTrendingSlots,
-        'available': available,
-        'remaining': remaining,
+        'available': usedCount < maxTrendingSlots,
+        'remaining': (maxTrendingSlots - usedCount).clamp(0, maxTrendingSlots),
         'success': true,
       };
     } catch (e) {
@@ -686,7 +692,7 @@ class CouponService {
   static String _trendingKey({String? city, required int limit}) => '${city ?? ''}|$limit';
 
   /// 获取首页热门置顶广告（仅 trending；最多 20）—— 带 30s 缓存
-  /// ✅ [MODIFIED] 已修改为“随机洗牌”逻辑
+  /// ✅ “随机洗牌”逻辑 + DB 上限（避免全表扫描）
   static Future<List<Map<String, dynamic>>> getTrendingPinnedAds({String? city, int limit = 20}) async {
     // 规范 limit
     final int effectiveLimit = limit.clamp(1, 20).toInt();
@@ -713,10 +719,9 @@ class CouponService {
     }
 
     if (kDebugMode && _kLogCacheHit) {
-      debugPrint('[CouponService] 获取首页热门置顶广告: city=$city, limit=$effectiveLimit');
+      _debugPrint('[CouponService] 获取首页热门置顶广告: city=$city, limit=$effectiveLimit');
     }
 
-    // ✅ [MODIFIED] 这是你要求的修改
     final future = () async {
       try {
         final queryBuilder = _client
@@ -745,11 +750,9 @@ class CouponService {
             ''')
             .eq('status', 'active')
             .eq('pinning_type', 'trending')
-            .gt('expires_at', DateTime.now().toIso8601String());
-        // ❌ [移除] .order('created_at', ascending: false)
-        // ❌ [移除] .limit(effectiveLimit);
+            .gt('expires_at', DateTime.now().toIso8601String())
+            .limit(250); // ✅ 安全上限，避免全表扫描
 
-        // 'response' 现在包含「所有」有效的 trending 广告
         final response = await queryBuilder;
         final ads = response;
 
@@ -759,40 +762,36 @@ class CouponService {
             final adMap = Map<String, dynamic>.from(ad);
             final listings = adMap['listings'];
             // 必须有 listing 数据
-            if (listings == null || listings is! Map) continue; // ❗ 修正：使用 is!
+            if (listings == null || listings is! Map) continue;
             final listingsMap = Map<String, dynamic>.from(listings);
 
-            // 按照你原来的逻辑，在 Dart 中过滤城市
+            // Dart 端按城市过滤
             if (city != null && city.isNotEmpty) {
               final listingCity = listingsMap['city']?.toString();
               if (listingCity == null || listingCity != city) continue;
             }
 
             filteredAds.add(adMap);
-            // ❌ [移除] 'if (filteredAds.length >= effectiveLimit) break;'
           } catch (e) {
             _debugPrint('处理热门置顶广告错误: $e');
             continue;
           }
         }
 
-        // ✅ [新增] 关键：对过滤后的「所有」结果进行随机洗牌
+        // 随机洗牌
         filteredAds.shuffle();
-
-        // ✅ [新增] 在「洗牌后」的列表里，截取首页需要的 (limit) 个
+        // 截取需要的数量
         final finalList = filteredAds.take(effectiveLimit).toList();
 
         if (kDebugMode && _kLogCacheHit) {
           debugPrint('[CouponService] 成功获取 ${finalList.length} 个首页热门置顶广告（最多$effectiveLimit个）');
         }
-        // ✅ [修改] 返回截取后的列表
         return finalList;
       } catch (e) {
         _debugPrint('获取首页热门置顶广告失败: $e');
         return <Map<String, dynamic>>[];
       }
     }();
-    // ✅ [MODIFIED] 核心修改结束
 
     _trendingInflight[key] = future;
     try {
@@ -803,7 +802,6 @@ class CouponService {
       _trendingInflight.remove(key);
     }
   }
-
 
   /// 【兼容外部调用】getHomeTrendingPinnedAds = getTrendingPinnedAds（同样 30s 缓存）
   static Future<List<Map<String, dynamic>>> getHomeTrendingPinnedAds({String? city, int limit = 20}) {
@@ -860,7 +858,7 @@ class CouponService {
         try {
           final adMap = Map<String, dynamic>.from(ad);
           final listings = adMap['listings'];
-          if (listings == null || listings is! Map) continue; // ❗ 修正：使用 is!
+          if (listings == null || listings is! Map) continue;
           final listingsMap = Map<String, dynamic>.from(listings);
 
           // 分类过滤
@@ -1170,7 +1168,7 @@ class CouponService {
   static Future<bool> healthCheck() async {
     try {
       final response = await _client.from('coupons').select('id').limit(1);
-      return response != null;
+      return response is List; // ✅ 能正常返回列表即健康
     } catch (e) {
       _debugPrint('Health check failed: $e');
       return false;

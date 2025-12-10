@@ -1,5 +1,6 @@
 // lib/pages/search_results_page.dart
-// ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage + memCache
+// ✅ 修复：搜索置顶券可见性 + 置顶排序 + 地点信息被卡片完整包裹
+// ✅ 性能：图片使用 CachedNetworkImage（保留）
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -65,11 +66,28 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         offset: 0,
       );
 
-      // 2) 取当前关键字/城市下的置顶项
+      // 2) 读取当前关键字/城市命中的置顶项（兼容 keyword/city 为空=全局置顶）
       _pinnedIds = await _fetchPinnedIds(kw, city);
 
       // 3) 合并 & 映射
       _items.addAll(rows.map(_mapRowToCard));
+
+      // 4) ✅ 置顶优先显示，其次按发布时间倒序
+      _items.sort((a, b) {
+        final ap = a['pinned'] == true;
+        final bp = b['pinned'] == true;
+        if (ap != bp) return ap ? -1 : 1;
+
+        DateTime parseTime(dynamic v) {
+          if (v is DateTime) return v;
+          if (v is String) return DateTime.tryParse(v) ?? DateTime(1970);
+          return DateTime(1970);
+        }
+
+        final at = parseTime(a['postedDate']);
+        final bt = parseTime(b['postedDate']);
+        return bt.compareTo(at);
+      });
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -77,27 +95,31 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     }
   }
 
-  /// 读取置顶的 listing_id 集合
+  /// 读取置顶的 listing_id 集合（支持 keyword/city 为空 => 全局置顶）
   Future<Set<String>> _fetchPinnedIds(String kw, String? city) async {
     final sb = Supabase.instance.client;
 
+    // 直接全部取回，在本地做兼容性过滤，避免把 keyword/city 为 NULL 的“全局置顶”过滤掉
     final data = await sb
         .from('search_pins_active')
-        .select('listing_id, keyword, city')
-        .filter('keyword', 'ilike', '%$kw%');
+        .select('listing_id, keyword, city');
 
     final list = (data as List?)?.cast<Map<String, dynamic>>() ?? const [];
-    final filtered = city == null
-        ? list
-        : list.where((r) {
-      final c = (r['city'] ?? '').toString();
-      return c.isEmpty || c == city;
-    });
 
+    final kwLower = kw.toLowerCase();
     final ids = <String>{};
-    for (final r in filtered) {
+
+    for (final r in list) {
       final id = r['listing_id']?.toString();
-      if (id != null && id.isNotEmpty) ids.add(id);
+      if (id == null || id.isEmpty) continue;
+
+      final pinKw = (r['keyword'] ?? '').toString().toLowerCase(); // 为空=全局
+      final pinCity = (r['city'] ?? '').toString();                 // 为空=全局
+
+      final kwOk = pinKw.isEmpty || pinKw.contains(kwLower);
+      final cityOk = city == null || city.isEmpty || pinCity.isEmpty || pinCity == city;
+
+      if (kwOk && cityOk) ids.add(id);
     }
     return ids;
   }
@@ -177,8 +199,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
             color: Colors.grey[50],
             child: Text(
               '${_items.length} ads found',
-              style: const TextStyle(
-                  color: Colors.grey, fontSize: 14),
+              style:
+              const TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ),
           Expanded(
@@ -199,6 +221,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                 return GestureDetector(
                   onTap: () => _openDetail(p),
                   child: Container(
+                    // 外层：负责圆角 & 阴影
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
@@ -216,17 +239,16 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                      children: [
-                        // 顶部图：强制铺满
-                        AspectRatio(
-                          aspectRatio: 1.0,
-                          child: ClipRRect(
-                            borderRadius:
-                            const BorderRadius.vertical(
-                                top: Radius.circular(14)),
+                    // 内层：裁剪内容，确保地点等文本不会“溢出到卡片外”
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          // 顶部图：强制铺满
+                          AspectRatio(
+                            aspectRatio: 1.0,
                             child: Stack(
                               children: [
                                 Positioned.fill(
@@ -236,57 +258,57 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                               ],
                             ),
                           ),
-                        ),
-                        // 文本区域
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                p['price']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                p['title']?.toString() ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 14),
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                children: [
-                                  const Icon(Icons.location_on,
-                                      size: 12,
-                                      color: Colors.grey),
-                                  const SizedBox(width: 2),
-                                  Expanded(
-                                    child: Text(
-                                      p['location']
-                                          ?.toString() ??
-                                          '',
-                                      maxLines: 1,
-                                      overflow:
-                                      TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey),
-                                    ),
+                          // 文本区域
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  p['price']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
                                   ),
-                                ],
-                              ),
-                            ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  p['title']?.toString() ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 14),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on,
+                                        size: 12,
+                                        color: Colors.grey),
+                                    const SizedBox(width: 2),
+                                    Expanded(
+                                      child: Text(
+                                        p['location']
+                                            ?.toString() ??
+                                            '',
+                                        maxLines: 1,
+                                        overflow:
+                                        TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -330,7 +352,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 32, height: 32,
+                  width: 32,
+                  height: 32,
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
@@ -345,7 +368,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Text(
                     title,
@@ -359,7 +381,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 12),
                 const SizedBox(width: 32, height: 32),
               ],
@@ -370,28 +391,24 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     );
   }
 
-  // ✅ [P1性能优化] 图片加载优化 - 使用 CachedNetworkImage
+  // ✅ 图片：使用 CachedNetworkImage
   Widget _thumb(Map<String, dynamic> p) {
     final imgs = p['images'];
     if (imgs is List && imgs.isNotEmpty) {
       final first = imgs.first.toString();
       if (first.startsWith('http')) {
-        // ✅ 修复：使用 CachedNetworkImage 替代 Image.network
         return CachedNetworkImage(
           imageUrl: first,
           fit: BoxFit.cover,
-          memCacheWidth: 600,   // ✅ 性能优化：限制内存缓存大小
+          memCacheWidth: 600,
           memCacheHeight: 600,
           placeholder: (context, url) => Container(
             color: Colors.grey[200],
-            child: Center(
+            child: const Center(
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: const Color(0xFF2196F3),
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
           ),
