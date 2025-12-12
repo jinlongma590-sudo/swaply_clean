@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import FirebaseCore
 import FirebaseMessaging
+import FBSDKCoreKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
@@ -10,6 +11,12 @@ import FirebaseMessaging
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        // ✅ Facebook SDK 初始化
+        ApplicationDelegate.shared.application(
+            application,
+            didFinishLaunchingWithOptions: launchOptions
+        )
+
         // ✅ 检查 GoogleService-Info.plist 是否存在
         if let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") {
             print("✅ GoogleService-Info.plist 找到: \(plistPath)")
@@ -153,7 +160,7 @@ import FirebaseMessaging
         completionHandler(.newData)
     }
 
-    // ========== ✅ 新增：深链处理逻辑 ==========
+    // ========== ✅ 深链处理逻辑 ==========
 
     // ✅ 12. 处理深链 - Universal Links (HTTPS)
     override func application(
@@ -184,6 +191,18 @@ import FirebaseMessaging
     ) -> Bool {
         print("✅ [DeepLink] Custom URL Scheme: \(url.absoluteString)")
 
+        // ✅ 优先让 Facebook SDK 处理
+        if ApplicationDelegate.shared.application(
+            app,
+            open: url,
+            sourceApplication: options[.sourceApplication] as? String,
+            annotation: options[.annotation]
+        ) {
+            print("   → Facebook callback handled")
+            return true
+        }
+
+        // 处理其他 URL Schemes
         if url.scheme == "cc.swaply.app" {
             print("   → OAuth callback detected")
             if url.host == "login-callback" {

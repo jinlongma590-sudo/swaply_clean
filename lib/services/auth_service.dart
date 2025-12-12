@@ -2,7 +2,7 @@
 // 登录/注册/OAuth 统一：
 // - Apple：iOS 原生；Android 用系统浏览器
 // - Google：原生 SDK（完全应用内）
-// - Facebook：系统浏览器（ASWebAuthenticationSession / Chrome Custom Tabs）
+// - Facebook：原生 SDK（完全应用内）✅ 修改
 // 备注：为兼容你当前的 supabase_flutter 版本，移除了 flowType / OAuthFlowType
 
 import 'dart:async';
@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // LaunchMode 由 supabase_flutter 间接提供；如仍有提示，可改为：import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'; // ✅ 新增
 import 'package:swaply/services/apple_auth_service.dart';
 
 import 'package:swaply/config/auth_config.dart';
@@ -50,7 +51,7 @@ class AuthService {
         break;
 
       case OAuthProvider.facebook:
-        await _signInWithFacebookWebView();
+        await _signInWithFacebookNative(); // ✅ 修改：使用原生登录
         break;
 
       default:
@@ -93,28 +94,44 @@ class AuthService {
     }
   }
 
-  /// Facebook 系统级 OAuth（ASWebAuthenticationSession / Chrome Custom Tabs）
-  Future<void> _signInWithFacebookWebView() async {
+  /// ✅ Facebook 原生登录（iOS/Android）- 新增方法
+  Future<void> _signInWithFacebookNative() async {
     try {
-      final redirectUrl = getAuthRedirectUri();
+      debugPrint('[AuthService] 🔵 Starting Facebook native sign-in...');
 
-      if (kDebugMode) {
-        debugPrint('🔵 Facebook OAuth (${kIsWeb ? "Web Popup" : "System Browser"}), redirect=$redirectUrl');
-      }
-
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.facebook,
-        redirectTo: redirectUrl,
-        authScreenLaunchMode: kIsWeb
-            ? LaunchMode.inAppWebView  // Web 继续使用 popup
-            : LaunchMode.externalApplication,  // 移动端使用系统浏览器（触发 ASWebAuthenticationSession）
-        scopes: 'public_profile,email',
-        queryParams: kIsWeb ? const {'display': 'popup'} : null,
+      // 1. 使用 Facebook SDK 登录
+      final result = await FacebookAuth.instance.login(
+        permissions: ['public_profile', 'email'],
       );
 
-      debugPrint('[AuthService] ✅ Facebook OAuth request sent');
+      debugPrint('[AuthService] Facebook login status: ${result.status}');
+
+      // 2. 检查登录状态
+      if (result.status != LoginStatus.success) {
+        if (result.status == LoginStatus.cancelled) {
+          throw AuthException('Facebook login was cancelled');
+        } else {
+          throw AuthException('Facebook login failed: ${result.status}');
+        }
+      }
+
+      // 3. 获取 Access Token
+      final accessToken = result.accessToken;
+      if (accessToken == null) {
+        throw AuthException('Facebook access token is null');
+      }
+
+      debugPrint('[AuthService] Facebook access token obtained');
+
+      // 4. 使用 Facebook Access Token 登录 Supabase
+      await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.facebook,
+        idToken: accessToken.token,
+      );
+
+      debugPrint('[AuthService] ✅ Facebook native sign-in successful');
     } catch (e, st) {
-      debugPrint('[AuthService] ❌ Facebook OAuth error: $e\n$st');
+      debugPrint('[AuthService] ❌ Facebook native sign-in error: $e\n$st');
       rethrow;
     }
   }
@@ -228,11 +245,15 @@ class AuthService {
     try {
       await signInWithNativeProvider(OAuthProvider.facebook);
 
+      // ✅ 等待 Supabase session 建立
       final ok = await supabase.auth.onAuthStateChange
           .map((e) => e.session?.user != null)
           .firstWhere((v) => v, orElse: () => false)
-          .timeout(const Duration(seconds: 90), onTimeout: () => false);
-      if (!ok) return false;
+          .timeout(const Duration(seconds: 30), onTimeout: () => false);
+
+      if (!ok) {
+        throw AuthException('Facebook login session timeout');
+      }
 
       final user = supabase.auth.currentUser!;
       final existing = await supabase

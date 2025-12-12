@@ -1,7 +1,7 @@
 name: swaply
 description: A marketplace app for Zimbabwe
 publish_to: 'none'
-version: 1.0.1+210
+version: 1.0.1+222
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -46,7 +46,7 @@ dependencies:
   supabase: ^2.10.0
   google_sign_in: ^6.2.1
   sign_in_with_apple:
-  # flutter_facebook_auth: ^6.0.3  # ❌ 临时移除，修复 iOS 黑屏问题
+  flutter_facebook_auth: ^6.0.3  # ✅ 恢复：Facebook 原生登录支持
   crypto:
   flutter_custom_tabs:
 

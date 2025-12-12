@@ -62,6 +62,16 @@
        <key>NSFaceIDUsageDescription</key>
        <string>We use Face ID to secure your app data</string>
 
+       <!-- ========== Facebook 配置 ========== -->
+       <key>FacebookAppID</key>
+       <string>YOUR_FACEBOOK_APP_ID</string>
+
+       <key>FacebookDisplayName</key>
+       <string>Swaply</string>
+
+       <key>FacebookClientToken</key>
+       <string>YOUR_CLIENT_TOKEN</string>
+
        <!-- Background modes -->
        <key>UIBackgroundModes</key>
        <array>
@@ -117,6 +127,13 @@
                 <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
              </array>
           </dict>
+          <!-- ✅ Facebook URL Scheme -->
+          <dict>
+             <key>CFBundleURLSchemes</key>
+             <array>
+                <string>fbYOUR_FACEBOOK_APP_ID</string>
+             </array>
+          </dict>
        </array>
 
        <!-- 外部 app scheme 查询白名单 -->
@@ -126,6 +143,11 @@
           <string>whatsapp</string>
           <string>whatsapp-business</string>
           <string>tg</string>
+          <!-- ✅ Facebook schemes -->
+          <string>fbapi</string>
+          <string>fbauth2</string>
+          <string>fbshareextension</string>
+          <string>fb-messenger-share-api</string>
        </array>
 
        <key>UIViewControllerBasedStatusBarAppearance</key>
