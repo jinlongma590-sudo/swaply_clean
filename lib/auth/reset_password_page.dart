@@ -1,4 +1,5 @@
 ﻿// lib/auth/reset_password_page.dart
+// ✅ [修复] 使用统一的回调 URL 配置
 // ✅ 完整修复版本：
 //    1. 添加 code 参数处理（iOS/Android 统一）
 //    2. 修复 _goBack() 无限loading问题
@@ -10,6 +11,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/router/root_nav.dart';
+
+// ✅ 引入统一配置
+import 'package:swaply/config/auth_config.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   final String? token;
@@ -30,7 +34,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _hasSession = false;
   bool _checkingSession = true;
 
-  String? _code;  // ✅ 新增：code 参数
+  String? _code;
   String? _token;
   String? _type;
   String? _error;
@@ -52,7 +56,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     super.dispose();
   }
 
-  /// ✅ 修复1：添加 code 参数提取
   Future<void> _extractArgumentsAndCheckSession() async {
     if (!mounted) return;
 
@@ -64,7 +67,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
 
     setState(() {
-      // ✅ 提取 code 参数
       _code = args?['code'] as String?;
       _token = (args?['token'] as String?) ?? widget.token;
       _type = args?['type'] as String? ?? 'recovery';
@@ -82,14 +84,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       debugPrint('[ResetPassword] 🔄 Refresh: ${_refreshToken != null ? "***" : "null"}');
     }
 
-    // ✅ 如果有错误，直接显示错误状态
     if (_error != null && _error!.isNotEmpty) {
       setState(() {
         _hasSession = false;
         _checkingSession = false;
       });
 
-      // 延迟显示toast，避免在build期间显示
       Future.delayed(Duration.zero, () {
         if (mounted) {
           _toast(_errorDescription ?? _error ?? 'This reset link is invalid');
@@ -98,25 +98,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       return;
     }
 
-    // ✅ 优先使用 code（Supabase SDK 自动处理）
     if (_code != null && _code!.isNotEmpty) {
       await _restoreSessionFromCode();
     } else if (_token != null && _token!.isNotEmpty) {
       await _restoreSessionFromToken();
     } else {
-      // 没有 code 也没有 token，检查现有session
       await _checkExistingSession();
     }
   }
 
-  /// ✅ 新增：使用 code 恢复会话（让 Supabase SDK 自动处理）
   Future<void> _restoreSessionFromCode() async {
     if (kDebugMode) {
       debugPrint('[ResetPassword] 🔐 Using code parameter (Supabase SDK will handle)...');
     }
 
     try {
-      // 等待 Supabase SDK 自动处理 code
       await Future.delayed(const Duration(milliseconds: 1000));
 
       if (!mounted) return;
@@ -161,7 +157,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
   }
 
-  /// ✅ 修复2：改进的session恢复逻辑（使用 token）
   Future<void> _restoreSessionFromToken() async {
     if (kDebugMode) {
       debugPrint('[ResetPassword] 🔐 Starting session restoration from token...');
@@ -171,7 +166,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       final auth = Supabase.instance.client.auth;
       bool sessionRestored = false;
 
-      // ===== 方法1: 使用 refresh_token + access_token =====
       if (_refreshToken != null && _refreshToken!.isNotEmpty && _token != null) {
         if (kDebugMode) {
           debugPrint('[ResetPassword] 🔄 Method 1: setSession with tokens...');
@@ -201,18 +195,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         }
       }
 
-      // ===== 方法2: 使用 getSessionFromUrl =====
       if (kDebugMode) {
         debugPrint('[ResetPassword] 🔄 Method 2: getSessionFromUrl...');
       }
 
       try {
-        // 构造recovery URL（支持多种格式）
+        // ✅ 使用统一配置
         String recoveryUrl;
         if (_refreshToken != null && _refreshToken!.isNotEmpty) {
-          recoveryUrl = 'myapp://reset-password#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
+          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
         } else {
-          recoveryUrl = 'myapp://reset-password#access_token=$_token&type=${_type ?? "recovery"}';
+          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&type=${_type ?? "recovery"}';
         }
 
         if (kDebugMode) {
@@ -241,7 +234,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         }
       }
 
-      // ===== 方法3: 等待自动恢复 =====
       if (kDebugMode) {
         debugPrint('[ResetPassword] 🔄 Method 3: Waiting for auto-recovery...');
       }
@@ -283,7 +275,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         _checkingSession = false;
       });
 
-      // 根据错误类型显示友好提示
       String errorMsg;
       if (e.message.toLowerCase().contains('expired')) {
         errorMsg = 'This reset link has expired.\n\nPlease request a new one from the login page.';
@@ -316,7 +307,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
   }
 
-  /// 检查现有session
   Future<void> _checkExistingSession() async {
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -338,7 +328,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
   }
 
-  /// ✅ 修复3：优化的密码更新逻辑（直接跳转到首页）
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_hasSession) {
@@ -367,18 +356,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       setState(() => _busy = false);
 
-      // ✅ 显示成功提示
       _toast(
         'Password updated successfully! Redirecting to home...',
         isError: false,
       );
 
-      // ✅ 短暂延迟让用户看到提示
       await Future.delayed(const Duration(milliseconds: 800));
 
       if (!mounted) return;
 
-      // ✅ 直接跳转到首页（不登出，保持会话）
       navReplaceAll('/home');
 
     } on AuthException catch (e) {
@@ -405,7 +391,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
   }
 
-  /// ✅ 修复4：改进的toast显示
   void _toast(String msg, {bool isError = true}) {
     if (!mounted) return;
 
@@ -426,12 +411,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     );
   }
 
-  /// ✅ 修复5：_goBack() 不再跳转到 '/'，而是跳转到 /login
   void _goBack() {
     if (Navigator.of(context).canPop()) {
       Navigator.pop(context);
     } else {
-      // ✅ 改为跳转到登录页，而不是 '/'（避免无限loading）
       navReplaceAll('/login');
     }
   }
@@ -459,15 +442,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ✅ 错误提示区域
               if (!_hasSession) _buildErrorCard(),
-
-              // ✅ 成功状态提示
               if (_hasSession) _buildSuccessCard(),
-
               SizedBox(height: 24.h),
-
-              // ✅ 密码表单
               _buildPasswordForm(),
             ],
           ),

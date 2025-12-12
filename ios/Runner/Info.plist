@@ -26,8 +26,6 @@
 		<true/>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
-		<key>UIMainStoryboardFile</key>
-		<string>Main</string>
 
 		<!-- iPhone 方向 -->
 		<key>UISupportedInterfaceOrientations</key>
@@ -37,7 +35,7 @@
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 
-		<!-- 仅 iPhone，全屏运行，避免 iPad 截图要求 -->
+		<!-- 仅 iPhone，全屏运行 -->
 		<key>UIRequiresFullScreen</key>
 		<true/>
 
@@ -48,6 +46,7 @@
 		<key>UIStatusBarHidden</key>
 		<true/>
 
+		<!-- 权限描述 -->
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photos so you can upload item pictures to your listings.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
@@ -58,10 +57,6 @@
 		<string>We use the microphone when recording videos or voice messages.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>We use your location to show nearby listings and improve search results.</string>
-
-		<!-- Push notification permission text -->
-		<key>NSUserNotificationsUsageDescription</key>
-		<string>Allow Swaply to send you notifications about offers, messages, and important updates</string>
 
 		<!-- Background modes -->
 		<key>UIBackgroundModes</key>
@@ -81,6 +76,8 @@
 		<!-- Flutter deep link support -->
 		<key>FlutterDeepLinkingEnabled</key>
 		<true/>
+
+		<!-- URL Schemes -->
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
@@ -107,14 +104,20 @@
 					<string>swaply</string>
 				</array>
 			</dict>
+			<!-- Google REVERSED_CLIENT_ID -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
+				</array>
+			</dict>
 		</array>
 
+		<!-- 外部 app scheme 查询白名单 -->
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
-			<string>fbapi</string>
-			<string>fbauth2</string>
-			<string>fb-messenger-share-api</string>
-			<string>fb</string>
 			<string>google</string>
 			<string>whatsapp</string>
 			<string>whatsapp-business</string>
@@ -123,11 +126,5 @@
 
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
-
-		<key>com.apple.developer.associated-domains</key>
-		<array>
-			<string>applinks:swaply.cc</string>
-			<string>applinks:www.swaply.cc</string>
-		</array>
 	</dict>
 </plist>

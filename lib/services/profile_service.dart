@@ -1,8 +1,10 @@
 // lib/services/profile_service.dart
-// 以 profiles.verification_type 为唯一可信来源；不再用 email_verified 推断“已认证”
-// ✅ 不再写 verification_type / email_verified / is_verified（连初始化也不手写，交给 DB 默认）
+// ✅ [方案四] 添加 Stream 支持，实现响应式数据流
+// 以 profiles.verification_type 为唯一可信来源；不再用 email_verified 推断"已认证"
+// ✅ 不再写 verification_type / email_verified / is_verified（连初始化也不手写,交给 DB 默认）
 
 import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart'; // kDebugMode
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,13 +23,49 @@ class ProfileService {
 
   // ===== 轻量缓存（可选）=====
   final Map<String, Map<String, dynamic>> _cache = {};
-  void invalidateCache(String userId) => _cache.remove(userId);
+  void invalidateCache(String userId) {
+    _cache.remove(userId);
+    // ✅ [方案四] 清除缓存时也更新 Stream
+    _updateStream(null);
+  }
 
   // ✅ [性能优化] 缓存正在进行的查询，避免并发重复查询
   final Map<String, Future<Map<String, dynamic>?>> _pendingQueries = {};
 
-  // ======== ⚡️ 新增：三个小助手（给页面“瞬时渲染”与登录后预取用） ========
-  /// 立即读取当前用户的“内存快照”（命中则可瞬时渲染，避免白屏/闪烁）
+  // ✅ [方案四] 核心：Stream 支持
+  final _profileController = StreamController<Map<String, dynamic>?>.broadcast();
+
+  /// 对外暴露的 Stream - UI 层可以监听这个 Stream
+  Stream<Map<String, dynamic>?> get profileStream => _profileController.stream;
+
+  /// 当前缓存的资料（同步访问）
+  Map<String, dynamic>? get currentProfile {
+    final id = uid;
+    if (id == null) return null;
+    return _cache[id];
+  }
+
+  /// ✅ [方案四] 更新 Stream - 推送数据到所有监听者
+  void _updateStream(Map<String, dynamic>? profile) {
+    if (!_profileController.isClosed) {
+      _profileController.add(profile);
+      if (kDebugMode) {
+        if (profile != null) {
+          debugPrint('[ProfileService] 📡 Stream updated: ${profile['full_name']}');
+        } else {
+          debugPrint('[ProfileService] 📡 Stream cleared');
+        }
+      }
+    }
+  }
+
+  /// ✅ [方案四] 清理资源
+  void dispose() {
+    _profileController.close();
+  }
+
+  // ======== ⚡️ 新增：三个小助手（给页面"瞬时渲染"与登录后预取用） ========
+  /// 立即读取当前用户的"内存快照"（命中则可瞬时渲染，避免白屏/闪烁）
   static Map<String, dynamic>? cached() {
     return ProfileCache.instance.current;
   }
@@ -47,7 +85,7 @@ class ProfileService {
   }
 
   // ========== 登录补丁（推荐对外使用这个而不是 syncProfileFromAuthUser） ==========
-  /// 仅用于登录态建立时的“资料兜底”：
+  /// 仅用于登录态建立时的"资料兜底"：
   /// - 若不存在：插入一行，并允许**仅此一次**用 auth meta 的 full_name/avatar_url 作为默认值；
   /// - 若已存在：只更新 email / updated_at，**绝不覆盖**用户可编辑字段（full_name / avatar_url / phone / bio / city）。
   Future<void> patchProfileOnLogin() async {
@@ -104,8 +142,8 @@ class ProfileService {
     invalidateCache(user.id);
   }
 
-  /// （保留）历史接口：现在改为“遵循不覆盖原则”的同步
-  /// - 若不存在：插入（同 patchProfileOnLogin 的“首次策略”）
+  /// （保留）历史接口：现在改为"遵循不覆盖原则"的同步
+  /// - 若不存在：插入（同 patchProfileOnLogin 的"首次策略"）
   /// - 若已存在：只更新 email / updated_at
   static Future<void> syncProfileFromAuthUser() async {
     final supa = Supabase.instance.client;
@@ -155,7 +193,7 @@ class ProfileService {
 
   // ========== 核心方法：返回是否本次新发了欢迎券 ==========
   /// 登录后跑的欢迎券流程 + 资料兜底
-  /// - 仅在“新建 profile”时写默认 editable 字段；已有则只更新 email/时间
+  /// - 仅在"新建 profile"时写默认 editable 字段；已有则只更新 email/时间
   Future<bool> ensureProfileAndWelcome({
     required String userId,
     String? email,
@@ -178,7 +216,7 @@ class ProfileService {
 
       final isNew = existing == null;
 
-      // 2) 遵循“不覆盖”原则的 upsert/insert 行为
+      // 2) 遵循"不覆盖"原则的 upsert/insert 行为
       if (isNew) {
         // 仅新建时允许带入 full_name/avatar_url 作为默认值
         await supa.from('profiles').insert({
@@ -328,6 +366,8 @@ class ProfileService {
         print('[ProfileService] ❌ User ID is null! Returning null.');
         print('[ProfileService] ==================== getMyProfile END (NO USER) ====================');
       }
+      // ✅ [方案四] 推送 null 到 Stream
+      _updateStream(null);
       return null;
     }
 
@@ -338,6 +378,8 @@ class ProfileService {
         print('[ProfileService] ✅ Returning CACHED profile');
         print('[ProfileService] ==================== getMyProfile END (CACHED) ====================');
       }
+      // ✅ [方案四] 返回缓存时也推送到 Stream（确保监听者获得最新数据）
+      _updateStream(Map<String, dynamic>.from(cached));
       return Map<String, dynamic>.from(cached);
     }
 
@@ -450,6 +492,8 @@ class ProfileService {
           print('[ProfileService] ❌ Still no profile after all attempts!');
           print('[ProfileService] ==================== getMyProfile END (FAILED) ====================');
         }
+        // ✅ [方案四] 失败时推送 null
+        _updateStream(null);
         return null;
       }
 
@@ -461,10 +505,14 @@ class ProfileService {
       // ✅ 同步写入"内存快照缓存"，便于 UI 首帧瞬时渲染
       ProfileCache.instance.setForCurrentUser(map);
 
+      // ✅ [方案四] 核心：推送数据到 Stream
+      _updateStream(Map<String, dynamic>.from(map));
+
       if (kDebugMode) {
         print('[ProfileService] ✅ Profile loaded successfully');
         print('[ProfileService] Name: ${map['full_name']}');
         print('[ProfileService] Email: ${map['email']}');
+        print('[ProfileService] 📡 Data pushed to Stream');
         print('[ProfileService] ==================== getMyProfile END (SUCCESS) ====================');
       }
 
@@ -476,10 +524,11 @@ class ProfileService {
         print('[ProfileService] Stack trace: $stackTrace');
         print('[ProfileService] ==================== getMyProfile END (ERROR) ====================');
       }
+      // ✅ [方案四] 错误时推送 null
+      _updateStream(null);
       return null;
     }
   }
-
 
   Future<void> updateUserProfile({
     String? fullName,
@@ -496,15 +545,18 @@ class ProfileService {
         avatarUrl: avatarUrl ?? currentData['avatar_url']?.toString(),
       );
 
-      // 成功后清缓存
+      // 成功后清缓存并重新加载（会自动推送到 Stream）
       final id = uid;
-      if (id != null) invalidateCache(id);
+      if (id != null) {
+        invalidateCache(id);
+        await getMyProfile(); // 重新加载并推送到 Stream
+      }
     } catch (e) {
       throw Exception('Failed to update user profile: $e');
     }
   }
 
-  /// ⚠️ 注意：这里用于“用户主动编辑”的保存，允许更新可编辑字段。
+  /// ⚠️ 注意：这里用于"用户主动编辑"的保存，允许更新可编辑字段。
   /// 不用于登录补丁（登录补丁请走 patchProfileOnLogin / ensureProfileAndWelcome）。
   Future<void> upsertProfile({
     required String fullName,
@@ -531,6 +583,10 @@ class ProfileService {
 
       // 用 update 更稳妥（已存在行），避免 upsert 触发行默认值覆盖
       await _sb.from('profiles').update(updateData).eq('id', id);
+
+      // ✅ [方案四] 更新后重新加载并推送到 Stream
+      invalidateCache(id);
+      await getMyProfile();
     } catch (e) {
       throw Exception('Failed to upsert profile: $e');
     }
@@ -550,15 +606,17 @@ class ProfileService {
         fileOptions: const FileOptions(upsert: true),
       );
 
-      // 成功后清缓存
+      // 成功后清缓存并重新加载（会自动推送到 Stream）
       invalidateCache(id);
+      await getMyProfile();
+
       return _sb.storage.from('avatars').getPublicUrl(storagePath);
     } catch (e) {
       throw Exception('Failed to upload avatar: $e');
     }
   }
 
-  // ========== 验证相关（注意：只用于历史/兼容，已不参与“是否已认证”的判断） ==========
+  // ========== 验证相关（注意：只用于历史/兼容，已不参与"是否已认证"的判断） ==========
   Future<bool> isEmailVerified() async {
     // legacy removed：请使用 EmailVerificationService().fetchVerificationRow()
     // + vutils.computeIsVerified(...) 判定是否已认证
@@ -600,6 +658,12 @@ class ProfileService {
         'is_official': isOfficial,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', userId);
+
+      // ✅ [方案四] 更新后重新加载
+      if (userId == uid) {
+        invalidateCache(userId);
+        await getMyProfile();
+      }
     } catch (e) {
       throw Exception('Failed to set official status: $e');
     }
@@ -665,6 +729,11 @@ class ProfileService {
 
       // ✅ 同步到内存快照
       ProfileCache.instance.setForCurrentUser(data);
+
+      // ✅ [方案四] 推送到 Stream
+      if (targetId == uid) {
+        _updateStream(Map<String, dynamic>.from(data));
+      }
 
       return data;
     } catch (_) {

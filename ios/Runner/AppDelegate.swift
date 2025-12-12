@@ -152,4 +152,51 @@ import FirebaseMessaging
 
         completionHandler(.newData)
     }
+
+    // ========== ✅ 新增：深链处理逻辑 ==========
+
+    // ✅ 12. 处理深链 - Universal Links (HTTPS)
+    override func application(
+        _ application: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+           let url = userActivity.webpageURL {
+            print("✅ [DeepLink] Universal Link: \(url.absoluteString)")
+
+            if url.host == "swaply.cc" || url.host == "www.swaply.cc" {
+                if url.path.contains("auth/callback") || url.path.contains("login-callback") {
+                    print("   → OAuth callback detected via Universal Link")
+                }
+            }
+
+            return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+        }
+        return false
+    }
+
+    // ✅ 13. 处理深链 - Custom URL Scheme
+    override func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+    ) -> Bool {
+        print("✅ [DeepLink] Custom URL Scheme: \(url.absoluteString)")
+
+        if url.scheme == "cc.swaply.app" {
+            print("   → OAuth callback detected")
+            if url.host == "login-callback" {
+                print("   → Login callback path")
+            }
+        } else if url.scheme?.contains("googleusercontent") == true {
+            print("   → Google Sign-In callback detected")
+        } else if url.scheme == "io.supabase.flutter" {
+            print("   → Supabase callback detected")
+        } else if url.scheme == "swaply" {
+            print("   → Swaply custom scheme detected")
+        }
+
+        return super.application(app, open: url, options: options)
+    }
 }

@@ -107,17 +107,17 @@ class NotificationService {
     }
   }
 
-  // ======= ✅ 新增：统一深链 payload 构造器 =======
+  // ======= ✅ 修改：统一深链 payload 构造器（改为 HTTPS） =======
   static String buildOfferPayload({
     required String offerId,
     required String listingId,
   }) =>
-      'swaply://offer?offer_id=$offerId&listing_id=$listingId';
+      'https://swaply.cc/offer?id=$offerId&listing_id=$listingId';
 
   static String buildListingPayload({
     required String listingId,
   }) =>
-      'swaply://listing?listing_id=$listingId';
+      'https://swaply.cc/listing?id=$listingId';
 
   static String? derivePayloadFromRecord(Map<String, dynamic> record) {
     try {

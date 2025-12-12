@@ -1,16 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ [推送通知] 通知权限 (Android 13+) -->
+    <!-- ✅ 推送通知/网络权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
-    <!-- ✅ [推送通知] 网络权限（FCM 需要） -->
     <uses-permission android:name="android.permission.INTERNET"/>
-
-    <!-- ✅ [推送通知] 后台运行权限（保持 FCM 连接） -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-
-    <!-- ✅ [推送通知] 前台服务权限（Android 9+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
@@ -19,17 +13,13 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
 
-        <!-- ✅ [推送通知] FCM 默认通知图标 -->
+        <!-- ✅ FCM 默认通知配置 -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />
-
-        <!-- ✅ [推送通知] FCM 默认通知颜色 -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@android:color/holo_blue_light" />
-
-        <!-- ✅ [推送通知] FCM 默认通知渠道 -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="swaply_notifications" />
@@ -55,90 +45,41 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- ✅✅✅ [关键修复] FCM 通知点击处理 ✅✅✅ -->
-            <!-- 没有这个，点击通知不会触发 getInitialMessage() 或 onMessageOpenedApp -->
+            <!-- ✅ 点击 FCM 通知回到应用 -->
             <intent-filter>
                 <action android:name="FLUTTER_NOTIFICATION_CLICK" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- OAuth 回调：cc.swaply.app://login-callback -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="cc.swaply.app"
-                    android:host="login-callback" />
-            </intent-filter>
-
-            <!-- ✅ 新增：重置密码回调 cc.swaply.app://reset-password -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="cc.swaply.app"
-                    android:host="reset-password" />
-            </intent-filter>
-
-            <!-- Supabase 默认回调 -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="io.supabase.flutter"
-                    android:host="callback" />
-            </intent-filter>
-
-            <!-- 自定义scheme深链 -->
-            <!-- swaply://listing?listing_id=xxx -->
-            <!-- swaply://offer?offer_id=xxx -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="swaply" />
-            </intent-filter>
-
-            <!-- =====================================================
-                 ✅ App Links 验证（HTTPS 深链）
-                 关键：单独一个 intent-filter，不带 pathPrefix
-                 Android 会验证 assetlinks.json 文件
-                 ===================================================== -->
+            <!-- ✅ App Links 验证（HTTPS 深链，自动验证） -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
-                <!-- HTTPS only -->
                 <data android:scheme="https" />
-
-                <!-- 你的域名 -->
                 <data android:host="swaply.cc" />
             </intent-filter>
 
-            <!-- =====================================================
-                 ✅ 具体路径处理（不需要 autoVerify）
-                 处理所有 HTTPS 深链，由 DeepLinkService 统一解析
-                 支持：
-                 - https://swaply.cc/l/[id]
-                 - https://swaply.cc/listing?id=xxx
-                 - https://swaply.cc/offer?offer_id=xxx
-                 - https://swaply.cc/reset-password?token=xxx
-                 ===================================================== -->
+            <!-- ✅ 处理所有 https://swaply.cc/*，由应用内 DeepLinkService 解析 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
                 <data android:scheme="https" />
                 <data android:host="swaply.cc" />
             </intent-filter>
+
+            <!-- ✅ 新增：自定义 URL Scheme OAuth 回调（移动端） -->
+            <!-- 用于接收 Facebook/Apple OAuth 回调：swaply://login-callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="swaply" android:host="login-callback" />
+            </intent-filter>
         </activity>
 
-        <!-- ✅ [推送通知] FCM Service（关键！） -->
+        <!-- ✅ FCM service -->
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
             android:exported="false"
@@ -148,74 +89,45 @@
             </intent-filter>
         </service>
 
-        <!-- Flutter plugin registrant -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
 
-    <!-- Package visibility for Process Text -->
+    <!-- Package visibility for Process Text & common intents -->
     <queries>
-        <!-- ✅ 浏览器（打开网页链接）-->
+        <!-- 浏览器 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
-
-        <!-- ✅ HTTP 浏览器 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
         </intent>
 
-        <!-- ==================== 📱 社交媒体应用 ==================== -->
-
-        <!-- ✅ WhatsApp 应用包名 -->
+        <!-- 社交应用（可保留） -->
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
-
-        <!-- 🔧 关键修复：WhatsApp URL scheme intent 查询 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="whatsapp" />
         </intent>
 
-        <!-- ✅ Telegram 应用包名 -->
         <package android:name="org.telegram.messenger" />
         <package android:name="org.telegram.messenger.web" />
-
-        <!-- 🔧 关键修复：Telegram URL scheme intent 查询 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="tg" />
         </intent>
 
-        <!-- ✅ Facebook 应用包名 -->
-        <package android:name="com.facebook.katana" />
-
-        <!-- 🔧 关键修复：Facebook URL scheme intent 查询 -->
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="fb" />
-        </intent>
-
-        <!-- ✅ Messenger 应用包名 -->
-        <package android:name="com.facebook.orca" />
-
-        <!-- ✅ Twitter/X 应用包名 -->
-        <package android:name="com.twitter.android" />
-
-        <!-- ==================== 🛒 应用商店 ==================== -->
-
-        <!-- 🔧 新增：Android market:// 协议（用于打开 Play Store）-->
+        <!-- 应用商店 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="market" />
         </intent>
 
-        <!-- ==================== 其他 ==================== -->
-
-        <!-- ✅ Process Text -->
+        <!-- Process Text -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />

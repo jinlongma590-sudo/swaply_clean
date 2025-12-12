@@ -1,32 +1,36 @@
 // lib/config.dart
-// ✅ Swaply完整配置文件 - 2025版本
+// ✅ Swaply 完整配置（2025）
+// ✅ 回调 URL 统一走 config/auth_config.dart
 
-/// ======================================================================
-/// 数据源配置
-/// ======================================================================
+// ---- Imports 必须放在任何声明之前 ----
+import 'package:swaply/config/auth_config.dart' as auth;
 
-/// 是否使用远程数据（生产环境设置为true）
+// ======================================================================
+// 数据源配置
+// ======================================================================
+
+/// 是否使用远程数据（生产环境设置为 true）
 const bool kUseRemoteData = true;
 
-/// 是否上传到远程服务器（生产环境设置为true）
+/// 是否上传到远程服务器（生产环境设置为 true）
 const bool kUploadToRemote = true;
 
-/// ======================================================================
-/// Supabase配置
-/// ======================================================================
+// ======================================================================
+// Supabase 配置
+// ======================================================================
 
 class SupabaseConfig {
-  /// Supabase项目URL
+  /// Supabase 项目 URL
   static const String url = 'https://rhckybselarzglkmlyqs.supabase.co';
 
-  /// Supabase匿名密钥
+  /// Supabase 匿名密钥
   static const String anonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoY2t5YnNlbGFyemdsa21seXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTM0NTgsImV4cCI6MjA3MDU4OTQ1OH0.3I0T2DidiF-q9l2tWeHOjB31QogXHDqRtEjDn0RfVbU';
 }
 
-/// ======================================================================
-/// 应用配置
-/// ======================================================================
+// ======================================================================
+// 应用配置
+// ======================================================================
 
 class AppConfig {
   /// 应用名称
@@ -39,54 +43,50 @@ class AppConfig {
   static const String packageName = 'com.swaply.app';
 
   // ═════════════════════════════════════════════════════════════════
-  // OAuth / Deep Link 配置（关键配置！）
+  // OAuth / Deep Link 配置（统一使用 auth_config.dart）
+  // DEPRECATED: 请直接使用 config/auth_config.dart 中的函数
   // ═════════════════════════════════════════════════════════════════
 
-  /// ✅ OAuth登录回调URL
-  /// - 用于Google、Apple等第三方登录
-  /// - 必须与以下配置保持一致：
-  ///   * iOS Info.plist CFBundleURLSchemes
-  ///   * Android AndroidManifest.xml Intent Filter
-  ///   * Supabase Dashboard Redirect URLs
-  static const String authRedirectUri = 'cc.swaply.app://login-callback';
+  /// OAuth 登录回调 URL（动态）
+  @Deprecated('Use auth.getAuthRedirectUri() instead')
+  static String get authRedirectUri => auth.getAuthRedirectUri();
 
-  /// ✅ 密码重置回调URL（重要！必须正确配置）
-  /// - 用于密码重置流程
-  /// - 用户点击邮件链接后会先打开这个网页
-  /// - 网页会提取token并唤起App
-  /// - 必须与Supabase Email Template中的Redirect URL一致
-  static const String resetPasswordRedirectUrl = 'https://swaply.cc/reset-password';
+  /// OAuth 登录回调 URL（移动端常量）
+  @Deprecated('Use auth.kAuthRedirectUri instead')
+  static String get oauthRedirectUrl => auth.kAuthRedirectUri;
 
-  /// 兼容旧字段（保持与authRedirectUri一致）
-  static const String oauthRedirectUrl = authRedirectUri;
+  /// 密码重置回调 URL（动态）
+  @Deprecated('Use auth.getResetPasswordRedirectUri() instead')
+  static String get resetPasswordRedirectUrl =>
+      auth.getResetPasswordRedirectUri();
 
   // ═════════════════════════════════════════════════════════════════
-  // Deep Link Schemes（用于App内导航）
+  // Deep Link Schemes（用于 App 内导航）
   // ═════════════════════════════════════════════════════════════════
 
-  /// Deep Link基础scheme
+  /// Deep Link 基础 scheme
   static const String deepLinkScheme = 'cc.swaply.app';
 
-  /// 完整的Deep Link格式示例：
+  /// 完整 Deep Link 示例：
   /// - 密码重置: cc.swaply.app://reset-password?token=xxx
-  /// - OAuth回调: cc.swaply.app://login-callback
-  /// - 商品详情: cc.swaply.app://listing?id=xxx
-  /// - 报价详情: cc.swaply.app://offer?id=xxx
+  /// - OAuth 回调: cc.swaply.app://login-callback
+  /// - 商品详情: https://swaply.cc/listing?id=xxx
+  /// - 报价详情: https://swaply.cc/offer?id=xxx
 
   // ═════════════════════════════════════════════════════════════════
   // Web URLs（用于网页跳转）
   // ═════════════════════════════════════════════════════════════════
 
-  /// 主网站URL
+  /// 主网站 URL
   static const String websiteUrl = 'https://swaply.cc';
 
-  /// API基础URL（如果有单独的API服务器）
+  /// API 基础 URL（若有单独 API 服务器则替换）
   static const String apiBaseUrl = SupabaseConfig.url;
 }
 
-/// ======================================================================
-/// 上传配置
-/// ======================================================================
+// ======================================================================
+// 上传配置
+// ======================================================================
 
 class UploadConfig {
   /// 单张图片最大大小（5MB）
@@ -108,9 +108,9 @@ class UploadConfig {
   static const int maxImageHeight = 1920;
 }
 
-/// ======================================================================
-/// 分页配置
-/// ======================================================================
+// ======================================================================
+// 分页配置
+// ======================================================================
 
 class PaginationConfig {
   /// 默认每页数量
@@ -123,9 +123,9 @@ class PaginationConfig {
   static const int initialPageSize = 15;
 }
 
-/// ======================================================================
-/// 缓存配置
-/// ======================================================================
+// ======================================================================
+// 缓存配置
+// ======================================================================
 
 class CacheConfig {
   /// 默认缓存时长
@@ -144,9 +144,9 @@ class CacheConfig {
   static const int maxImageCacheSize = 100 * 1024 * 1024;
 }
 
-/// ======================================================================
-/// Supabase表名
-/// ======================================================================
+// ======================================================================
+// Supabase 表名
+// ======================================================================
 
 class ApiEndpoints {
   /// 商品表
@@ -174,9 +174,9 @@ class ApiEndpoints {
   static const String notifications = 'notifications';
 }
 
-/// ======================================================================
-/// Supabase存储桶
-/// ======================================================================
+// ======================================================================
+// Supabase 存储桶
+// ======================================================================
 
 class StorageBuckets {
   /// 商品图片
@@ -189,9 +189,9 @@ class StorageBuckets {
   static const String chatImages = 'chat-images';
 }
 
-/// ======================================================================
-/// 主题配置
-/// ======================================================================
+// ======================================================================
+// 主题配置
+// ======================================================================
 
 class ThemeConfig {
   /// 主色调（Material Blue）
@@ -213,9 +213,9 @@ class ThemeConfig {
   static const double inputBorderRadius = 12.0;
 }
 
-/// ======================================================================
-/// 环境配置
-/// ======================================================================
+// ======================================================================
+// 环境配置
+// ======================================================================
 
 class Environment {
   /// 是否为生产环境
@@ -228,9 +228,9 @@ class Environment {
   static const bool isDebugMode = !isProduction;
 }
 
-/// ======================================================================
-/// 调试配置
-/// ======================================================================
+// ======================================================================
+// 调试配置
+// ======================================================================
 
 class DebugConfig {
   /// 是否启用日志
@@ -246,9 +246,9 @@ class DebugConfig {
   static const bool enablePerformanceMonitoring = Environment.isDevelopment;
 }
 
-/// ======================================================================
-/// 业务配置
-/// ======================================================================
+// ======================================================================
+// 业务配置
+// ======================================================================
 
 class BusinessConfig {
   /// 密码最小长度
@@ -269,22 +269,22 @@ class BusinessConfig {
   /// 搜索关键词最小长度
   static const int minSearchKeywordLength = 2;
 
-  /// Token过期时间（秒）- Supabase默认为3600秒（1小时）
+  /// Token 过期时间（秒）- Supabase 默认为 3600 秒（1 小时）
   static const int tokenExpirySeconds = 3600;
 
-  /// Refresh Token过期时间（秒）- Supabase默认为604800秒（7天）
+  /// Refresh Token 过期时间（秒）- Supabase 默认为 604800 秒（7 天）
   static const int refreshTokenExpirySeconds = 604800;
 }
 
-/// ======================================================================
-/// 功能开关（Feature Flags）
-/// ======================================================================
+// ======================================================================
+// 功能开关（Feature Flags）
+// ======================================================================
 
 class FeatureFlags {
-  /// 是否启用Google登录
+  /// 是否启用 Google 登录
   static const bool enableGoogleLogin = true;
 
-  /// 是否启用Apple登录
+  /// 是否启用 Apple 登录
   static const bool enableAppleLogin = true;
 
   /// 是否启用聊天功能
@@ -304,38 +304,45 @@ class FeatureFlags {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// ✅ 配置验证（用于启动时检查）
+// 配置验证（用于启动时检查）
 // ═════════════════════════════════════════════════════════════════
 
 /// 验证所有关键配置是否正确
 bool validateConfig() {
   bool isValid = true;
 
-  // 检查Supabase配置
+  // 检查 Supabase 配置
   if (SupabaseConfig.url.isEmpty || SupabaseConfig.anonKey.isEmpty) {
+    // ignore: avoid_print
     print('❌ Supabase配置无效');
     isValid = false;
   }
 
-  // 检查重定向URL配置
-  if (AppConfig.authRedirectUri.isEmpty) {
+  // 检查重定向 URL 配置
+  if (auth.kAuthRedirectUri.isEmpty) {
+    // ignore: avoid_print
     print('❌ OAuth重定向URL未配置');
     isValid = false;
   }
 
-  if (AppConfig.resetPasswordRedirectUrl.isEmpty) {
+  if (auth.kResetPasswordWebRedirectUri.isEmpty) {
+    // ignore: avoid_print
     print('❌ 密码重置重定向URL未配置');
     isValid = false;
   }
 
-  // 检查Deep Link scheme格式
-  if (!AppConfig.authRedirectUri.startsWith(AppConfig.deepLinkScheme)) {
+  // 检查 Deep Link scheme 格式
+  if (!auth.kAuthRedirectUri.startsWith(AppConfig.deepLinkScheme)) {
+    // ignore: avoid_print
     print('⚠️ OAuth重定向URL与Deep Link scheme不一致');
-    print('   OAuth: ${AppConfig.authRedirectUri}');
+    // ignore: avoid_print
+    print('   OAuth: ${auth.kAuthRedirectUri}');
+    // ignore: avoid_print
     print('   Scheme: ${AppConfig.deepLinkScheme}');
   }
 
   if (isValid) {
+    // ignore: avoid_print
     print('✅ 所有配置验证通过');
   }
 
@@ -344,19 +351,32 @@ bool validateConfig() {
 
 /// 打印当前配置（调试用）
 void printCurrentConfig() {
+  // ignore: avoid_print
   print('═══════════════════════════════════════');
+  // ignore: avoid_print
   print('🔧 Swaply 配置信息');
+  // ignore: avoid_print
   print('═══════════════════════════════════════');
+  // ignore: avoid_print
   print('环境: ${Environment.isProduction ? "生产" : "开发"}');
+  // ignore: avoid_print
   print('应用名称: ${AppConfig.appName}');
+  // ignore: avoid_print
   print('版本: ${AppConfig.version}');
+  // ignore: avoid_print
   print('包名: ${AppConfig.packageName}');
+  // ignore: avoid_print
   print('───────────────────────────────────────');
+  // ignore: avoid_print
   print('Supabase URL: ${SupabaseConfig.url}');
-  print('OAuth回调: ${AppConfig.authRedirectUri}');
-  print('密码重置: ${AppConfig.resetPasswordRedirectUrl}');
+  // ignore: avoid_print
+  print('OAuth回调: ${auth.getAuthRedirectUri()}');
+  // ignore: avoid_print
+  print('密码重置: ${auth.getResetPasswordRedirectUri()}');
+  // ignore: avoid_print
   print('Deep Link: ${AppConfig.deepLinkScheme}');
+  // ignore: avoid_print
   print('网站URL: ${AppConfig.websiteUrl}');
+  // ignore: avoid_print
   print('═══════════════════════════════════════');
 }
-

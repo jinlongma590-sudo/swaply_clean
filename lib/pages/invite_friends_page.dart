@@ -133,7 +133,9 @@ class _InviteFriendsPageState extends State<InviteFriendsPage>
   Future<void> _shareInvite() async {
     if (_inviteCode == null) return;
 
-    final deepLink = 'swaply://register?code=$_inviteCode';
+    // ✅ 使用 HTTPS 链接，替代自定义 scheme
+    final deepLink = 'https://swaply.cc/register?code=$_inviteCode';
+
     final shareText = '''
 🎉 Join Swaply - Trade what you have for what you need!
 
@@ -239,14 +241,12 @@ Download: https://www.swaply.cc
 
   @override
   Widget build(BuildContext context) {
-    // 状态栏设置 (确保浅色图标)
-    // 理论上这应该在路由切换或 main.dart 中全局设置
-    // 为确保此页面正确显示，在此处调用
+    // 状态栏设置
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light, // iOS 浅色内容 (for dark bg)
-      statusBarBrightness: Brightness.dark, // Android 浅色内容 (for dark bg)
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
     ));
 
     final user = Supabase.instance.client.auth.currentUser;
@@ -254,10 +254,8 @@ Download: https://www.swaply.cc
       return _buildNotLoggedInView();
     }
 
-    // ✅ [MODIFIED] 提取平台变量
     final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
-    // ✅ [MODIFIED] 提取刷新按钮逻辑，以便在 iOS 和 Android 之间共享
     final refreshBtnWidget = _isRefreshing
         ? SizedBox(
       width: 20.r,
@@ -269,30 +267,25 @@ Download: https://www.swaply.cc
     )
         : Icon(Icons.refresh, size: 20.r);
 
-    // ✅ [REMOVED] 移除旧的 36x36 刷新按钮定义
-    // final iosRefreshBtn = ... (old 36x36 definition removed)
-
     if (isIOS) {
-      // ===== ✅ iOS: 使用自定义 Stack 头部 =====
+      // iOS: 自定义头部
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         body: Column(
           children: [
-            // ✅ [MODIFIED] 'trailing' 参数现在用于判断是否显示刷新按钮
             _buildHeaderIOS(context, trailing: true),
             Expanded(child: _buildBodyContent()),
           ],
         ),
       );
     } else {
-      // ===== ✅ Android: 保持原有 AppBar =====
+      // Android: AppBar
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           elevation: 0,
           backgroundColor: const Color(0xFF4CAF50),
           foregroundColor: Colors.white,
-          toolbarHeight: null, // Android 默认
           leading: IconButton(
             onPressed: () => Navigator.pop(context),
             icon: Icon(Icons.arrow_back_ios_new, size: 20.r),
@@ -316,25 +309,22 @@ Download: https://www.swaply.cc
     }
   }
 
-  /// ✅ [REBUILT] iOS 头部 (基于 verification_page.dart 标准 44pt Row 布局)
+  /// iOS 头部
   Widget _buildHeaderIOS(BuildContext context, {bool trailing = false}) {
     final double statusBar = MediaQuery.of(context).padding.top;
 
-    // 2. 采用新的标准布局 (来自 verification_page.dart)
     return Container(
-      // 保持邀请页的绿色
       decoration: const BoxDecoration(
         color: Color(0xFF4CAF50),
       ),
-      padding: EdgeInsets.only(top: statusBar), // 让出状态栏
+      padding: EdgeInsets.only(top: statusBar),
       child: SizedBox(
-        height: 44, // 标准导航条高度
+        height: 44,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16), // 左右边距 16
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center, // 保证垂直居中
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 左侧 32×32 返回 (标准)
               SizedBox(
                 width: 32,
                 height: 32,
@@ -343,48 +333,44 @@ Download: https://www.swaply.cc
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10), // 匹配圆角
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
                     child: const Icon(Icons.arrow_back_ios_new,
-                        size: 18, color: Colors.white), // 匹配图标
+                        size: 18, color: Colors.white),
                   ),
                 ),
               ),
-              const SizedBox(width: 12), // 标准间距
-
-              // 标题：与左右按钮同一基线 (标准)
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Invite Friends',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center, // 保持居中
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 18.sp, // ✅ 匹配 verification_page.dart 标准
+                    fontSize: 18.sp,
                   ),
                 ),
               ),
-              const SizedBox(width: 12), // 标准间距
-
-              // 右侧 32×32 刷新或占位 (标准)
+              const SizedBox(width: 12),
               SizedBox(
                 width: 32,
                 height: 32,
-                child: trailing // (trailing == true)
+                child: trailing
                     ? GestureDetector(
                   onTap: _isRefreshing ? null : _refreshData,
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10), // 匹配圆角
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
                     child: _isRefreshing
                         ? const SizedBox(
-                      width: 18, // 匹配图标大小
+                      width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
@@ -392,10 +378,10 @@ Download: https://www.swaply.cc
                       ),
                     )
                         : const Icon(Icons.refresh,
-                        color: Colors.white, size: 18), // 匹配图标
+                        color: Colors.white, size: 18),
                   ),
                 )
-                    : null, // (trailing == false)
+                    : null,
               ),
             ],
           ),
@@ -404,7 +390,7 @@ Download: https://www.swaply.cc
     );
   }
 
-  /// ✅ [NEW] 提取的主体内容
+  /// 主体内容
   Widget _buildBodyContent() {
     return _loading
         ? _buildLoadingState()
@@ -437,30 +423,27 @@ Download: https://www.swaply.cc
     );
   }
 
-  /// ✅ [MODIFIED] 未登录视图也使用新标准
+  /// 未登录视图
   Widget _buildNotLoggedInView() {
     final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
     if (isIOS) {
-      // ===== iOS Guest: 使用自定义 Stack 头部 (无刷新按钮) =====
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         body: Column(
           children: [
-            _buildHeaderIOS(context, trailing: false), // ✅ 无刷新按钮 (占位符)
+            _buildHeaderIOS(context, trailing: false),
             Expanded(child: _buildGuestBodyContent()),
           ],
         ),
       );
     } else {
-      // ===== Android Guest: 保持原有 AppBar =====
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           elevation: 0,
           backgroundColor: const Color(0xFF4CAF50),
           foregroundColor: Colors.white,
-          toolbarHeight: null, // Android 默认
           title: Text(
             'Invite Friends',
             style: TextStyle(
@@ -475,7 +458,7 @@ Download: https://www.swaply.cc
     }
   }
 
-  /// ✅ [NEW] 提取的未登录主体内容
+  /// 未登录主体内容
   Widget _buildGuestBodyContent() {
     return Center(
       child: Padding(
@@ -863,7 +846,6 @@ Download: https://www.swaply.cc
                   child: const CircularProgressIndicator(strokeWidth: 2),
                 )
                     : const Icon(Icons.refresh, size: 16),
-                // 文案改为 Refresh，避免误导
                 label: Text(_regenerating ? 'Refreshing...' : 'Refresh Code'),
               ),
             ),
@@ -1151,7 +1133,6 @@ Download: https://www.swaply.cc
 
   Widget _buildHistoryItem(Map<String, dynamic> invitation) {
     final status = invitation['status']?.toString() ?? 'pending';
-    // 同时兼容 referrals 里的不同字段名
     final code =
         (invitation['code'] ?? invitation['invitation_code'])?.toString() ??
             'N/A';

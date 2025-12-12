@@ -630,9 +630,32 @@ class DeepLinkService {
       // ============================================================
       // ✅ 忽略 Supabase OAuth 回调
       // ============================================================
+      // ============================================================
+      // ✅ 忽略 OAuth 回调（让 Supabase SDK 自动处理）
+      // ============================================================
+
+      // 忽略旧的 Supabase scheme
       if (scheme == 'cc.swaply.app' && host == 'login-callback') {
         if (kDebugMode) {
-          debugPrint('⏭️  Skipping Supabase login callback');
+          debugPrint('⏭️  Skipping Supabase login callback (cc.swaply.app)');
+          debugPrint('════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
+        _completeInitialLink();
+        return;
+      }
+
+      // ✅ 新增：忽略自定义 URL Scheme OAuth 回调（移动端）
+      // swaply://login-callback
+      if (scheme == 'swaply' && host == 'login-callback') {
+        if (kDebugMode) {
+          debugPrint('🔐 Matched: OAuth Callback (Custom URL Scheme)');
+          debugPrint('   Scheme: $scheme');
+          debugPrint('   Host: $host');
+          debugPrint('   Fragment: ${uri.fragment}');
+          debugPrint('   Query: ${uri.queryParameters}');
+          debugPrint('');
+          debugPrint('⏭️  Ignoring OAuth callback (Supabase will handle)');
           debugPrint('════════════════════════════════════════════════════════════');
           debugPrint('');
         }

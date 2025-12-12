@@ -1,7 +1,9 @@
 ﻿// lib/pages/profile_page.dart
+// ✅ [方案四] 使用 StreamBuilder 监听 Profile Stream
 // ✅ 修复：iOS端使用更紧凑的UI比例，Android保持不变
 // ✅ 修复：统一所有入口卡片的大小
 // ✅ 修复：My Rewards 跳转到 TaskManagementPage
+// ✅ [应用内认证] 删除账号链接强制在应用内打开
 
 import 'dart:async';
 import 'dart:io';
@@ -30,7 +32,7 @@ import 'package:swaply/pages/invite_friends_page.dart';
 import 'package:swaply/pages/coupon_management_page.dart';
 import 'package:swaply/pages/account_settings_page.dart';
 import 'package:swaply/pages/verification_page.dart';
-import 'package:swaply/pages/task_management_page.dart';  // ✅ 新增：My Rewards 页面导入
+import 'package:swaply/pages/task_management_page.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
@@ -40,7 +42,7 @@ import 'package:swaply/core/l10n/app_localizations.dart';
 import 'package:swaply/providers/language_provider.dart';
 
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
-const _kDeleteUrl  = 'https://www.swaply.cc/delete-account';
+const _kDeleteUrl = 'https://www.swaply.cc/delete-account';
 
 class _L10n {
   const _L10n();
@@ -65,15 +67,9 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
-  static Map<String, dynamic>? _swrCache;
-
   bool _dead = false;
-  bool _loading = true;
-  bool _loadCalled = false;
 
   bool get _signedIn => Supabase.instance.client.auth.currentUser != null;
-
-  Map<String, dynamic>? _profile;
 
   final _svc = ProfileService();
   final _verifySvc = EmailVerificationService();
@@ -86,8 +82,6 @@ class _ProfilePageState extends State<ProfilePage>
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
-  StreamSubscription<AuthState>? _authSub;
 
   void _safeSetState(VoidCallback fn) {
     if (!mounted || _dead) return;
@@ -102,96 +96,18 @@ class _ProfilePageState extends State<ProfilePage>
     _fadeAnimation =
         CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      _safeSetState(() => _loading = true);
-    }
+    // ✅ [方案四] 启动动画
+    _animationController.forward();
 
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && !_loadCalled && Supabase.instance.client.auth.currentUser != null) {
-        _loadCalled = true;
-        _load();
-      }
-    });
-
+    // ✅ [方案四] 加载验证状态
     _reloadUserVerificationStatus();
-  }
-
-  void _primeFromCacheOrAuth() {
-    if (!_signedIn) return;
-    final cached = _swrCache;
-    if (cached != null) {
-      _safeSetState(() {
-        _loading = false;
-        _profile = Map<String, dynamic>.from(cached);
-      });
-      _animationController.forward();
-      return;
-    }
-
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      final meta = user.userMetadata ?? const {};
-      final fullNameMeta = (meta['full_name'] ?? '').toString().trim();
-      final displayName =
-      fullNameMeta.isNotEmpty ? fullNameMeta : (user.email ?? 'User');
-
-      final snap = <String, dynamic>{
-        'id': user.id,
-        'full_name': displayName,
-        'email': user.email ?? '',
-        'phone': user.phone ?? '',
-        'avatar_url': meta['avatar_url'],
-      };
-
-      _safeSetState(() {
-        _loading = false;
-        _profile = snap;
-      });
-      _animationController.forward();
-    }
   }
 
   @override
   void dispose() {
     _dead = true;
-    _authSub?.cancel();
     _animationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    try {
-      if (_loading) _primeFromCacheOrAuth();
-
-      final base = await _svc.getUserProfile();
-      if (!mounted || _dead) return;
-
-      final map = base == null
-          ? <String, dynamic>{
-        'full_name': 'User',
-        'email': Supabase.instance.client.auth.currentUser?.email ?? '',
-        'phone': Supabase.instance.client.auth.currentUser?.phone ?? '',
-      }
-          : Map<String, dynamic>.from(base);
-
-      _safeSetState(() {
-        _profile = map;
-        _loading = false;
-      });
-      _swrCache = Map<String, dynamic>.from(map);
-      _animationController.forward();
-    } catch (e, stackTrace) {
-      if (!mounted || _dead) return;
-      _safeSetState(() {
-        _profile = <String, dynamic>{
-          'full_name': 'User',
-          'email': Supabase.instance.client.auth.currentUser?.email ?? '',
-        };
-        _loading = false;
-      });
-      _animationController.forward();
-    }
   }
 
   Future<void> _reloadUserVerificationStatus() async {
@@ -367,7 +283,7 @@ class _ProfilePageState extends State<ProfilePage>
           ),
         );
 
-        await _load();
+        // ✅ [方案四] updateUserProfile 会自动重新加载并推送到 Stream
       } catch (e) {
         if (!mounted || _dead) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -406,7 +322,10 @@ class _ProfilePageState extends State<ProfilePage>
       );
 
       if (!mounted || _dead) return;
-      if (image == null) return;
+      if (image == null) {
+        _safeSetState(() => _uploadingAvatar = false);
+        return;
+      }
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
@@ -430,7 +349,7 @@ class _ProfilePageState extends State<ProfilePage>
 
       if (!mounted || _dead) return;
 
-      await _load();
+      // ✅ [方案四] updateUserProfile 会自动重新加载并推送到 Stream
 
       if (!mounted || _dead) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -473,7 +392,6 @@ class _ProfilePageState extends State<ProfilePage>
   @override
   Widget build(BuildContext context) {
     const l10n = _L10n();
-    final languageProvider = Provider.of<LanguageProvider>(context);
 
     // ✅ 关键修复：强制禁用文本缩放 + 系统辅助功能缩放
     final media = MediaQuery.of(context);
@@ -515,321 +433,360 @@ class _ProfilePageState extends State<ProfilePage>
       );
     }
 
-    // Loading state
-    if (_loading) {
-      return MediaQuery(
-        data: clamp,
-        child: const Scaffold(
-          backgroundColor: Color(0xFFF8F9FA),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(width: 36, height: 36, child: CircularProgressIndicator(strokeWidth: 3)),
-                SizedBox(height: 16),
-                Text('Loading profile...', style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final fullName = (_profile?['full_name'] ?? 'User').toString();
-    final phone = (_profile?['phone'] ?? '').toString();
-    final email = phone.isNotEmpty ? phone : (_profile?['email'] ?? '').toString();
-    final avatarUrl = (_profile?['avatar_url'] ?? '') as String?;
-    final memberSince = _profile?['created_at']?.toString();
-    String? memberSinceText;
-    if (memberSince != null && memberSince.isNotEmpty) {
-      final cut = memberSince.length >= 10 ? memberSince.substring(0, 10) : memberSince;
-      memberSinceText = cut;
-    }
-
+    // ✅ [方案四] 核心修改：使用 StreamBuilder
     return MediaQuery(
       data: clamp,
       child: Scaffold(
         extendBody: true,
         backgroundColor: const Color(0xFFF8F9FA),
-        body: Stack(
-          children: [
-            ScrollConfiguration(
-              behavior: const ScrollBehavior(),
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _buildEnhancedHeader(
-                      isGuest: false,
-                      name: fullName,
-                      email: email,
-                      avatarUrl: (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null,
-                      memberSince: memberSinceText,
-                      verificationType: _verified ? _badge : vt.VerificationBadgeType.none,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Profile',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                    letterSpacing: 0.5)),
-                            const SizedBox(height: 14),
-                            _ProfileOptionEnhanced(
-                              icon: Icons.edit_rounded,
-                              title: l10n.editProfile,
-                              color: Colors.blue,
-                              onTap: _editNamePhone,
-                            ),
-                            const SizedBox(height: 14),
+        body: StreamBuilder<Map<String, dynamic>?>(
+          // 监听 Profile Stream
+          stream: _svc.profileStream,
+          // 使用缓存作为初始值（避免加载闪烁）
+          initialData: _svc.currentProfile,
+          builder: (context, snapshot) {
+            // ✅ 加载状态
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                snapshot.data == null) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(strokeWidth: 3)),
+                    SizedBox(height: 16),
+                    Text('Loading profile...',
+                        style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
+                  ],
+                ),
+              );
+            }
 
-                            _VerificationTileCard(
-                              isVerified: _verified,
-                              isLoading: _verifyLoading,
-                              onTap: () async {
-                                await SafeNavigator.push<bool>(
-                                  MaterialPageRoute(builder: (_) => const VerificationPage()),
-                                );
-                                await _reloadUserVerificationStatus();
-                              },
-                            ),
+            // ✅ 未登录状态（不应该出现，因为上面已经处理了）
+            if (!snapshot.hasData || snapshot.data == null) {
+              return const Center(
+                child: Text('No profile data',
+                    style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
+              );
+            }
 
-                            const SizedBox(height: 28),
-                            const Text('Rewards & Activities',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                    letterSpacing: 0.5)),
-                            const SizedBox(height: 14),
+            // ✅ 显示用户资料
+            final profile = snapshot.data!;
+            final fullName = (profile['full_name'] ?? 'User').toString();
+            final phone = (profile['phone'] ?? '').toString();
+            final email = phone.isNotEmpty
+                ? phone
+                : (profile['email'] ?? '').toString();
+            final avatarUrl = (profile['avatar_url'] ?? '') as String?;
+            final memberSince = profile['created_at']?.toString();
+            String? memberSinceText;
+            if (memberSince != null && memberSince.isNotEmpty) {
+              final cut =
+              memberSince.length >= 10 ? memberSince.substring(0, 10) : memberSince;
+              memberSinceText = cut;
+            }
 
-                            // ✅ My Rewards - 修复：跳转到 TaskManagementPage
-                            _ProfileOptionEnhanced(
-                              icon: Icons.emoji_events_rounded,
-                              title: 'My Rewards',
-                              color: Colors.purple,
-                              onTap: () => SafeNavigator.push(
-                                MaterialPageRoute(builder: (_) => const TaskManagementPage()),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.inventory_2_rounded,
-                              title: l10n.myListings,
-                              color: Colors.indigo,
-                              onTap: () => SafeNavigator.push(
-                                  MaterialPageRoute(builder: (_) => const MyListingsPage())),
-                            ),
-                            const SizedBox(height: 14),
-                            _ProfileOptionEnhanced(
-                              icon: Icons.favorite_rounded,
-                              title: l10n.wishlist,
-                              color: Colors.pink,
-                              onTap: () {
-                                final user = Supabase.instance.client.auth.currentUser;
-                                if (user == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please sign in to view Wishlist')),
-                                  );
-                                  return;
-                                }
-                                SafeNavigator.push(
-                                    MaterialPageRoute(builder: (_) => const WishlistPage()));
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.person_add_alt_1_rounded,
-                              title: 'Invite Friends',
-                              subtitle: 'Earn coupons by inviting friends',
-                              color: Colors.orange,
-                              onTap: () => SafeNavigator.push(
-                                MaterialPageRoute(builder: (_) => const InviteFriendsPage()),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.local_activity_rounded,
-                              title: 'My Coupons',
-                              subtitle: 'View and manage your coupons',
-                              color: Colors.purple,
-                              onTap: () => SafeNavigator.push(
-                                MaterialPageRoute(builder: (_) => const CouponManagementPage()),
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            const Text('Support',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                    letterSpacing: 0.5)),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.manage_accounts,
-                              title: 'Account',
-                              subtitle: 'Password, devices, delete',
-                              color: Colors.cyan,
-                              onTap: () => SafeNavigator.push(
-                                MaterialPageRoute(builder: (_) => const AccountSettingsPage()),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.privacy_tip_outlined,
-                              title: 'Privacy Policy',
-                              color: Colors.blueGrey,
-                              onTap: () => launchUrl(Uri.parse(_kPrivacyUrl)),
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.delete_outline,
-                              title: 'Data Deletion / How to delete my account',
-                              color: Colors.deepOrange,
-                              onTap: () => launchUrl(Uri.parse(_kDeleteUrl)),
-                            ),
-                            const SizedBox(height: 14),
-
-                            _ProfileOptionEnhanced(
-                              icon: Icons.help_outline_rounded,
-                              title: l10n.helpSupport,
-                              color: Colors.teal,
-                              onTap: () => SafeNavigator.push(
-                                  MaterialPageRoute(builder: (_) => const HelpSupportPage())),
-                            ),
-                            const SizedBox(height: 14),
-                            _ProfileOptionEnhanced(
-                              icon: Icons.info_outline_rounded,
-                              title: l10n.about,
-                              color: Colors.blueGrey,
-                              onTap: () => SafeNavigator.push(
-                                  MaterialPageRoute(builder: (_) => const AboutPage())),
-                            ),
-                            const SizedBox(height: 28),
-                            _ProfileOptionEnhanced(
-                              icon: Icons.logout_rounded,
-                              title: l10n.logout,
-                              color: Colors.red,
-                              onTap: () async {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18)),
-                                    title: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                              color: Colors.red.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(8)),
-                                          child: const Icon(Icons.logout_rounded,
-                                              color: Colors.red, size: 20),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        const Text('Logout',
-                                            style: TextStyle(
-                                                fontSize: 18, fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                    content: const Text('Are you sure you want to logout?',
-                                        style: TextStyle(fontSize: 15, height: 1.4)),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () => Navigator.of(ctx).pop(false),
-                                          child: Text('Cancel',
-                                              style: TextStyle(fontSize: 15, color: Colors.grey[600]))),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                            color: Colors.red,
-                                            borderRadius: BorderRadius.circular(8)),
-                                        child: TextButton(
-                                          onPressed: () => Navigator.of(ctx).pop(true),
-                                          child: const Text('Logout',
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w600)),
-                                        ),
-                                      ),
-                                    ],
+            return Stack(
+              children: [
+                ScrollConfiguration(
+                  behavior: const ScrollBehavior(),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _buildEnhancedHeader(
+                          isGuest: false,
+                          name: fullName,
+                          email: email,
+                          avatarUrl:
+                          (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null,
+                          memberSince: memberSinceText,
+                          verificationType: _verified ? _badge : vt.VerificationBadgeType.none,
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Profile',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6B7280),
+                                        letterSpacing: 0.5)),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.edit_rounded,
+                                  title: l10n.editProfile,
+                                  color: Colors.blue,
+                                  onTap: _editNamePhone,
+                                ),
+                                const SizedBox(height: 14),
+                                _VerificationTileCard(
+                                  isVerified: _verified,
+                                  isLoading: _verifyLoading,
+                                  onTap: () async {
+                                    await SafeNavigator.push<bool>(
+                                      MaterialPageRoute(
+                                          builder: (_) => const VerificationPage()),
+                                    );
+                                    await _reloadUserVerificationStatus();
+                                  },
+                                ),
+                                const SizedBox(height: 28),
+                                const Text('Rewards & Activities',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6B7280),
+                                        letterSpacing: 0.5)),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.emoji_events_rounded,
+                                  title: 'My Rewards',
+                                  color: Colors.purple,
+                                  onTap: () => SafeNavigator.push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const TaskManagementPage()),
                                   ),
-                                );
-                                if (confirmed == true) {
-                                  showDialog(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (_) => const Center(
-                                      child: CircularProgressIndicator(color: Colors.white),
-                                    ),
-                                  );
-
-                                  try {
-                                    AuthFlowObserver.I.markManualSignOut();
-                                    RewardService.clearCache();
-                                    _swrCache = null;
-                                    OAuthEntry.forceCancel();
-                                    await AuthService().signOut(global: true, reason: 'user-tap-profile-logout');
-
-                                    if (mounted) {
-                                      Navigator.of(context).pop();
-                                      navReplaceAll('/welcome');
-                                    }
-                                  } catch (e) {
-                                    AuthFlowObserver.I.clearManualSignOutFlag();
-                                    if (mounted) {
-                                      Navigator.of(context).pop();
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.inventory_2_rounded,
+                                  title: l10n.myListings,
+                                  color: Colors.indigo,
+                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
+                                      builder: (_) => const MyListingsPage())),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.favorite_rounded,
+                                  title: l10n.wishlist,
+                                  color: Colors.pink,
+                                  onTap: () {
+                                    final user =
+                                        Supabase.instance.client.auth.currentUser;
+                                    if (user == null) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Logout failed: $e'), backgroundColor: Colors.red),
+                                        const SnackBar(
+                                            content:
+                                            Text('Please sign in to view Wishlist')),
                                       );
+                                      return;
                                     }
-                                  }
-                                }
-                              },
+                                    SafeNavigator.push(MaterialPageRoute(
+                                        builder: (_) => const WishlistPage()));
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.person_add_alt_1_rounded,
+                                  title: 'Invite Friends',
+                                  subtitle: 'Earn coupons by inviting friends',
+                                  color: Colors.orange,
+                                  onTap: () => SafeNavigator.push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const InviteFriendsPage()),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.local_activity_rounded,
+                                  title: 'My Coupons',
+                                  subtitle: 'View and manage your coupons',
+                                  color: Colors.purple,
+                                  onTap: () => SafeNavigator.push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const CouponManagementPage()),
+                                  ),
+                                ),
+                                const SizedBox(height: 28),
+                                const Text('Support',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6B7280),
+                                        letterSpacing: 0.5)),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.manage_accounts,
+                                  title: 'Account',
+                                  subtitle: 'Password, devices, delete',
+                                  color: Colors.cyan,
+                                  onTap: () => SafeNavigator.push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const AccountSettingsPage()),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.privacy_tip_outlined,
+                                  title: 'Privacy Policy',
+                                  color: Colors.blueGrey,
+                                  onTap: () => launchUrl(
+                                    Uri.parse(_kPrivacyUrl),
+                                    mode: LaunchMode.inAppWebView,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.delete_outline,
+                                  title: 'Data Deletion / How to delete my account',
+                                  color: Colors.deepOrange,
+                                  onTap: () => launchUrl(
+                                    Uri.parse(_kDeleteUrl),
+                                    mode: LaunchMode.inAppWebView,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.help_outline_rounded,
+                                  title: l10n.helpSupport,
+                                  color: Colors.teal,
+                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
+                                      builder: (_) => const HelpSupportPage())),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.info_outline_rounded,
+                                  title: l10n.about,
+                                  color: Colors.blueGrey,
+                                  onTap: () => SafeNavigator.push(
+                                      MaterialPageRoute(builder: (_) => const AboutPage())),
+                                ),
+                                const SizedBox(height: 28),
+                                _ProfileOptionEnhanced(
+                                  icon: Icons.logout_rounded,
+                                  title: l10n.logout,
+                                  color: Colors.red,
+                                  onTap: () async {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(18)),
+                                        title: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                  color: Colors.red.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(8)),
+                                              child: const Icon(Icons.logout_rounded,
+                                                  color: Colors.red, size: 20),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            const Text('Logout',
+                                                style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w600)),
+                                          ],
+                                        ),
+                                        content: const Text(
+                                            'Are you sure you want to logout?',
+                                            style: TextStyle(fontSize: 15, height: 1.4)),
+                                        actions: [
+                                          TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(false),
+                                              child: Text('Cancel',
+                                                  style: TextStyle(
+                                                      fontSize: 15,
+                                                      color: Colors.grey[600]))),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                                color: Colors.red,
+                                                borderRadius: BorderRadius.circular(8)),
+                                            child: TextButton(
+                                              onPressed: () => Navigator.of(ctx).pop(true),
+                                              child: const Text('Logout',
+                                                  style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w600)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmed == true) {
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (_) => const Center(
+                                          child: CircularProgressIndicator(
+                                              color: Colors.white),
+                                        ),
+                                      );
+
+                                      try {
+                                        AuthFlowObserver.I.markManualSignOut();
+                                        RewardService.clearCache();
+                                        OAuthEntry.forceCancel();
+                                        await AuthService().signOut(
+                                            global: true,
+                                            reason: 'user-tap-profile-logout');
+
+                                        if (mounted) {
+                                          Navigator.of(context).pop();
+                                          navReplaceAll('/welcome');
+                                        }
+                                      } catch (e) {
+                                        AuthFlowObserver.I.clearManualSignOutFlag();
+                                        if (mounted) {
+                                          Navigator.of(context).pop();
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                                content: Text('Logout failed: $e'),
+                                                backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 40),
+                              ],
                             ),
-                            const SizedBox(height: 40),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_uploadingAvatar)
+                  Container(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16)),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: CircularProgressIndicator()),
+                            SizedBox(height: 16),
+                            Text('Uploading avatar...',
+                                style:
+                                TextStyle(color: Color(0xFF616161), fontSize: 15)),
                           ],
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (_uploadingAvatar)
-              Container(
-                color: Colors.black54,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration:
-                    BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(width: 36, height: 36, child: CircularProgressIndicator()),
-                        SizedBox(height: 16),
-                        Text('Uploading avatar...',
-                            style: TextStyle(color: Color(0xFF616161), fontSize: 15)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -917,7 +874,12 @@ class _ProfilePageState extends State<ProfilePage>
                   fontSize: nameFontSize,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
-                  shadows: const [Shadow(offset: Offset(0, 2), blurRadius: 4, color: Color(0x40000000))],
+                  shadows: const [
+                    Shadow(
+                        offset: Offset(0, 2),
+                        blurRadius: 4,
+                        color: Color(0x40000000))
+                  ],
                 ),
               ),
               const SizedBox(height: 8),
@@ -953,7 +915,8 @@ class _ProfilePageState extends State<ProfilePage>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.calendar_today_outlined, size: 12, color: Colors.white),
+                      const Icon(Icons.calendar_today_outlined,
+                          size: 12, color: Colors.white),
                       const SizedBox(width: 4),
                       Text('Member since $memberSince',
                           style: TextStyle(
@@ -1007,7 +970,10 @@ class _VerificationTileCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 2)),
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2)),
             ],
           ),
           child: Row(
@@ -1026,16 +992,21 @@ class _VerificationTileCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(isVerified ? 'Verified' : 'Verification',
-                        style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: titleFontSize, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 3),
                     Text(isVerified ? 'Status: Verified' : 'Status: Not verified',
-                        style: TextStyle(fontSize: subtitleFontSize, color: Colors.grey[600])),
+                        style: TextStyle(
+                            fontSize: subtitleFontSize, color: Colors.grey[600])),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               isLoading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
                   : Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
             ],
           ),
@@ -1081,13 +1052,20 @@ class _ProfileOptionEnhanced extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2))
+            ],
           ),
           child: Row(
             children: [
               Container(
                 padding: EdgeInsets.all(iconPadding),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14)),
                 child: Icon(icon, color: color, size: iconSize),
               ),
               const SizedBox(width: 18),
@@ -1095,10 +1073,14 @@ class _ProfileOptionEnhanced extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.w600)),
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: titleFontSize, fontWeight: FontWeight.w600)),
                     if (subtitle != null) ...[
                       const SizedBox(height: 3),
-                      Text(subtitle!, style: TextStyle(fontSize: subtitleFontSize, color: Colors.grey[600])),
+                      Text(subtitle!,
+                          style: TextStyle(
+                              fontSize: subtitleFontSize, color: Colors.grey[600])),
                     ],
                   ],
                 ),
@@ -1134,8 +1116,8 @@ class _GuestSimpleOptions extends StatelessWidget {
           icon: Icons.info_outline_rounded,
           title: l10n.about,
           color: Colors.indigo,
-          onTap: () => SafeNavigator.push(
-              MaterialPageRoute(builder: (_) => const AboutPage())),
+          onTap: () =>
+              SafeNavigator.push(MaterialPageRoute(builder: (_) => const AboutPage())),
         ),
       ],
     );
@@ -1166,23 +1148,36 @@ class HelpSupportPage extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF60A5FA), Color(0xFF3B82F6)]),
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF60A5FA), Color(0xFF3B82F6)]),
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 12))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12))
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Need Help?', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+                  const Text('Need Help?',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   Text('Our support team is here to help you 24/7',
-                      style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15)),
+                      style:
+                      TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             Text('Contact Information',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[800])),
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[800])),
             const SizedBox(height: 14),
             _buildContactCard(
               icon: Icons.email_outlined,
@@ -1197,7 +1192,10 @@ class HelpSupportPage extends StatelessWidget {
               title: 'Website',
               subtitle: 'www.swaply.cc',
               color: Colors.green,
-              onTap: () => launchUrl(Uri.parse('https://www.swaply.cc')),
+              onTap: () => launchUrl(
+                Uri.parse('https://www.swaply.cc'),
+                mode: LaunchMode.inAppWebView,
+              ),
             ),
           ],
         ),
@@ -1222,25 +1220,37 @@ class HelpSupportPage extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2))
+            ],
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: color, size: 26),
               ),
               const SizedBox(width: 18),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800])),
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800])),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                  Text(subtitle,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 ]),
               ),
-              if (onTap != null) Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+              if (onTap != null)
+                Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -1272,7 +1282,10 @@ class AboutPage extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
                 ],
               ),
               child: const Column(
@@ -1280,7 +1293,10 @@ class AboutPage extends StatelessWidget {
                   Text('Trade What You Have\nFor What You Need',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF2F2F2F), height: 1.3)),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2F2F2F),
+                          height: 1.3)),
                   SizedBox(height: 14),
                   Text(
                     'Swaply is your community marketplace for trading items you no longer need for things you actually want.',
@@ -1297,7 +1313,10 @@ class AboutPage extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
                 ],
               ),
               child: Row(

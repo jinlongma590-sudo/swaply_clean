@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "947323234114-45dfrjbs5o0lcu6rqunor9tjl55u3t81.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cc.swaply.app",
+            "certificate_hash": "10b7fbc04cb526ca93b27ac331bb15409881188d"
+          }
+        },
+        {
+          "client_id": "947323234114-4io83egpk5g4cjelvhkst4kv09g4n797.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cc.swaply.app",
+            "certificate_hash": "0908cb9fe3166925cf8d440ad20fec4347079bd9"
+          }
+        },
+        {
           "client_id": "947323234114-g5sd06ljn4n68dsq4o95khogm1tc48pq.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +45,13 @@
             {
               "client_id": "947323234114-g5sd06ljn4n68dsq4o95khogm1tc48pq.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "cc.swaply.app"
+              }
             }
           ]
         }

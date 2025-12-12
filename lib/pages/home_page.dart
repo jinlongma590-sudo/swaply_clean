@@ -2,6 +2,7 @@
 // ✅ [Gold Standard] SWR + HybridGrid + 稳定 key + 首次锁滚动
 // ✅ [核心优势] 旧数据先显示，后台刷新无闪烁，滚动位置完美保持
 // ✅ [性能优化] 单一 SliverGrid，高度恒定，无跳动
+// ✅ [搜索优化] 独立搜索输入页面，避免主页卡顿
 
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class _HomePageState extends State<HomePage>
 
   static const int _featuredAdsLimit = 10;
   static const int _popularItemsLimit = 100;
-  static const int _minFeaturedPlaceholder = 2; // ✅ Featured Ads 最小占位（1行2个）
+  static const int _minFeaturedPlaceholder = 2;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _trendingKey = GlobalKey();
@@ -45,8 +46,8 @@ class _HomePageState extends State<HomePage>
   String _selectedLocation = 'All Zimbabwe';
 
   List<Map<String, dynamic>> _trendingRemote = [];
-  bool _isFirstLoad = true; // ✅ 区分首次加载 vs 后台刷新
-  bool _isBackgroundRefreshing = false; // ✅ 后台刷新状态
+  bool _isFirstLoad = true;
+  bool _isBackgroundRefreshing = false;
   StreamSubscription? _listingPubSub;
 
   static const Color _primaryBlue = Color(0xFF1877F2);
@@ -223,7 +224,6 @@ class _HomePageState extends State<HomePage>
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
 
-    // ✅ SWR：检查缓存，有旧数据立即显示
     if (!bypassCache && _cachedTrending != null && _cacheTime != null && _cachedLocation == cacheKey) {
       final age = DateTime.now().difference(_cacheTime!);
       if (age < _cacheDuration) {
@@ -231,7 +231,7 @@ class _HomePageState extends State<HomePage>
         if (mounted) {
           setState(() {
             _trendingRemote = _cachedTrending!;
-            _isFirstLoad = false; // ✅ 有缓存就不算首次加载
+            _isFirstLoad = false;
           });
         }
 
@@ -244,14 +244,11 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    // ✅ 区分首次加载和后台刷新
     if (_trendingRemote.isEmpty) {
-      // 首次加载：显示骨架，锁定滚动
       if (mounted) {
         setState(() => _isFirstLoad = true);
       }
     } else {
-      // 后台刷新：保持旧数据，只显示 "Updating..." 提示
       if (mounted) {
         setState(() => _isBackgroundRefreshing = true);
       }
@@ -289,7 +286,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _refreshInBackground(String? city) async {
-    if (_isBackgroundRefreshing) return; // 防止重复刷新
+    if (_isBackgroundRefreshing) return;
 
     setState(() => _isBackgroundRefreshing = true);
 
@@ -349,12 +346,38 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _performSearch() {
-    final keyword = _searchCtrl.text.trim();
-    if (keyword.isEmpty) return;
+  // ✅ 优化：导航到独立搜索输入页面
+  void _navigateToSearchWithFocus() {
+    debugPrint('[HomePage] ==================== NAVIGATE TO SEARCH ====================');
+    debugPrint('[HomePage] Current keyword: "${_searchCtrl.text}"');
+    debugPrint('[HomePage] Current location: "$_selectedLocation"');
+
     SafeNavigator.push(
       MaterialPageRoute(
-        builder: (_) => SearchResultsPage(keyword: keyword, location: _selectedLocation),
+        builder: (_) => _SearchInputPage(
+          initialKeyword: _searchCtrl.text,
+          location: _selectedLocation,
+          onSearch: (keyword) {
+            debugPrint('[HomePage] ==================== SEARCH CALLBACK ====================');
+            debugPrint('[HomePage] Search submitted: "$keyword"');
+            debugPrint('[HomePage] Location: "$_selectedLocation"');
+
+            Navigator.of(context).pop(); // 关闭输入页面
+
+            debugPrint('[HomePage] Navigating to SearchResultsPage...');
+            SafeNavigator.push(
+              MaterialPageRoute(
+                builder: (_) {
+                  debugPrint('[HomePage] Building SearchResultsPage');
+                  return SearchResultsPage(
+                    keyword: keyword,
+                    location: _selectedLocation,
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -401,7 +424,6 @@ class _HomePageState extends State<HomePage>
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
-          // ✅ 后台刷新提示（轻量级 pill）
           if (_isBackgroundRefreshing)
             Positioned(
               top: MediaQuery.of(context).padding.top + 10.h,
@@ -460,15 +482,12 @@ class _HomePageState extends State<HomePage>
             child: CustomScrollView(
               key: const PageStorageKey<String>('home_page_scroll'),
               controller: _scrollController,
-              // ✅ 首次加载锁定滚动，避免高度突变
               physics: _isFirstLoad
                   ? const NeverScrollableScrollPhysics()
                   : const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // Header
                 SliverToBoxAdapter(child: _buildCompactHeader()),
 
-                // Trending Section Header
                 SliverToBoxAdapter(
                   child: Padding(
                     key: _trendingKey,
@@ -499,7 +518,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // Featured Ads Header
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
@@ -544,7 +562,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // ✅ HybridGrid: Featured Ads（统一处理骨架、真实数据、空态）
                 SliverPadding(
                   key: const ValueKey('featured_ads_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -555,7 +572,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // Popular Items Header
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 4.h),
@@ -570,7 +586,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // ✅ HybridGrid: Popular Items（统一处理骨架、真实数据、空态）
                 SliverPadding(
                   key: const ValueKey('popular_items_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -581,7 +596,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // Bottom spacing
                 SliverToBoxAdapter(child: SizedBox(height: 80.h)),
               ],
             ),
@@ -613,13 +627,11 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ✅ 核心方法：HybridGrid（统一处理骨架、真实数据、空态）
   Widget _buildHybridGrid({
     required List<Map<String, dynamic>> items,
     required bool isPinned,
     required bool isLoading,
   }) {
-    // ✅ 首次加载：显示骨架（Featured Ads 至少2个，Popular Items 6个）
     if (isLoading) {
       final skeletonCount = isPinned ? _minFeaturedPlaceholder : 6;
       return SliverGrid(
@@ -636,10 +648,8 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    // ✅ 加载完成 + 无数据：显示空态（Featured Ads 至少保持一行高度）
     if (items.isEmpty) {
       if (isPinned) {
-        // Featured Ads 空态：保持最小高度（一行2个格子的占位）
         return SliverGrid(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
@@ -650,7 +660,6 @@ class _HomePageState extends State<HomePage>
           delegate: SliverChildBuilderDelegate(
                 (context, index) {
               if (index == 0) {
-                // 第一个格子显示空态信息
                 return Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -679,7 +688,6 @@ class _HomePageState extends State<HomePage>
                   ),
                 );
               } else {
-                // 第二个格子透明占位
                 return const SizedBox.shrink();
               }
             },
@@ -687,7 +695,6 @@ class _HomePageState extends State<HomePage>
           ),
         );
       } else {
-        // Popular Items 空态：紧凑显示
         return SliverToBoxAdapter(
           child: Container(
             height: 100.h,
@@ -720,7 +727,6 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    // ✅ 有数据：显示真实卡片（每个 item 带稳定 key）
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -733,7 +739,6 @@ class _HomePageState extends State<HomePage>
           final item = items[index];
           final itemId = item['id']?.toString() ?? 'unknown_$index';
 
-          // ✅ 关键：每个 item 都有稳定的 key
           return KeyedSubtree(
             key: ValueKey('${isPinned ? 'p' : 'r'}_$itemId'),
             child: isPinned ? _buildPremiumCard(item) : _buildRegularCard(item),
@@ -878,41 +883,52 @@ class _HomePageState extends State<HomePage>
             ),
           ),
           SizedBox(width: 8.w),
+
+          // ✅ 优化：点击后导航到独立搜索页面
           Expanded(
             flex: 3,
-            child: Container(
-              height: 36.h,
-              decoration: BoxDecoration(
-                border: Border.all(color: _primaryBlue, width: 1),
-                borderRadius: BorderRadius.circular(6.r),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w),
-                      child: TextField(
-                        controller: _searchCtrl,
-                        textInputAction: TextInputAction.search,
-                        style: TextStyle(fontSize: 12.sp),
-                        decoration: InputDecoration(
-                          hintText: 'Search products...',
-                          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11.sp),
-                          border: InputBorder.none,
-                          isCollapsed: true,
+            child: GestureDetector(
+              onTap: () {
+                debugPrint('[HomePage] Search field tapped');
+                _navigateToSearchWithFocus();
+              },
+              child: Container(
+                height: 36.h,
+                decoration: BoxDecoration(
+                  border: Border.all(color: _primaryBlue, width: 1),
+                  borderRadius: BorderRadius.circular(6.r),
+                  color: Colors.grey[50],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.w),
+                        child: Text(
+                          _searchCtrl.text.isEmpty
+                              ? 'Search products...'
+                              : _searchCtrl.text,
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: _searchCtrl.text.isEmpty
+                                ? Colors.grey[500]
+                                : Colors.grey[800],
+                          ),
                         ),
-                        onSubmitted: (_) => _performSearch(),
                       ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: _performSearch,
-                    child: Container(
-                      padding: EdgeInsets.all(6.w),
-                      child: Icon(Icons.search, size: 18.sp, color: _primaryBlue),
+                    GestureDetector(
+                      onTap: () {
+                        debugPrint('[HomePage] Search icon tapped');
+                        _navigateToSearchWithFocus();
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(6.w),
+                        child: Icon(Icons.search, size: 18.sp, color: _primaryBlue),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1425,6 +1441,166 @@ class _HomePageState extends State<HomePage>
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ 独立的搜索输入页面（轻量级，避免主页卡顿）
+class _SearchInputPage extends StatefulWidget {
+  final String initialKeyword;
+  final String location;
+  final Function(String) onSearch;
+
+  const _SearchInputPage({
+    required this.initialKeyword,
+    required this.location,
+    required this.onSearch,
+  });
+
+  @override
+  State<_SearchInputPage> createState() => _SearchInputPageState();
+}
+
+class _SearchInputPageState extends State<_SearchInputPage> {
+  late TextEditingController _controller;
+  final FocusNode _focusNode = FocusNode();
+  static const Color _primaryBlue = Color(0xFF1877F2);
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('[SearchInputPage] ==================== INIT ====================');
+    debugPrint('[SearchInputPage] Initial keyword: "${widget.initialKeyword}"');
+    debugPrint('[SearchInputPage] Location: "${widget.location}"');
+
+    _controller = TextEditingController(text: widget.initialKeyword);
+
+    // ✅ 页面加载后自动获得焦点
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[SearchInputPage] Requesting focus...');
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    debugPrint('[SearchInputPage] Disposing...');
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleSearch() {
+    final keyword = _controller.text.trim();
+    debugPrint('[SearchInputPage] ==================== SUBMIT ====================');
+    debugPrint('[SearchInputPage] Keyword: "$keyword"');
+
+    if (keyword.isEmpty) {
+      debugPrint('[SearchInputPage] ❌ Keyword is empty');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter search keywords'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    debugPrint('[SearchInputPage] ✅ Calling onSearch callback');
+    widget.onSearch(keyword);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: _primaryBlue,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            debugPrint('[SearchInputPage] Back button pressed');
+            Navigator.pop(context);
+          },
+        ),
+        title: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
+            border: InputBorder.none,
+            suffixIcon: _controller.text.isNotEmpty
+                ? IconButton(
+              icon: const Icon(Icons.clear, color: Colors.white),
+              onPressed: () {
+                debugPrint('[SearchInputPage] Clear button pressed');
+                _controller.clear();
+                setState(() {});
+              },
+            )
+                : null,
+          ),
+          onChanged: (value) {
+            debugPrint('[SearchInputPage] Text changed: "$value"');
+            setState(() {});
+          },
+          onSubmitted: (_) => _handleSearch(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: _handleSearch,
+          ),
+        ],
+      ),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search, size: 48.sp, color: Colors.grey[300]),
+              SizedBox(height: 16.h),
+              Text(
+                'Enter keywords to search',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                decoration: BoxDecoration(
+                  color: _primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on, size: 14.sp, color: _primaryBlue),
+                    SizedBox(width: 4.w),
+                    Text(
+                      widget.location,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: _primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

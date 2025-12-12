@@ -1,10 +1,7 @@
-import 'package:swaply/services/oauth_entry.dart';
 // lib/auth/google_signin.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// for LaunchMode
-
-const String _kIOSRedirect = 'cc.swaply.app://login-callback';
+import 'package:swaply/services/oauth_entry.dart';
 
 class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onBefore;
@@ -15,11 +12,10 @@ class GoogleSignInButton extends StatelessWidget {
   Future<void> _startGoogleOAuth(BuildContext context) async {
     onBefore?.call();
     try {
-      await OAuthEntry.signIn(
-        OAuthProvider.google);
+      await OAuthEntry.signIn(OAuthProvider.google);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google 閻ц缍嶆径杈Е閿?e')),
+        SnackBar(content: Text('Google 登录失败：$e')),
       );
     } finally {
       onAfter?.call();
@@ -28,13 +24,20 @@ class GoogleSignInButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => _startGoogleOAuth(context),
-      child: const Text('Continue with Google'),
+    return ValueListenableBuilder<bool>(
+      valueListenable: OAuthEntry.inFlightNotifier,
+      builder: (context, inFlight, _) {
+        return ElevatedButton(
+          onPressed: inFlight ? null : () => _startGoogleOAuth(context),
+          child: inFlight
+              ? const SizedBox(
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : const Text('Continue with Google'),
+        );
+      },
     );
   }
 }
-
-
-
-

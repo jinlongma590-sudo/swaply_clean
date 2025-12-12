@@ -1,14 +1,6 @@
 // lib/services/auth_flow_observer.dart
-// ✅ [热启动修复] 添加 Guard 检查，防止覆盖深链导航
-// ✅ [骨架屏修复] 优化 initialSession 逻辑，避免不必要的页面重建
-// ✅ [架构修复] AuthFlowObserver 成为真正的"智能协调器"
-// ✅ [业务状态尊重] 在导航前检查当前路由，不破坏业务页面
-// ✅ [深链协调] 与 DeepLinkService 完美配合，避免导航冲突
-// ✅ [用户体验] 保护用户主动导航，避免强制跳转
-// ✅ [方案1+2修复] 未登录深链完全修复：等待深链完成 + 检查导航状态
-// ✅ [iOS 深链修复] 增加主动等待时间，解决 iOS Universal Links 延迟问题
-// ✅ [iOS 路由检查修复] 多次检查路由状态，确保深链导航完成后不被覆盖
-// ✅ [未登录冷启动修复] 添加热启动检测 + 二次 Guard 检查
+// ✅ [竞态修复] 防止 signedIn 和 initialSession 同时触发导致重复导航
+// ✅ [方案四] 等待 Profile 加载完成再导航
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -47,7 +39,6 @@ class AuthFlowObserver {
   bool _bootWatchdogArmed = false;
   bool _everNavigated = false;
 
-  // ✅ [热启动修复] Guard 实例
   final _guard = DeepLinkNavigationGuard();
 
   static bool _initialNavigationDone = false;
@@ -75,7 +66,6 @@ class AuthFlowObserver {
     return false;
   }
 
-  /// ✅ [骨架屏修复] 优化获取当前路由逻辑
   String? _getCurrentRoute() {
     try {
       final navigator = rootNavKey.currentState;
@@ -98,8 +88,6 @@ class AuthFlowObserver {
         }
       }
 
-      // ✅ [关键修复] 如果无法获取路由名，但 navigator 存在且已渲染
-      // 很可能是在 initialRoute（/），应该返回 '/' 而不是 null
       if (navigator.context.mounted && _lastRoute == null) {
         if (kDebugMode) {
           debugPrint('[AuthFlowObserver] _getCurrentRoute: likely on initialRoute, returning "/"');
@@ -119,7 +107,6 @@ class AuthFlowObserver {
     }
   }
 
-  /// ✅ [iOS 路由检查修复] 多次检查当前路由，等待路由切换完成
   Future<String?> _getCurrentRouteWithRetry({int maxRetries = 5, int delayMs = 100}) async {
     for (int i = 0; i < maxRetries; i++) {
       final route = _getCurrentRoute();
@@ -128,7 +115,6 @@ class AuthFlowObserver {
         debugPrint('[AuthFlowObserver] 🔍 Route check attempt ${i + 1}/$maxRetries: $route');
       }
 
-      // 如果已经在业务页面，立即返回
       if (route != null && route != '/' && route != '/welcome' && route != '/home') {
         if (kDebugMode) {
           debugPrint('[AuthFlowObserver] ✅ Found business route: $route');
@@ -136,13 +122,11 @@ class AuthFlowObserver {
         return route;
       }
 
-      // 如果不是最后一次尝试，等待后重试
       if (i < maxRetries - 1) {
         await Future.delayed(Duration(milliseconds: delayMs));
       }
     }
 
-    // 最后一次检查结果
     final finalRoute = _getCurrentRoute();
     if (kDebugMode) {
       debugPrint('[AuthFlowObserver] 📍 Final route after $maxRetries attempts: $finalRoute');
@@ -150,7 +134,15 @@ class AuthFlowObserver {
     return finalRoute;
   }
 
-  Future<void> _goOnce(String route) async {
+  Future<void> _goOnce(String route, {bool force = false}) async {
+    // ✅ [竞态修复] 在最开始就设置标志，防止并发调用
+    if (!_everNavigated) {
+      _everNavigated = true;
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] 🏁 First navigation initiated to: $route');
+      }
+    }
+
     if (_navigating) {
       if (kDebugMode) {
         debugPrint('[AuthFlowObserver] ⏭️ Navigation already in progress, skipping');
@@ -165,7 +157,6 @@ class AuthFlowObserver {
       return;
     }
 
-    // ✅ [热启动修复] 检查 Guard 保护
     if (_guard.shouldBlockNavigation(route)) {
       if (kDebugMode) {
         debugPrint('[AuthFlowObserver] 🚫 Navigation to $route blocked by Guard');
@@ -175,14 +166,21 @@ class AuthFlowObserver {
     }
 
     final currentRoute = _getCurrentRoute();
-    if (currentRoute == route) {
+    if (currentRoute == route && !force) {
       if (kDebugMode) {
         debugPrint('[AuthFlowObserver] ⏭️ Already on $route, skip navigation');
         debugPrint('[AuthFlowObserver] 📌 Preserving scroll position and page state');
       }
-      _everNavigated = true;
       _initialNavigationDone = true;
       return;
+    }
+
+    // ✅ [ProfilePage修复] 强制导航时打印说明
+    if (currentRoute == route && force) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] 🔄 Force navigation to $route (rebuilding page tree)');
+        debugPrint('[AuthFlowObserver] 💡 Reason: OAuth login requires fresh widget tree');
+      }
     }
 
     _navigating = true;
@@ -227,13 +225,38 @@ class AuthFlowObserver {
     _lastRoute = route;
     _lastAt = DateTime.now();
     _navigating = false;
-    _everNavigated = true;
     _initialNavigationDone = true;
   }
 
-  void _preheatProfile(User user) {
+  // ✅ [方案四] 改为 async 并等待加载完成
+  Future<void> _preheatProfile(User user) async {
     _lastUserId = user.id;
-    unawaited(ProfileService.i.getMyProfile());
+
+    if (kDebugMode) {
+      debugPrint('[AuthFlowObserver] Preheating profile...');
+    }
+
+    try {
+      // ✅ 等待 Profile 加载完成（会自动推送到 Stream）
+      await ProfileService.i.getMyProfile().timeout(
+        Duration(seconds: 3),
+        onTimeout: () {
+          if (kDebugMode) {
+            debugPrint('[AuthFlowObserver] ⚠️ Profile preheat timeout');
+          }
+          return null;
+        },
+      );
+
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ✅ Profile preheated and stream updated');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AuthFlowObserver] ⚠️ Profile preheat failed: $e');
+      }
+      // 即使失败也继续，不阻塞导航
+    }
   }
 
   void _armBootWatchdogOnce() {
@@ -261,99 +284,100 @@ class AuthFlowObserver {
       }
 
       final eventName = data.event.name;
-      if (_lastEvent == 'signedIn' && eventName == 'initialSession') return;
+
+      // ✅ [竞态修复] 增强事件过滤
+      if (_lastEvent == 'signedIn' && eventName == 'initialSession') {
+        if (kDebugMode) {
+          debugPrint('[AuthFlowObserver] ⏭️ Skipping initialSession (just handled signedIn)');
+        }
+        return;
+      }
+
       _lastEvent = eventName;
 
       OAuthEntry.clearGuardIfSignedIn(data);
 
       switch (data.event) {
-      // ============================================================
-      // CASE: signedIn（登录成功）
-      // ============================================================
         case AuthChangeEvent.signedIn:
           _manualSignOutOnce = false;
           _signOutDebounce?.cancel();
 
-          final user = Supabase.instance.client.auth.currentUser;
-          if (user != null) {
-            try {
-              await NotificationService.subscribeUser(user.id);
-            } catch (_) {}
-            _preheatProfile(user);
+          // ✅ [ProfilePage修复] 判断是否需要force（在执行异步操作前）
+          final needsForceNav = _lastRoute == '/home' || _lastRoute == '/welcome';
 
-            try {
-              final code = RegisterScreen.pendingInvitationCode;
-              if (code != null && code.isNotEmpty) {
-                await RewardService.submitInviteCode(code.trim().toUpperCase());
-                RegisterScreen.clearPendingCode();
-              }
-            } catch (_) {}
+          if (kDebugMode && needsForceNav) {
+            debugPrint('[AuthFlowObserver] 🔄 OAuth login detected, will force navigation');
           }
 
-          await Future.delayed(const Duration(milliseconds: 150));
-          await _goOnce('/home');
+          // ✅ 立即开始导航（不等待Profile预热）
+          final navFuture = _goOnce('/home', force: needsForceNav);
+
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user != null) {
+            // ✅ [时序优化] 导航和初始化并行进行
+            await Future.wait([
+              navFuture,
+              Future(() async {
+                try {
+                  await NotificationService.subscribeUser(user.id);
+                } catch (_) {}
+
+                // ✅ [方案四] Profile预热
+                await _preheatProfile(user);
+
+                try {
+                  final code = RegisterScreen.pendingInvitationCode;
+                  if (code != null && code.isNotEmpty) {
+                    await RewardService.submitInviteCode(code.trim().toUpperCase());
+                    RegisterScreen.clearPendingCode();
+                  }
+                } catch (_) {}
+              }),
+            ]);
+          } else {
+            await navFuture;
+          }
+
+          if (kDebugMode) {
+            debugPrint('[AuthFlowObserver] ✅ Navigation and initialization completed');
+          }
           break;
 
-      // ============================================================
-      // CASE: initialSession（冷启动）
-      // ✅ [方案1+2修复] 完美解决未登录深链问题
-      // ✅ [iOS 深链修复] 增加主动等待时间
-      // ✅ [iOS 路由检查修复] 多次重试检查路由
-      // ✅ [热启动修复] 添加 Guard 检查
-      // ✅ [未登录冷启动修复] 添加热启动检测 + 二次 Guard 检查
-      // ============================================================
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
 
           final hasSession = Supabase.instance.client.auth.currentSession != null;
 
           if (hasSession) {
-            // ============================================================
-            // 已登录流程
-            // ✅ [iOS 深链修复] 增加等待时间 + 多次检查路由
-            // ✅ [热启动修复] 添加 Guard 检查
-            // ✅ [热启动导航修复] 检测是否已经在运行中
-            // ============================================================
-
-            // ✅ [热启动检测] 如果已经完成过初始导航，说明是热启动
-            // 在热启动时，不应该重新导航到首页，应该保持用户当前位置
+            // ✅ [竞态修复] 优先检查 _everNavigated
             if (_everNavigated) {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🔥 Hot start detected (_everNavigated=true)');
+                debugPrint('[AuthFlowObserver] 🔥 Already navigated (_everNavigated=true)');
+                debugPrint('[AuthFlowObserver] ✅ Skipping all navigation (preventing duplicate)');
               }
 
-              // 预热 Profile（但不导航）
               final user = Supabase.instance.client.auth.currentUser;
               if (user != null) {
-                _preheatProfile(user);
+                // ✅ [方案四] 仍然预热 Profile（但不导航）
+                await _preheatProfile(user);
 
                 try {
                   await NotificationService.subscribeUser(user.id);
                 } catch (e) {
                   if (kDebugMode) {
-                    debugPrint('[AuthFlowObserver] subscribeUser (hot start) error: $e');
+                    debugPrint('[AuthFlowObserver] subscribeUser (skip nav) error: $e');
                   }
                 }
               }
 
-              if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] ✅ Hot start: Skipping all navigation');
-                debugPrint('[AuthFlowObserver] 📌 Preserving user\'s current page');
-              }
-
-              // 标记完成（虽然已经是 true）
               _initialNavigationDone = true;
               return;
             }
 
-            // ============================================================
-            // 冷启动流程（_everNavigated = false）
-            // ============================================================
-
-            // ✅ 步骤 1：预热 Profile 和订阅通知
             final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
-              _preheatProfile(user);
+              // ✅ [方案四] 冷启动时预热 Profile
+              await _preheatProfile(user);
 
               try {
                 await NotificationService.subscribeUser(user.id);
@@ -364,29 +388,22 @@ class AuthFlowObserver {
               }
             }
 
-            // ✅ [热启动修复] 检查 Guard 状态
             if (_guard.isHandlingDeepLink) {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] 🔒 Guard 保护激活中，等待深链完成...');
               }
 
-              // 等待 Guard 保护结束（最多 3 秒）
               for (int i = 0; i < 30; i++) {
                 await Future.delayed(const Duration(milliseconds: 100));
                 if (!_guard.isHandlingDeepLink) break;
               }
             }
 
-            // ✅ [iOS 深链修复] 给深链服务足够时间
             if (kDebugMode) {
               debugPrint('[AuthFlowObserver] ⏳ 等待深链服务（iOS 已登录场景）...');
             }
             await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1500 : 500));
 
-            // ============================================================
-            // ✅ [关键修复] 步骤 2：多次检查路由状态
-            // 等待路由切换动画完成
-            // ============================================================
             final currentRoute = await _getCurrentRouteWithRetry(
               maxRetries: 5,
               delayMs: 100,
@@ -399,7 +416,6 @@ class AuthFlowObserver {
               debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
             }
 
-            // ✅ [热启动修复] 检查 Guard 最近活动
             if (_guard.wasRecentDeepLink) {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] 🔗 检测到最近的深链活动');
@@ -418,7 +434,6 @@ class AuthFlowObserver {
               }
             }
 
-            // ✅ 情况 1：已经在业务页面（由深链接导航）
             if (currentRoute != null &&
                 currentRoute != '/' &&
                 currentRoute != '/welcome' &&
@@ -433,9 +448,6 @@ class AuthFlowObserver {
               return;
             }
 
-            // ✅ [关键修复] 情况 2：已经在首页（/ 或 /home）
-            // 这是骨架屏场景：用户在 MainNavigationPage 内部交互，路由仍是 / 或 /home
-            // 不应该重新导航，否则会重建页面并丢失用户状态（滚动位置、Tab选择等）
             if (currentRoute == '/' || currentRoute == '/home') {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] ✅ Already on home page: $currentRoute');
@@ -443,13 +455,11 @@ class AuthFlowObserver {
                 debugPrint('[AuthFlowObserver] 📌 User interactions during skeleton screen will be preserved');
               }
 
-              // 标记为已完成导航，避免后续问题
               _everNavigated = true;
               _initialNavigationDone = true;
               return;
             }
 
-            // ✅ 情况 3：在欢迎页或其他需要切换的页面
             if (kDebugMode) {
               debugPrint('[AuthFlowObserver] 🚀 Navigating from $currentRoute to /home');
             }
@@ -457,19 +467,10 @@ class AuthFlowObserver {
             await _goOnce('/home');
 
           } else {
-            // ============================================================
-            // 未登录流程：等待 OAuth 或跳转 welcome
-            // ✅ [方案1+2修复] 完美解决未登录深链问题
-            // ✅ [iOS 深链修复] 增加主动等待时间
-            // ✅ [iOS 路由检查修复] 多次重试检查路由
-            // ✅ [热启动修复] 添加 Guard 检查
-            // ✅ [未登录冷启动修复] 添加热启动检测 + 二次 Guard 检查
-            // ============================================================
-
-            // ✅ [热启动检测] 如果已经完成过初始导航，说明是热启动
+            // ✅ [竞态修复] 未登录场景也检查 _everNavigated
             if (_everNavigated) {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🔥 Hot start detected (no session, _everNavigated=true)');
+                debugPrint('[AuthFlowObserver] 🔥 Already navigated (no session, _everNavigated=true)');
                 debugPrint('[AuthFlowObserver] ✅ Skipping all navigation (preserving current page)');
               }
               return;
@@ -534,21 +535,13 @@ class AuthFlowObserver {
                     'delegating to signedIn event');
               }
             } else {
-              // ============================================================
-              // ✅ [iOS 深链修复] 核心改动：增加主动等待
-              // ✅ [热启动修复] 添加 Guard 检查
-              // ✅ [未登录冷启动修复] 添加二次 Guard 检查
-              // ============================================================
-
               final deepLinkService = DeepLinkService.instance;
 
-              // ✅ [热启动修复] 步骤 1：第一次 Guard 检查
               if (_guard.isHandlingDeepLink) {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] 🔒 Guard 保护激活中（未登录场景），等待深链完成...');
                 }
 
-                // 等待 Guard 保护结束（最多 3 秒）
                 for (int i = 0; i < 30; i++) {
                   await Future.delayed(const Duration(milliseconds: 100));
                   if (!_guard.isHandlingDeepLink) break;
@@ -559,11 +552,8 @@ class AuthFlowObserver {
                 debugPrint('[AuthFlowObserver] ⏳ 等待深链服务初始化（iOS 安全等待）...');
               }
 
-              // ✅ [未登录冷启动修复] 增加等待时间 (1200ms -> 1500ms)
-              // iOS 的 Custom Scheme 传递可能延迟 200-800ms
               await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1500 : 600));
 
-              // ✅ [方案1] 等待深链处理完成
               if (deepLinkService.isHandlingInitialLink) {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] 🔗 检测到深链正在处理，等待完成...');
@@ -571,7 +561,7 @@ class AuthFlowObserver {
 
                 try {
                   await deepLinkService.initialLinkFuture?.timeout(
-                    const Duration(seconds: 5),  // iOS 需要更长的超时时间
+                    const Duration(seconds: 5),
                     onTimeout: () {
                       if (kDebugMode) {
                         debugPrint('[AuthFlowObserver] ⚠️ 深链超时，继续鉴权流程');
@@ -585,20 +575,16 @@ class AuthFlowObserver {
                 }
               }
 
-              // ✅ [未登录冷启动修复] 增加路由切换等待时间 (800ms -> 1000ms)
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] ⏳ 等待路由切换完成...');
               }
               await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1000 : 400));
 
-              // ✅ [未登录冷启动修复] 步骤 2：二次 Guard 检查（关键！）
-              // 在所有等待后，再次检查 Guard 状态，因为深链可能在等待期间才开始处理
               if (_guard.isHandlingDeepLink) {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] 🔒 等待后发现 Guard 仍在处理（未登录），继续等待...');
                 }
 
-                // 再等待 Guard 结束（最多 3 秒）
                 for (int i = 0; i < 30; i++) {
                   await Future.delayed(const Duration(milliseconds: 100));
                   if (!_guard.isHandlingDeepLink) {
@@ -609,11 +595,9 @@ class AuthFlowObserver {
                   }
                 }
 
-                // Guard 完成后，再等待一小段时间确保标志设置
                 await Future.delayed(const Duration(milliseconds: 200));
               }
 
-              // ✅ [方案2] 多次检查是否已通过深链导航
               final currentRoute = await _getCurrentRouteWithRetry(
                 maxRetries: 5,
                 delayMs: 100,
@@ -627,7 +611,6 @@ class AuthFlowObserver {
                 debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
               }
 
-              // ✅ [热启动修复] 检查 Guard 最近活动
               if (_guard.wasRecentDeepLink) {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] 🔗 Guard 检测到最近的深链活动（未登录）');
@@ -646,7 +629,6 @@ class AuthFlowObserver {
                 }
               }
 
-              // ✅ 检查1：深链服务标志
               if (deepLinkService.hasNavigatedViaDeepLink) {
                 if (kDebugMode) {
                   debugPrint('[AuthFlowObserver] 🔗 深链服务已标记导航完成（未登录）');
@@ -666,7 +648,6 @@ class AuthFlowObserver {
                 }
               }
 
-              // ✅ 检查2：路由状态（最后防线）
               if (currentRoute != null &&
                   currentRoute != '/' &&
                   currentRoute != '/welcome') {
@@ -680,9 +661,6 @@ class AuthFlowObserver {
                 return;
               }
 
-              // ============================================================
-              // 正常流程：无深链导航，跳转到 welcome
-              // ============================================================
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] No deep link navigation detected');
                 debugPrint('[AuthFlowObserver] 🚀 Going to welcome page');
@@ -701,16 +679,10 @@ class AuthFlowObserver {
           }
           break;
 
-      // ============================================================
-      // CASE: userUpdated
-      // ============================================================
         case AuthChangeEvent.userUpdated:
           _manualSignOutOnce = false;
           break;
 
-      // ============================================================
-      // CASE: signedOut / userDeleted
-      // ============================================================
         case AuthChangeEvent.signedOut:
         case AuthChangeEvent.userDeleted:
           try {

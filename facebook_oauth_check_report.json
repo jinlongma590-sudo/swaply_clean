@@ -1,0 +1,245 @@
+﻿{
+    "summary":  {
+                    "warningChecks":  1,
+                    "passedChecks":  31,
+                    "rating":  "✅ 良好 (Good)",
+                    "score":  93.9,
+                    "totalChecks":  33,
+                    "failedChecks":  1
+                },
+    "timestamp":  "2025-12-12 04:06:21",
+    "projectPath":  "D:\\Apps\\swaply_clean",
+    "results":  [
+                    {
+                        "Category":  "auth_config.dart",
+                        "Item":  "定义 kAuthMobileRedirectUri = \u0027swaply://login-callback\u0027",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "移动端回调配置正确"
+                    },
+                    {
+                        "Category":  "auth_config.dart",
+                        "Item":  "定义 kAuthWebRedirectUri = \u0027https://swaply.cc/auth/callback\u0027",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "Web 端回调配置正确"
+                    },
+                    {
+                        "Category":  "auth_config.dart",
+                        "Item":  "定义 kAuthRedirectUri（向后兼容）",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "向后兼容配置存在"
+                    },
+                    {
+                        "Category":  "auth_config.dart",
+                        "Item":  "定义 getAuthRedirectUri() 函数并使用平台判断",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "动态平台判断正确"
+                    },
+                    {
+                        "Category":  "auth_config.dart",
+                        "Item":  "定义密码重置回调",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "密码重置配置正确"
+                    },
+                    {
+                        "Category":  "auth_service.dart",
+                        "Item":  "定义 _signInWithFacebookWebView() 方法",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "Facebook OAuth 方法存在"
+                    },
+                    {
+                        "Category":  "auth_service.dart",
+                        "Item":  "使用 LaunchMode.externalApplication（移动端）",
+                        "Passed":  false,
+                        "IsWarning":  false,
+                        "Details":  "❌ 关键缺失：应改为 kIsWeb ? LaunchMode.inAppWebView : LaunchMode.externalApplication"
+                    },
+                    {
+                        "Category":  "auth_service.dart",
+                        "Item":  "使用 getAuthRedirectUri() 动态回调",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "动态回调配置正确"
+                    },
+                    {
+                        "Category":  "auth_service.dart",
+                        "Item":  "配置 Facebook scopes",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "Scopes 配置正确"
+                    },
+                    {
+                        "Category":  "auth_service.dart",
+                        "Item":  "Google 原生登录未受影响",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "Google 登录保持原生 SDK"
+                    },
+                    {
+                        "Category":  "deep_link_service.dart",
+                        "Item":  "忽略 swaply://login-callback 回调",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ 关键修改：自定义 URL Scheme 回调处理"
+                    },
+                    {
+                        "Category":  "deep_link_service.dart",
+                        "Item":  "调用 _completeInitialLink()",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "初始链接完成机制存在"
+                    },
+                    {
+                        "Category":  "deep_link_service.dart",
+                        "Item":  "保留旧的 cc.swaply.app 回调（兼容）",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "向后兼容处理存在"
+                    },
+                    {
+                        "Category":  "deep_link_service.dart",
+                        "Item":  "处理 HTTPS reset-password 回调",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "密码重置回调处理存在"
+                    },
+                    {
+                        "Category":  "deep_link_service.dart",
+                        "Item":  "定义 _route() 方法",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "深链路由方法存在"
+                    },
+                    {
+                        "Category":  "oauth_entry.dart",
+                        "Item":  "定义 isOAuthCallback() 方法",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "OAuth 回调识别方法存在"
+                    },
+                    {
+                        "Category":  "oauth_entry.dart",
+                        "Item":  "识别 swaply://login-callback",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ 关键修改：自定义 URL Scheme 识别"
+                    },
+                    {
+                        "Category":  "oauth_entry.dart",
+                        "Item":  "识别 HTTPS 回调（Web 端兼容）",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "Web 端兼容处理存在"
+                    },
+                    {
+                        "Category":  "oauth_entry.dart",
+                        "Item":  "使用 AuthService.signInWithNativeProvider()",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "统一认证入口正确"
+                    },
+                    {
+                        "Category":  "oauth_entry.dart",
+                        "Item":  "使用 ValueNotifier 机制",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "UI 响应机制存在"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "删除 Facebook URL Scheme (fb数字)",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ Facebook URL Scheme 已删除"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "删除 LSApplicationQueriesSchemes 中的 Facebook 项",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ Facebook queries 已删除"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "删除 FacebookAppID 配置",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ FacebookAppID 已删除"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "删除 FacebookDisplayName 配置",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ FacebookDisplayName 已删除"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "保留 swaply URL Scheme",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✅ swaply URL Scheme 存在"
+                    },
+                    {
+                        "Category":  "Info.plist",
+                        "Item":  "保留 Google REVERSED_CLIENT_ID",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✅ Google 登录配置未受影响"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "添加 swaply://login-callback intent-filter",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ 关键修改：自定义 URL Scheme intent-filter"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "删除 Facebook SDK ApplicationId",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ Facebook SDK 配置已删除"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "删除 FacebookActivity 配置",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ FacebookActivity 已删除"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "删除 Facebook CustomTabActivity 配置",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ CustomTabActivity 已删除"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "删除 queries 中的 Facebook 包",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✨ Facebook queries 已删除"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "保留 HTTPS App Links",
+                        "Passed":  false,
+                        "IsWarning":  true,
+                        "Details":  "⚠️ HTTPS App Links 可能缺失"
+                    },
+                    {
+                        "Category":  "AndroidManifest.xml",
+                        "Item":  "保留 FCM 推送通知配置",
+                        "Passed":  true,
+                        "IsWarning":  false,
+                        "Details":  "✅ FCM 配置未受影响"
+                    }
+                ]
+}
