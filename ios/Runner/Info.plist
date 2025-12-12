@@ -64,13 +64,13 @@
 
        <!-- ========== Facebook 配置 ========== -->
        <key>FacebookAppID</key>
-       <string>YOUR_FACEBOOK_APP_ID</string>
+       <string>1286488642887674</string>
 
        <key>FacebookDisplayName</key>
        <string>Swaply</string>
 
        <key>FacebookClientToken</key>
-       <string>YOUR_CLIENT_TOKEN</string>
+       <string>c9abdffdb869f25d95fb42c3824cfdcc</string>
 
        <!-- Background modes -->
        <key>UIBackgroundModes</key>
@@ -127,11 +127,11 @@
                 <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
              </array>
           </dict>
-          <!-- ✅ Facebook URL Scheme -->
+          <!-- Facebook URL Scheme -->
           <dict>
              <key>CFBundleURLSchemes</key>
              <array>
-                <string>fbYOUR_FACEBOOK_APP_ID</string>
+                <string>fb1286488642887674</string>
              </array>
           </dict>
        </array>
@@ -143,7 +143,7 @@
           <string>whatsapp</string>
           <string>whatsapp-business</string>
           <string>tg</string>
-          <!-- ✅ Facebook schemes -->
+          <!-- Facebook schemes -->
           <string>fbapi</string>
           <string>fbauth2</string>
           <string>fbshareextension</string>
