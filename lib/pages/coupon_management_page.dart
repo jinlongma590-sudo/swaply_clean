@@ -1,4 +1,5 @@
 // lib/pages/coupon_management_page.dart - iOS 头部对齐 + 顶部蓝色 44/56pt 统一 + Intro Banner
+// ✅ 优化：减小卡片尺寸，一次显示更多优惠券
 import 'dart:async';
 import 'package:flutter/foundation.dart'; // kIsWeb / defaultTargetPlatform
 import 'package:flutter/material.dart';
@@ -802,6 +803,7 @@ class _CouponManagementPageState extends State<CouponManagementPage>
     );
   }
 
+  // ===== ✅ 优化后的卡片：减小尺寸，一次显示更多 =====
   Widget _buildCouponCard(CouponModel coupon) {
     bool isExpiringSoon = false;
     try {
@@ -811,7 +813,7 @@ class _CouponManagementPageState extends State<CouponManagementPage>
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12), // 16 -> 12
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -826,10 +828,10 @@ class _CouponManagementPageState extends State<CouponManagementPage>
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
-            // 头部色带
+            // 头部色带 - 减小 padding
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14), // 20 -> 14
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -843,30 +845,30 @@ class _CouponManagementPageState extends State<CouponManagementPage>
               child: Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 48, // 56 -> 48
+                    height: 48, // 56 -> 48
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
                     ),
-                    child: Icon(_getCouponIcon(coupon.type), color: Colors.white, size: 28),
+                    child: Icon(_getCouponIcon(coupon.type), color: Colors.white, size: 24), // 28 -> 24
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12), // 16 -> 12
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(coupon.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
+                        Text(coupon.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis), // 18 -> 16
+                        const SizedBox(height: 4), // 6 -> 4
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // 10,4 -> 8,3
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
                           child: Text(
                             coupon.code,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
+                              fontSize: 12, // 13 -> 12
                               fontWeight: FontWeight.w600,
                               fontFamily: 'monospace',
                             ),
@@ -876,92 +878,94 @@ class _CouponManagementPageState extends State<CouponManagementPage>
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // 12,6 -> 10,5
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                     child: Text(
                       coupon.statusDescription,
-                      style: TextStyle(color: _getCouponColor(coupon.type), fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: _getCouponColor(coupon.type), fontSize: 11, fontWeight: FontWeight.w600), // 12 -> 11
                     ),
                   ),
                 ],
               ),
             ),
 
-            // 内容
+            // 内容 - 减小 padding
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14), // 20 -> 14
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isExpiringSoon) ...[
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10), // 12 -> 10
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.red.shade200),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.warning, color: Colors.red, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(Icons.warning, color: Colors.red, size: 18), // 20 -> 18
+                          const SizedBox(width: 6), // 8 -> 6
                           Expanded(
                             child: Text(
                               'Expiring soon! Use within ${coupon.daysUntilExpiry} days.',
-                              style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w600),
+                              style: TextStyle(fontSize: 11, color: Colors.red.shade700, fontWeight: FontWeight.w600), // 12 -> 11
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12), // 16 -> 12
                   ],
                   Text(
                     coupon.description,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[700], height: 1.5),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4), // 14 -> 13
+                    maxLines: 2, // 限制描述最多 2 行
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8), // 10 -> 8
                   if (coupon.isWelcome || coupon.pinScope != null) ...[
                     Row(
                       children: [
-                        Icon(Icons.push_pin, size: 16, color: Colors.orange[700]),
-                        const SizedBox(width: 6),
+                        Icon(Icons.push_pin, size: 14, color: Colors.orange[700]), // 16 -> 14
+                        const SizedBox(width: 4), // 6 -> 4
                         Text(
                           'Scope: ${coupon.isWelcome ? 'Category Pin' : (coupon.pinScope ?? 'N/A')}',
-                          style: TextStyle(fontSize: 12, color: Colors.orange[800], fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 11, color: Colors.orange[800], fontWeight: FontWeight.w600), // 12 -> 11
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8), // 10 -> 8
                   ],
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _copyCouponCode(coupon.code),
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: const Text('Copy Code', style: TextStyle(fontSize: 14)),
+                          icon: const Icon(Icons.copy, size: 14), // 16 -> 14
+                          label: const Text('Copy Code', style: TextStyle(fontSize: 13)), // 14 -> 13
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _getCouponColor(coupon.type),
                             side: BorderSide(color: _getCouponColor(coupon.type)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 10), // 12 -> 10
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
                       if (coupon.isUsable) ...[
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10), // 12 -> 10
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () => _onUseNow(coupon),
-                            icon: Icon(coupon.canPin ? Icons.post_add : Icons.info_outline, size: 16),
+                            icon: Icon(coupon.canPin ? Icons.post_add : Icons.info_outline, size: 14), // 16 -> 14
                             label: Text(coupon.canPin ? 'Use Now' : 'How to Use',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)), // 14 -> 13
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _getCouponColor(coupon.type),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 10), // 12 -> 10
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               elevation: 2,
                             ),
                           ),

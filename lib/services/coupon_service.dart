@@ -1,12 +1,14 @@
-// lib/services/coupon_service.dart - 修正版（移除 pin_type 依赖 + 修复 Dart 语法 + 统一 RPC + 30s 缓存）
+// lib/services/coupon_service.dart - 修正版（移除 pin_type 依赖 + 修复 Dart 语法 + 统一 RPC + 30s 缓存 + 完整日志 + 修复响应字段检查）
 // 变更要点：
-// 1) ❗修复 Dart 语法：把 `is not Map` 全改为 `is! Map`，消除 “The name 'not' isn't defined” 报错。
+// 1) ❗修复 Dart 语法：把 `is not Map` 全改为 `is! Map`，消除 "The name 'not' isn't defined" 报错。
 // 2) ❗前端不再读取表里不存在的字段 `pin_type`，所有逻辑只依据 `type` 与 `pin_scope`。
 // 3) 统一调用后端 RPC：featured/search 走 `redeem_search_popular_coupon`；其他置顶走 `use_coupon_for_pinning`。
 // 4) getTrendingPinnedAds 等 clamp 返回值强转为 int，避免 `num` 传给 `.limit()` 的类型告警。
 // 5) 提供 30s TTL 的内存缓存与并发去重；提供 clearCache()。
-// 6) ✅ getTrendingPinnedAds 为“随机洗牌”逻辑，并增加 DB 端上限以避免全表扫描。
+// 6) ✅ getTrendingPinnedAds 为"随机洗牌"逻辑，并增加 DB 端上限以避免全表扫描。
 // 7) ✅ getTrendingQuotaStatus 改为 DB 精确计数；healthCheck 更严谨。
+// 8) ✅ useCouponForPinning 添加完整的响应日志和错误处理
+// 9) ✅ 修复响应字段检查：同时兼容 'ok' 和 'success' 字段
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -43,7 +45,7 @@ class CouponService {
     _couponInflight.clear();
     _trendingCache.clear();
     _trendingInflight.clear();
-    // ✅ 确保不会因为异常而留下“永远上锁”的 key
+    // ✅ 确保不会因为异常而留下"永远上锁"的 key
     _pinInflightKeys.clear();
   }
 
@@ -182,7 +184,7 @@ class CouponService {
   // ========== ★ 新增：Search/Popular Pin 发券（featured/search） ==========
 
   /// 达到 5 人里程碑：只发一张 Search/Popular Pin(3d)
-  /// 注意：此券不会直接创建 pinned_ads；只有在“用券”时通过 RPC 同步完成【搜索置顶 + Popular 注入】
+  /// 注意：此券不会直接创建 pinned_ads；只有在"用券"时通过 RPC 同步完成【搜索置顶 + Popular 注入】
   static Future<CouponModel?> createSearchPopularCoupon({
     required String userId,
     int durationDays = 3,
@@ -293,9 +295,9 @@ class CouponService {
         'in_coupon_id': couponId,
         'in_listing_id': listingId,
       });
-      // ✅ void -> null 也算成功
+      // ✅ void -> null 也算成功；兼容 ok 和 success 字段
       if (res == null) return true;
-      if (res is Map && res['ok'] == true) return true;
+      if (res is Map && (res['ok'] == true || res['success'] == true)) return true;
       return false;
     } catch (e) {
       _debugPrint('RPC redeem_search_popular_coupon failed: $e');
@@ -303,7 +305,7 @@ class CouponService {
     }
   }
 
-  /// ✅ 统一：use_coupon_for_pinning 使用 in_* 参数名；null 视为成功
+  /// ✅ 统一：use_coupon_for_pinning 使用 in_* 参数名；null 视为成功；兼容 ok 和 success 字段
   static Future<bool> useCouponUnified({
     required String couponId,
     required String listingId,
@@ -322,7 +324,8 @@ class CouponService {
       });
       _debugPrint('use_coupon_for_pinning -> $res');
 
-      final ok = (res == null) || (res is Map && (res['ok'] == true));
+      // ✅ 修复：兼容 ok 和 success 字段
+      final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
       if (!ok) {
         final msg = (res is Map ? (res['error'] ?? 'RPC failed') : 'RPC failed');
         throw Exception(msg);
@@ -608,17 +611,17 @@ class CouponService {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
         });
-        // 该函数一般返回 VOID，postgrest 会给 null；视 null 为成功
-        ok = (res == null) || (res is Map && (res['ok'] == true));
+        // 该函数一般返回 VOID，postgrest 会给 null；视 null 为成功；兼容 ok 和 success 字段
+        ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
         _debugPrint('redeem_search_popular_coupon => $res');
       } else {
-        // ✅ 其它置顶：参数名是 in_*（与后端签名一致）
+        // ✅ 其它置顶：参数名是 in_*（与后端签名一致）；兼容 ok 和 success 字段
         final res = await _client.rpc('use_coupon_for_pinning', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
           'in_note': 'app', // 可留空
         });
-        ok = (res == null) || (res is Map && (res['ok'] == true));
+        ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
         _debugPrint('use_coupon_for_pinning => $res');
       }
 
@@ -630,60 +633,120 @@ class CouponService {
       return;
     } catch (e) {
       _debugPrint('useCouponToPinListing failed: $e');
-      rethrow; // 不再走旧的前端插表兜底，避免“无限使用”
+      rethrow; // 不再走旧的前端插表兜底，避免"无限使用"
     } finally {
       _pinInflightKeys.remove(key); // Unlock
     }
   }
 
-  /// 兼容旧入口：内部同样统一走 RPC；成功返回 true
+  /// ✅ 兼容旧入口：内部同样统一走 RPC；成功返回 true（增强版日志 + 修复响应字段检查）
   static Future<bool> useCouponForPinning({
     required String couponId,
     required String listingId,
   }) async {
     try {
-      _debugPrint('Using coupon for pinning (legacy wrapper -> unified RPC): $couponId -> $listingId');
+      _debugPrint('🎫 Using coupon for pinning (legacy wrapper -> unified RPC)');
+      _debugPrint('   Coupon ID: $couponId');
+      _debugPrint('   Listing ID: $listingId');
 
+      // 1️⃣ 获取券信息
+      _debugPrint('📋 Step 1: Fetching coupon data...');
       final couponData = await _client
           .from('coupons')
           .select('*')
           .eq('id', couponId)
           .maybeSingle();
 
-      if (couponData == null) return false;
-      if (_safeString(couponData['status']).toLowerCase() != 'active') return false;
+      if (couponData == null) {
+        _debugPrint('❌ Coupon not found: $couponId');
+        return false;
+      }
 
+      // 2️⃣ 检查券状态
+      _debugPrint('📋 Step 2: Validating coupon status...');
+      final status = _safeString(couponData['status']).toLowerCase();
+      if (status != 'active') {
+        _debugPrint('❌ Coupon not active: status=$status');
+        return false;
+      }
+
+      // 3️⃣ 检查过期时间
+      _debugPrint('📋 Step 3: Checking expiration...');
       final expStr = _safeString(couponData['expires_at']);
       if (expStr.isNotEmpty) {
         final exp = DateTime.tryParse(expStr);
-        if (exp != null && DateTime.now().isAfter(exp)) return false;
+        if (exp != null && DateTime.now().isAfter(exp)) {
+          _debugPrint('❌ Coupon expired: $expStr');
+          return false;
+        }
+        _debugPrint('✅ Coupon valid until: $expStr');
       }
 
+      // 4️⃣ 确定券类型
       final typeStr = _safeString(couponData['type']).toLowerCase();
       final pinScopeStr = _safeString(couponData['pin_scope']).toLowerCase();
       final isSearchPopular = typeStr == 'featured' && pinScopeStr == 'search';
 
+      _debugPrint('📊 Coupon details:');
+      _debugPrint('   Type: $typeStr');
+      _debugPrint('   Pin Scope: $pinScopeStr');
+      _debugPrint('   Is Search/Popular: $isSearchPopular');
+
+      // 5️⃣ 调用相应的 RPC
       if (isSearchPopular) {
+        _debugPrint('🚀 Step 4: Calling redeem_search_popular_coupon RPC...');
+
         final res = await _client.rpc('redeem_search_popular_coupon', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
         });
-        final ok = (res == null) || (res is Map && (res['ok'] == true));
-        if (ok) clearCache();
-        return ok;
+
+        _debugPrint('📥 RPC Response: $res');
+        _debugPrint('📥 Response type: ${res.runtimeType}');
+
+        // ✅ 修复：兼容 ok 和 success 字段
+        final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+
+        if (ok) {
+          _debugPrint('✅ Search/Popular pinning successful!');
+          clearCache();
+          return true;
+        } else {
+          final msg = res is Map ? (res['message'] ?? res['error'] ?? 'Unknown error') : 'RPC failed';
+          _debugPrint('❌ Search/Popular pinning failed: $msg');
+          return false;
+        }
+
       } else {
+        _debugPrint('🚀 Step 4: Calling use_coupon_for_pinning RPC...');
+
         final res = await _client.rpc('use_coupon_for_pinning', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
           'in_note': 'app',
         });
-        final ok = (res == null) || (res is Map && (res['ok'] == true));
-        if (ok) clearCache();
-        return ok;
+
+        _debugPrint('📥 RPC Response: $res');
+        _debugPrint('📥 Response type: ${res.runtimeType}');
+
+        // ✅ 修复：兼容 ok 和 success 字段
+        final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+
+        if (ok) {
+          _debugPrint('✅ Pinning successful!');
+          clearCache();
+          return true;
+        } else {
+          final msg = res is Map ? (res['message'] ?? res['error'] ?? 'Unknown error') : 'RPC failed';
+          _debugPrint('❌ Pinning failed: $msg');
+          return false;
+        }
       }
-    } catch (e) {
-      _debugPrint('useCouponForPinning (legacy wrapper) failed: $e'); // ✅ Patched log
-      return false; // 不再兜底插 pinned_ads，避免多次使用
+
+    } catch (e, stack) {
+      _debugPrint('❌ Exception in useCouponForPinning: $e');
+      _debugPrint('Stack trace: $stack');
+      return false;
     }
   }
 
@@ -692,7 +755,7 @@ class CouponService {
   static String _trendingKey({String? city, required int limit}) => '${city ?? ''}|$limit';
 
   /// 获取首页热门置顶广告（仅 trending；最多 20）—— 带 30s 缓存
-  /// ✅ “随机洗牌”逻辑 + DB 上限（避免全表扫描）
+  /// ✅ "随机洗牌"逻辑 + DB 上限（避免全表扫描）
   static Future<List<Map<String, dynamic>>> getTrendingPinnedAds({String? city, int limit = 20}) async {
     // 规范 limit
     final int effectiveLimit = limit.clamp(1, 20).toInt();

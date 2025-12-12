@@ -8,8 +8,10 @@
 // 6) ✅ 历史从 coupon_usages 直接加载，不再依赖 RewardService.getUserRewardHistory
 // 7) ✅ Realtime 历史频道改为监听 coupon_usages 表
 // 8) ✅ 历史卡片：第一行券标题，第二行友好化 reason（app/system/auto/空隐藏或映射）
-// 9) ✅ iOS 头部改为“基准页像素对齐”的自定义头；Android 保持 AppBar
+// 9) ✅ iOS 头部改为"基准页像素对齐"的自定义头；Android 保持 AppBar
 // 10) ✅ 顶部区域采用「导航条渐变 + 白色卡片（统计+Tab）」布局；标题与左右按钮像素对齐
+// 11) ✅ 修复 QuickStats Row 溢出问题 - 使用 Expanded 包裹子元素
+// 12) ✅ Android 右上角刷新按钮尺寸固定，和 My Coupons 一致（不再撑满 AppBar）
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -22,6 +24,7 @@ import 'package:swaply/models/coupon.dart';
 import 'package:swaply/pages/sell_form_page.dart';
 import 'package:flutter/services.dart';
 import 'package:swaply/router/safe_navigator.dart';
+
 class TaskManagementPage extends StatefulWidget {
   final int initialTab;
 
@@ -93,16 +96,14 @@ class _TaskManagementPageState extends State<TaskManagementPage>
     final s = v?.toString() ?? '';
     if (s.isEmpty) return s;
 
-    // 只含 ASCII + 常见分隔符 等“安全字符”——直接返回，避免误修
-    final safe =
-    RegExp(r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
+    // 只含 ASCII + 常见分隔符 等"安全字符"——直接返回，避免误修
+    final safe = RegExp(
+        r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
     if (safe.hasMatch(s)) return s;
 
-    // 只有出现这些“明显乱码痕迹”时才尝试修复
-    final looksBroken = s.contains('Ã') ||
-        s.contains('Â') ||
-        s.contains('â') ||
-        s.contains('ð');
+    // 只有出现这些"明显乱码痕迹"时才尝试修复
+    final looksBroken =
+        s.contains('Ã') || s.contains('Â') || s.contains('â') || s.contains('ð');
     if (!looksBroken) return s;
 
     try {
@@ -127,7 +128,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
     }
   }
 
-  /// 分隔符归一化：把 `Â· / â€¢ / • / ` 等统一成 “ · ”
+  /// 分隔符归一化：把 `Â· / â€¢ / • / ` 等统一成 " · "
   String _normalizeSeparators(String s) {
     return s
         .replaceAll('Â·', ' · ')
@@ -528,29 +529,26 @@ class _TaskManagementPageState extends State<TaskManagementPage>
                     color: Colors.white, size: 18.w),
                 onPressed: () => Navigator.of(context).pop(),
               ),
+
+              // ✅ 关键改动：去掉胶囊背景，改为纯图标按钮，添加右侧间距
               actions: [
                 Padding(
-                  padding: EdgeInsets.only(right: 16.w),
-                  child: GestureDetector(
-                    onTap: _isRefreshing ? null : _refreshData,
-                    child: Container(
-                      padding: EdgeInsets.all(8.r),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12.r),
+                  padding: EdgeInsets.only(right: 12.w),
+                  child: IconButton(
+                    icon: _isRefreshing
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
-                      child: _isRefreshing
-                          ? SizedBox(
-                        width: 20.r,
-                        height: 20.r,
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                          : Icon(Icons.refresh,
-                          color: Colors.white, size: 20.r),
-                    ),
+                    )
+                        : const Icon(Icons.refresh, color: Colors.white, size: 24),
+                    onPressed: _isRefreshing ? null : _refreshData,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    iconSize: 24,
                   ),
                 ),
               ],
@@ -717,7 +715,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
     );
   }
 
-  // ====== 白卡版 QuickStats（深色文字，绿色点缀） ======
+  // ====== 白卡版 QuickStats（深色文字，绿色点缀） - ✅ 修复溢出问题 ======
   Widget _buildQuickStatsCardStyle() {
     final activeTasks = _tasks.length; // 活跃任务
     final completedTasks = (_rewardStats['completed_tasks'] as int?) ?? 0;
@@ -731,23 +729,27 @@ class _TaskManagementPageState extends State<TaskManagementPage>
         border: Border.all(color: Colors.green.shade100),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildQuickStatItemCard(
-              'Active\nTasks', activeTasks.toString(), Icons.assignment),
+          Expanded(
+            child: _buildQuickStatItemCard(
+                'Active\nTasks', activeTasks.toString(), Icons.assignment),
+          ),
           Container(width: 1, height: 28.h, color: Colors.green.shade200),
-          _buildQuickStatItemCard(
-              'Completed', completedTasks.toString(), Icons.check_circle),
+          Expanded(
+            child: _buildQuickStatItemCard(
+                'Completed', completedTasks.toString(), Icons.check_circle),
+          ),
           Container(width: 1, height: 28.h, color: Colors.green.shade200),
-          _buildQuickStatItemCard(
-              'Coupons', availableCoupons.toString(), Icons.card_giftcard),
+          Expanded(
+            child: _buildQuickStatItemCard(
+                'Coupons', availableCoupons.toString(), Icons.card_giftcard),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickStatItemCard(
-      String label, String value, IconData icon) {
+  Widget _buildQuickStatItemCard(String label, String value, IconData icon) {
     return Column(
       children: [
         Icon(icon, color: const Color(0xFF4CAF50), size: 20.r),
@@ -773,7 +775,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
     );
   }
 
-  // ====== 白卡内的分段 Tab ======
+  // ====== 白卡内的分段 Tab - ✅ 修复溢出问题 ======
   Widget _buildTabsCardStyle() {
     return Container(
       decoration: BoxDecoration(
@@ -790,11 +792,11 @@ class _TaskManagementPageState extends State<TaskManagementPage>
           borderRadius: BorderRadius.circular(12.r),
         ),
         labelStyle: TextStyle(
-          fontSize: 13.sp,
+          fontSize: 12.sp, // 13 -> 12 减小字体
           fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: TextStyle(
-          fontSize: 13.sp,
+          fontSize: 12.sp, // 13 -> 12 减小字体
           fontWeight: FontWeight.normal,
         ),
         indicatorSize: TabBarIndicatorSize.tab,
@@ -806,9 +808,10 @@ class _TaskManagementPageState extends State<TaskManagementPage>
             height: 44.h,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min, // 关键：使用最小尺寸
               children: [
-                Icon(Icons.assignment, size: 16.r),
-                SizedBox(width: 6.w),
+                Icon(Icons.assignment, size: 14.r), // 16 -> 14
+                SizedBox(width: 4.w), // 6 -> 4
                 const Text('Tasks'),
               ],
             ),
@@ -817,9 +820,10 @@ class _TaskManagementPageState extends State<TaskManagementPage>
             height: 44.h,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.card_giftcard, size: 16.r),
-                SizedBox(width: 6.w),
+                Icon(Icons.card_giftcard, size: 14.r),
+                SizedBox(width: 4.w),
                 const Text('Coupons'),
               ],
             ),
@@ -828,9 +832,10 @@ class _TaskManagementPageState extends State<TaskManagementPage>
             height: 44.h,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.history, size: 16.r),
-                SizedBox(width: 6.w),
+                Icon(Icons.history, size: 14.r),
+                SizedBox(width: 4.w),
                 const Text('History'),
               ],
             ),
@@ -1003,9 +1008,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Icon(
-                  isCompleted
-                      ? Icons.check_circle
-                      : _getTaskIcon(task['task_type']),
+                  isCompleted ? Icons.check_circle : _getTaskIcon(task['task_type']),
                   color: Colors.white,
                   size: 24.r,
                 ),
@@ -1016,8 +1019,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      task['task_name'] ??
-                          _getTaskDisplayName(task['task_type']),
+                      task['task_name'] ?? _getTaskDisplayName(task['task_type']),
                       style: TextStyle(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w600,
@@ -1027,8 +1029,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
                     if (task['description'] != null) ...[
                       SizedBox(height: 4.h),
                       Text(
-                        _normalizeSeparators(
-                            _fixUtf8Mojibake(task['description'])),
+                        _normalizeSeparators(_fixUtf8Mojibake(task['description'])),
                         style: TextStyle(
                           fontSize: 12.sp,
                           color: Colors.grey[600],
@@ -1081,8 +1082,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
 
   Widget _buildRewardCouponCard(CouponModel coupon, int index) {
     final fixedTitle = _normalizeSeparators(_fixUtf8Mojibake(coupon.title));
-    final fixedDesc =
-    _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
+    final fixedDesc = _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -1468,7 +1468,7 @@ class _TaskManagementPageState extends State<TaskManagementPage>
         return 'welcome';
       case 'referralbonus':
         return 'referral_bonus';
-    // 下面这些都算“活动奖励”
+    // 下面这些都算"活动奖励"
       case 'trending':
       case 'hot':
       case 'category':
