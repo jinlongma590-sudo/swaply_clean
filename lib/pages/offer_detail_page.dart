@@ -2,6 +2,7 @@
 //
 // OfferDetailPage —— 仅接收 offerId（与 /offer-detail 路由一致）
 // ✅ 性能优化：并行加载 + 骨架屏 + 缓存支持
+// ✅ [Offer消息修复] 在offer详情页显示buyer message
 // - 顶部栏统一 Facebook Blue 实色
 // - 空 offerId 兜底提示并返回
 // - 加强消息订阅/释放与已读上报
@@ -19,7 +20,7 @@ import 'package:swaply/models/offer.dart';
 import 'package:swaply/services/message_service.dart';
 import 'package:swaply/services/offer_service.dart';
 import 'package:swaply/services/verification_guard.dart';
-import 'package:swaply/services/offer_detail_cache.dart'; // 🚀 新增缓存
+import 'package:swaply/services/offer_detail_cache.dart';
 
 class OfferDetailPage extends StatefulWidget {
   final String offerId;
@@ -59,7 +60,6 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
   void initState() {
     super.initState();
 
-    // 基本校验：空 offerId 直接返回
     final id = widget.offerId.trim();
     if (id.isEmpty) {
       _invalid = true;
@@ -72,10 +72,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
 
     _currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    // 🚀 优化：并行加载所有数据
     _loadAllDataInParallel();
-
-    // 立即订阅消息（不阻塞渲染）
     _subscribeToMessages();
   }
 
@@ -86,13 +83,11 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
     _inputFocus.dispose();
     _unsubscribeFromMessages();
 
-    // 🚀 页面关闭时清理缓存
     OfferDetailCache.clear(widget.offerId);
 
     super.dispose();
   }
 
-  // 🚀 新增：并行加载所有数据
   Future<void> _loadAllDataInParallel() async {
     final futures = <Future>[
       _loadOfferDetailsOptimized(),
@@ -101,9 +96,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
     await Future.wait(futures, eagerError: false);
   }
 
-  // 🚀 优化后的加载方法
   Future<void> _loadOfferDetailsOptimized() async {
-    // 先尝试从缓存读取
     final cached = OfferDetailCache.getDetails(widget.offerId);
     if (cached != null && mounted) {
       setState(() => _offerDetails = cached);
@@ -115,13 +108,10 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
         setState(() => _offerDetails = details);
         _refreshBlockStatus();
       }
-    } catch (_) {
-      // 静默失败
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadMessagesOptimized() async {
-    // 先尝试从缓存读取
     final cached = OfferDetailCache.getMessages(widget.offerId);
     if (cached != null && mounted) {
       setState(() {
@@ -280,7 +270,6 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
   }
 
   Widget _buildOfferInfo() {
-    // 🚀 骨架屏支持
     if (_offerDetails == null) {
       return Card(
         margin: EdgeInsets.all(12.w),
@@ -347,6 +336,10 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
     final offer = double.tryParse(offerAmount) ?? 0;
     final original = double.tryParse(originalPrice.replaceAll('\$', '')) ?? 0;
     final percentage = original > 0 ? ((offer / original) * 100).round() : 0;
+
+    // ✅ [Offer消息修复] 获取buyer message
+    final buyerMessage = _offerDetails!['message']?.toString();
+    final hasBuyerMessage = buyerMessage != null && buyerMessage.isNotEmpty;
 
     return Card(
       margin: EdgeInsets.all(12.w),
@@ -454,6 +447,47 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                 ],
               ),
             ),
+
+            // ✅ [Offer消息修复] 显示buyer message卡片
+            if (hasBuyerMessage) ...[
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.message, size: 14.sp, color: Colors.blue.shade700),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'Buyer\'s Message',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      buyerMessage,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Colors.grey[800],
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

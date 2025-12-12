@@ -1,130 +1,132 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-	<dict>
-		<key>CFBundleDevelopmentRegion</key>
-		<string>$(DEVELOPMENT_LANGUAGE)</string>
-		<key>CFBundleDisplayName</key>
-		<string>Swaply</string>
-		<key>CFBundleExecutable</key>
-		<string>$(EXECUTABLE_NAME)</string>
-		<key>CFBundleIdentifier</key>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-		<key>CFBundleInfoDictionaryVersion</key>
-		<string>6.0</string>
-		<key>CFBundleName</key>
-		<string>Swaply</string>
-		<key>CFBundlePackageType</key>
-		<string>APPL</string>
-		<key>CFBundleShortVersionString</key>
-		<string>$(FLUTTER_BUILD_NAME)</string>
-		<key>CFBundleSignature</key>
-		<string>????</string>
-		<key>CFBundleVersion</key>
-		<string>$(FLUTTER_BUILD_NUMBER)</string>
-		<key>LSRequiresIPhoneOS</key>
-		<true/>
-		<key>UILaunchStoryboardName</key>
-		<string>LaunchScreen</string>
+    <dict>
+       <key>CFBundleDevelopmentRegion</key>
+       <string>$(DEVELOPMENT_LANGUAGE)</string>
+       <key>CFBundleDisplayName</key>
+       <string>Swaply</string>
+       <key>CFBundleExecutable</key>
+       <string>$(EXECUTABLE_NAME)</string>
+       <key>CFBundleIdentifier</key>
+       <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+       <key>CFBundleInfoDictionaryVersion</key>
+       <string>6.0</string>
+       <key>CFBundleName</key>
+       <string>Swaply</string>
+       <key>CFBundlePackageType</key>
+       <string>APPL</string>
+       <key>CFBundleShortVersionString</key>
+       <string>$(FLUTTER_BUILD_NAME)</string>
+       <key>CFBundleSignature</key>
+       <string>????</string>
+       <key>CFBundleVersion</key>
+       <string>$(FLUTTER_BUILD_NUMBER)</string>
+       <key>LSRequiresIPhoneOS</key>
+       <true/>
+       <key>UILaunchStoryboardName</key>
+       <string>LaunchScreen</string>
 
-		<!-- iPhone 方向 -->
-		<key>UISupportedInterfaceOrientations</key>
-		<array>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
-		</array>
+       <!-- iPhone 方向 -->
+       <key>UISupportedInterfaceOrientations</key>
+       <array>
+          <string>UIInterfaceOrientationPortrait</string>
+          <string>UIInterfaceOrientationLandscapeLeft</string>
+          <string>UIInterfaceOrientationLandscapeRight</string>
+       </array>
 
-		<!-- 仅 iPhone，全屏运行 -->
-		<key>UIRequiresFullScreen</key>
-		<true/>
+       <!-- 仅 iPhone，全屏运行 -->
+       <key>UIRequiresFullScreen</key>
+       <true/>
 
-		<key>CADisableMinimumFrameDurationOnPhone</key>
-		<true/>
-		<key>UIApplicationSupportsIndirectInputEvents</key>
-		<true/>
-		<key>UIStatusBarHidden</key>
-		<true/>
+       <key>CADisableMinimumFrameDurationOnPhone</key>
+       <true/>
+       <key>UIApplicationSupportsIndirectInputEvents</key>
+       <true/>
+       <key>UIStatusBarHidden</key>
+       <true/>
 
-		<!-- 权限描述 -->
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>We need access to your photos so you can upload item pictures to your listings.</string>
-		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>We may save photos to your library when you download or export listing images.</string>
-		<key>NSCameraUsageDescription</key>
-		<string>We use the camera to take photos or videos for your listings.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>We use the microphone when recording videos or voice messages.</string>
-		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>We use your location to show nearby listings and improve search results.</string>
+       <!-- 权限描述 -->
+       <key>NSPhotoLibraryUsageDescription</key>
+       <string>We need access to your photos so you can upload item pictures to your listings.</string>
+       <key>NSPhotoLibraryAddUsageDescription</key>
+       <string>We may save photos to your library when you download or export listing images.</string>
+       <key>NSCameraUsageDescription</key>
+       <string>We use the camera to take photos or videos for your listings.</string>
+       <key>NSMicrophoneUsageDescription</key>
+       <string>We use the microphone when recording videos or voice messages.</string>
+       <key>NSLocationWhenInUseUsageDescription</key>
+       <string>We use your location to show nearby listings and improve search results.</string>
+       <key>NSFaceIDUsageDescription</key>
+       <string>We use Face ID to secure your app data</string>
 
-		<!-- Background modes -->
-		<key>UIBackgroundModes</key>
-		<array>
-			<string>remote-notification</string>
-			<string>fetch</string>
-			<string>processing</string>
-		</array>
+       <!-- Background modes -->
+       <key>UIBackgroundModes</key>
+       <array>
+          <string>remote-notification</string>
+          <string>fetch</string>
+          <string>processing</string>
+       </array>
 
-		<!-- BGTask identifiers -->
-		<key>BGTaskSchedulerPermittedIdentifiers</key>
-		<array>
-			<string>cc.swaply.app.bgrefresh</string>
-			<string>cc.swaply.app.bgprocessing</string>
-		</array>
+       <!-- BGTask identifiers -->
+       <key>BGTaskSchedulerPermittedIdentifiers</key>
+       <array>
+          <string>cc.swaply.app.bgrefresh</string>
+          <string>cc.swaply.app.bgprocessing</string>
+       </array>
 
-		<!-- Flutter deep link support -->
-		<key>FlutterDeepLinkingEnabled</key>
-		<true/>
+       <!-- Flutter deep link support -->
+       <key>FlutterDeepLinkingEnabled</key>
+       <true/>
 
-		<!-- URL Schemes -->
-		<key>CFBundleURLTypes</key>
-		<array>
-			<dict>
-				<key>CFBundleURLName</key>
-				<string>cc.swaply.app</string>
-				<key>CFBundleURLSchemes</key>
-				<array>
-					<string>cc.swaply.app</string>
-				</array>
-			</dict>
-			<dict>
-				<key>CFBundleURLName</key>
-				<string>io.supabase.flutter</string>
-				<key>CFBundleURLSchemes</key>
-				<array>
-					<string>io.supabase.flutter</string>
-				</array>
-			</dict>
-			<dict>
-				<key>CFBundleURLName</key>
-				<string>swaply</string>
-				<key>CFBundleURLSchemes</key>
-				<array>
-					<string>swaply</string>
-				</array>
-			</dict>
-			<!-- Google REVERSED_CLIENT_ID -->
-			<dict>
-				<key>CFBundleTypeRole</key>
-				<string>Editor</string>
-				<key>CFBundleURLSchemes</key>
-				<array>
-					<string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
-				</array>
-			</dict>
-		</array>
+       <!-- URL Schemes -->
+       <key>CFBundleURLTypes</key>
+       <array>
+          <dict>
+             <key>CFBundleURLName</key>
+             <string>cc.swaply.app</string>
+             <key>CFBundleURLSchemes</key>
+             <array>
+                <string>cc.swaply.app</string>
+             </array>
+          </dict>
+          <dict>
+             <key>CFBundleURLName</key>
+             <string>io.supabase.flutter</string>
+             <key>CFBundleURLSchemes</key>
+             <array>
+                <string>io.supabase.flutter</string>
+             </array>
+          </dict>
+          <dict>
+             <key>CFBundleURLName</key>
+             <string>swaply</string>
+             <key>CFBundleURLSchemes</key>
+             <array>
+                <string>swaply</string>
+             </array>
+          </dict>
+          <!-- Google REVERSED_CLIENT_ID -->
+          <dict>
+             <key>CFBundleTypeRole</key>
+             <string>Editor</string>
+             <key>CFBundleURLSchemes</key>
+             <array>
+                <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
+             </array>
+          </dict>
+       </array>
 
-		<!-- 外部 app scheme 查询白名单 -->
-		<key>LSApplicationQueriesSchemes</key>
-		<array>
-			<string>google</string>
-			<string>whatsapp</string>
-			<string>whatsapp-business</string>
-			<string>tg</string>
-		</array>
+       <!-- 外部 app scheme 查询白名单 -->
+       <key>LSApplicationQueriesSchemes</key>
+       <array>
+          <string>google</string>
+          <string>whatsapp</string>
+          <string>whatsapp-business</string>
+          <string>tg</string>
+       </array>
 
-		<key>UIViewControllerBasedStatusBarAppearance</key>
-		<false/>
-	</dict>
+       <key>UIViewControllerBasedStatusBarAppearance</key>
+       <false/>
+    </dict>
 </plist>

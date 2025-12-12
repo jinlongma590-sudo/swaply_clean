@@ -2,6 +2,7 @@
 // ✅ [关键修复] 使用 upsert 避免 delete+insert 的竞态条件
 // ✅ [推送通知] 集成 Firebase Cloud Messaging
 // ✅ [自我通知过滤] 过滤自己发给自己的通知
+// ✅ [Offer消息修复] 实现createOfferNotification以在通知中显示message
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -461,9 +462,11 @@ class NotificationService {
     return true;
   }
 
+  /// ✅ [Offer消息修复] 实现createOfferNotification以在通知中显示message
   static Future<bool> createOfferNotification({
     required String sellerId,
     required String buyerId,
+    required String offerId,
     required String listingId,
     required double offerAmount,
     required String listingTitle,
@@ -471,8 +474,57 @@ class NotificationService {
     String? buyerPhone,
     String? message,
   }) async {
-    _debugPrint('createOfferNotification skipped (RPC not implemented)');
-    return true;
+    try {
+      // 自己给自己发offer就不发通知
+      if (sellerId == buyerId) {
+        _debugPrint('skip self offer notification');
+        return true;
+      }
+
+      final displayName = (buyerName?.trim().isNotEmpty == true)
+          ? buyerName!.trim()
+          : 'A buyer';
+
+      // ✅ 构建包含消息的通知内容
+      String notificationMessage;
+      if (message != null && message.isNotEmpty) {
+        notificationMessage = '$displayName offered \$${offerAmount.toStringAsFixed(2)}\n\n"$message"';
+      } else {
+        notificationMessage = '$displayName offered \$${offerAmount.toStringAsFixed(2)}';
+      }
+
+      // 构建payload
+      final String payload = buildOfferPayload(
+        offerId: offerId,
+        listingId: listingId,
+      );
+
+      // 插入通知
+      await _client.from(_tableName).insert({
+        'recipient_id': sellerId,
+        'sender_id': buyerId,
+        'type': 'offer',
+        'title': 'New Offer Received',
+        'message': notificationMessage,
+        'offer_id': int.tryParse(offerId),
+        'listing_id': listingId,
+        'metadata': {
+          'amount': offerAmount,
+          'status': 'pending',
+          'listing_title': listingTitle,
+          'buyer_name': displayName,
+          if (message != null && message.isNotEmpty) 'buyer_message': message,
+          'payload': payload,
+          'deep_link': payload,
+        },
+      });
+
+      _debugPrint('✅ Offer notification created with message');
+      return true;
+    } catch (e, st) {
+      _debugPrint('❌ Failed to create offer notification: $e\n$st');
+      return false;
+    }
   }
 
   static Future<bool> createWishlistNotification({

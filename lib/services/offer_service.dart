@@ -1,9 +1,11 @@
 // lib/services/offer_service.dart
 // 报价服务 + 举报/屏蔽支持（对齐 reports/blocks 表结构）
+// ✅ [Offer消息修复] 创建offer时同时创建通知并传递message
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/models/offer.dart';
+import 'package:swaply/services/notification_service.dart';
 
 /// ===== 顶层声明：屏蔽状态 =====
 class BlockStatus {
@@ -159,7 +161,7 @@ class OfferService {
           'Submitting report: type=$type reported=$reportedId offer=$offerId listing=$listingId');
 
       final int? offerInt =
-          (offerId == null || offerId.isEmpty) ? null : int.tryParse(offerId);
+      (offerId == null || offerId.isEmpty) ? null : int.tryParse(offerId);
 
       final payload = {
         'reporter_id': me,
@@ -185,7 +187,7 @@ class OfferService {
 
   // ================== 下面维持你原有的报价逻辑 ==================
 
-  /// 创建新报价
+  /// ✅ [Offer消息修复] 创建新报价并发送通知
   static Future<Map<String, dynamic>?> createOffer({
     required String listingId,
     required String sellerId,
@@ -231,13 +233,66 @@ class OfferService {
         'status': OfferStatus.pending.value,
         'created_at': DateTime.now().toIso8601String(),
         'expires_at':
-            DateTime.now().add(Duration(days: expiryDays)).toIso8601String(),
+        DateTime.now().add(Duration(days: expiryDays)).toIso8601String(),
       };
 
       final result =
-          await _client.from(_tableName).insert(data).select().single();
+      await _client.from(_tableName).insert(data).select().single();
 
       _debugPrint('Offer created successfully: ${result['id']}');
+
+      // ✅ [Offer消息修复] 创建通知
+      final offerId = result['id']?.toString();
+      if (offerId != null) {
+        try {
+          // 获取商品标题
+          String listingTitle = 'your item';
+          try {
+            final listing = await _client
+                .from('listings')
+                .select('title')
+                .eq('id', listingId)
+                .maybeSingle();
+            if (listing != null && listing['title'] != null) {
+              listingTitle = listing['title'].toString();
+            }
+          } catch (_) {}
+
+          // 获取买家名称
+          String? buyerNameForNotif = buyerName;
+          if (buyerNameForNotif == null || buyerNameForNotif == 'Anonymous') {
+            try {
+              final profile = await _client
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('id', buyerId)
+                  .maybeSingle();
+              if (profile != null && profile['full_name'] != null) {
+                buyerNameForNotif = profile['full_name'].toString();
+              }
+            } catch (_) {}
+          }
+
+          // 创建通知
+          await NotificationService.createOfferNotification(
+            sellerId: sellerId,
+            buyerId: buyerId,
+            offerId: offerId,
+            listingId: listingId,
+            offerAmount: offerAmount,
+            listingTitle: listingTitle,
+            buyerName: buyerNameForNotif,
+            buyerPhone: buyerPhone,
+            message: message,
+          );
+
+          _debugPrint('Offer notification created successfully');
+        } catch (e) {
+          _debugPrint('Failed to create notification: $e');
+          // 通知创建失败不影响offer创建成功
+        }
+      }
+
       return result;
     } catch (e) {
       _debugPrint('Error creating offer: $e');
@@ -362,10 +417,10 @@ class OfferService {
       await _client
           .from(_tableName)
           .update({
-            'status': OfferStatus.declined.value,
-            'updated_at': DateTime.now().toIso8601String(),
-            'response_message': 'This item has been sold to another buyer.',
-          })
+        'status': OfferStatus.declined.value,
+        'updated_at': DateTime.now().toIso8601String(),
+        'response_message': 'This item has been sold to another buyer.',
+      })
           .eq('listing_id', listingId)
           .eq('status', OfferStatus.pending.value)
           .neq('id', acceptedOfferId);
@@ -392,7 +447,7 @@ class OfferService {
       _debugPrint('Fetching offers for listing: $listingId');
 
       var query =
-          _client.from(_tableName).select('*').eq('listing_id', listingId);
+      _client.from(_tableName).select('*').eq('listing_id', listingId);
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         final statusValues = statusFilter.map((s) => s.value).toList();
@@ -400,10 +455,10 @@ class OfferService {
       }
 
       final List<dynamic> offers =
-          await query.order('created_at', ascending: false).range(
-                offset,
-                offset + limit - 1,
-              );
+      await query.order('created_at', ascending: false).range(
+        offset,
+        offset + limit - 1,
+      );
 
       final enrichedOffers = <Map<String, dynamic>>[];
 
@@ -465,7 +520,7 @@ class OfferService {
       _debugPrint('Fetching offers for user: $targetUserId');
 
       var query =
-          _client.from(_tableName).select('*').eq('buyer_id', targetUserId);
+      _client.from(_tableName).select('*').eq('buyer_id', targetUserId);
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         final statusValues = statusFilter.map((s) => s.value).toList();
@@ -473,10 +528,10 @@ class OfferService {
       }
 
       final List<dynamic> offers =
-          await query.order('created_at', ascending: false).range(
-                offset,
-                offset + limit - 1,
-              );
+      await query.order('created_at', ascending: false).range(
+        offset,
+        offset + limit - 1,
+      );
 
       final enrichedOffers = <Map<String, dynamic>>[];
 
@@ -541,7 +596,7 @@ class OfferService {
       _debugPrint('Fetching received offers for user: $targetUserId');
 
       var query =
-          _client.from(_tableName).select('*').eq('seller_id', targetUserId);
+      _client.from(_tableName).select('*').eq('seller_id', targetUserId);
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         final statusValues = statusFilter.map((s) => s.value).toList();
@@ -549,10 +604,10 @@ class OfferService {
       }
 
       final List<dynamic> data =
-          await query.order('created_at', ascending: false).range(
-                offset,
-                offset + limit - 1,
-              );
+      await query.order('created_at', ascending: false).range(
+        offset,
+        offset + limit - 1,
+      );
 
       final enrichedData = <Map<String, dynamic>>[];
 
@@ -737,9 +792,9 @@ class OfferService {
         'sent_offers': sentOffers.length,
         'received_offers': receivedOffers.length,
         'pending_sent':
-            sentOffers.where((o) => o['status'] == 'pending').length,
+        sentOffers.where((o) => o['status'] == 'pending').length,
         'pending_received':
-            receivedOffers.where((o) => o['status'] == 'pending').length,
+        receivedOffers.where((o) => o['status'] == 'pending').length,
         'accepted': sentOffers.where((o) => o['status'] == 'accepted').length,
         'declined': sentOffers.where((o) => o['status'] == 'declined').length +
             receivedOffers.where((o) => o['status'] == 'declined').length,
@@ -763,9 +818,9 @@ class OfferService {
       final result = await _client
           .from(_tableName)
           .update({
-            'status': OfferStatus.expired.value,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+        'status': OfferStatus.expired.value,
+        'updated_at': DateTime.now().toIso8601String(),
+      })
           .eq('status', OfferStatus.pending.value)
           .lt('expires_at', DateTime.now().toIso8601String())
           .select('id');

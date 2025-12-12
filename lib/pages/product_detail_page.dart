@@ -3,7 +3,8 @@
 // ✅ [性能优化] 图片预加载 + 渐进式加载 + 智能缓存
 // ✅ [UI修复] 修复分享弹窗锯齿问题
 // ✅ [收藏优化] 乐观更新策略 - 立即响应用户操作，后台同步数据
-// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿 ⑥ 收藏速度优化
+// ✅ [Offer消息修复] 发送offer时同时发送消息到MessageService
+// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿 ⑥ 收藏速度优化 ⑦ Offer消息功能
 // 严格遵守架构：不破坏 AuthFlowObserver/DeepLinkService/AppRouter 三层分离
 
 import 'dart:io';
@@ -23,6 +24,7 @@ import 'package:swaply/models/verification_types.dart' as vt;
 import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/offer_service.dart';
+import 'package:swaply/services/message_service.dart';
 import 'package:swaply/services/favorites_update_service.dart';
 import 'package:swaply/pages/seller_profile_page.dart';
 import 'package:swaply/services/verification_guard.dart';
@@ -1158,6 +1160,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
+  // ✅ [Offer消息修复] 发送offer时同时发送消息
   Future<void> _sendOffer(double amount, String? message) async {
     if (!await _ensureAllowedForContact(actionName: 'make an offer')) return;
 
@@ -1178,6 +1181,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     setState(() => _isOfferLoading = true);
 
     try {
+      // 1️⃣ 创建 offer
       final result = await OfferService.createOffer(
         listingId: id,
         sellerId: sellerId,
@@ -1185,9 +1189,35 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         message: message,
       );
 
-      final bool success = result != null;
+      if (result == null) {
+        _toast('Failed to send offer');
+        return;
+      }
 
-      _toast(success ? 'Offer sent successfully!' : 'Failed to send offer');
+      // 2️⃣ 如果有消息，发送到 MessageService
+      if (message != null && message.isNotEmpty) {
+        try {
+          final offerId = result['id']?.toString();
+          if (offerId != null) {
+            await MessageService.sendMessage(
+              offerId: offerId,
+              receiverId: sellerId.toString(),
+              message: message,
+            );
+
+            if (kDebugMode) {
+              print('✅ Message sent successfully with offer');
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Failed to send message with offer: $e');
+          }
+          // 消息发送失败不影响offer创建成功
+        }
+      }
+
+      _toast('Offer sent successfully!');
     } catch (e) {
       if (e is PostgrestException && e.code == 'P0001') {
         await _showSelfListingInfo(actionName: 'make an offer');
