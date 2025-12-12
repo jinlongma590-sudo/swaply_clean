@@ -1,0 +1,542 @@
+﻿=== FB AUDIT REPORT ===
+TIME: 2025/12/13 3:22:35
+ROOT: D:\Apps\swaply_clean
+
+
+==== ENV ====
+>>> flutter --version
+Flutter 3.38.1 鈥?channel stable 鈥?https://github.com/flutter/flutter.git
+Framework 鈥?revision b45fa18946 (4 weeks ago) 鈥?2025-11-12 22:09:06 -0600
+Engine 鈥?hash 78c3c9557e50ee7c676fa37562558c59efd8406a (revision b5990e5ccc) (29 days ago) 鈥?2025-11-12 21:08:24.000Z
+Tools 鈥?Dart 3.10.0 鈥?DevTools 2.51.1
+
+>>> dart --version
+Dart SDK version: 3.10.0 (stable) (Thu Nov 6 05:24:55 2025 -0800) on "windows_x64"
+
+>>> where flutter
+
+>>> where dart
+
+
+==== DEPENDENCIES (pubspec.yaml) ====
+>>> Select-String -Path .\pubspec.yaml -Pattern 'supabase|flutter_facebook_auth|facebook|app_links|flutter_web_auth|url_launcher|sign_in_with_apple|google_sign_in' -Context 0,3
+
+> pubspec.yaml:28:  url_launcher:
+> pubspec.yaml:29:  app_links:
+  pubspec.yaml:30:
+  pubspec.yaml:31:  # 存储 / 文件 / 图片
+  pubspec.yaml:32:  path_provider:
+> pubspec.yaml:44:  # Supabase / OAuth（固定 2.x）
+> pubspec.yaml:45:  supabase_flutter: ^2.10.3
+> pubspec.yaml:46:  supabase: ^2.10.0
+> pubspec.yaml:47:  google_sign_in: ^6.2.1
+> pubspec.yaml:48:  sign_in_with_apple:
+> pubspec.yaml:49:  flutter_facebook_auth: ^6.0.3  # ✅ 恢复：Facebook 原生登录支持
+  pubspec.yaml:50:  crypto:
+  pubspec.yaml:51:  flutter_custom_tabs:
+  pubspec.yaml:52:
+
+
+
+
+==== DEPENDENCIES (pubspec.lock actual versions) ====
+>>> Select-String -Path .\pubspec.lock -Pattern 'name: supabase_flutter|name: supabase_auth|name: flutter_facebook_auth|name: app_links|name: url_launcher|name: flutter_web_auth_2|name: google_sign_in|name: sign_in_with_apple' -Context 0,12
+
+> pubspec.lock:23:      name: app_links
+  pubspec.lock:24:      sha256: "5f88447519add627fe1cbcab4fd1da3d4fed15b9baf29f28b22535c95ecee3e8"
+  pubspec.lock:25:      url: "https://pub.dev"
+  pubspec.lock:26:    source: hosted
+  pubspec.lock:27:    version: "6.4.1"
+  pubspec.lock:28:  app_links_linux:
+  pubspec.lock:29:    dependency: transitive
+  pubspec.lock:30:    description:
+> pubspec.lock:31:      name: app_links_linux
+  pubspec.lock:32:      sha256: f5f7173a78609f3dfd4c2ff2c95bd559ab43c80a87dc6a095921d96c05688c81
+  pubspec.lock:33:      url: "https://pub.dev"
+  pubspec.lock:34:    source: hosted
+  pubspec.lock:35:    version: "1.0.3"
+  pubspec.lock:36:  app_links_platform_interface:
+  pubspec.lock:37:    dependency: transitive
+  pubspec.lock:38:    description:
+> pubspec.lock:39:      name: app_links_platform_interface
+  pubspec.lock:40:      sha256: "05f5379577c513b534a29ddea68176a4d4802c46180ee8e2e966257158772a3f"
+  pubspec.lock:41:      url: "https://pub.dev"
+  pubspec.lock:42:    source: hosted
+  pubspec.lock:43:    version: "2.0.2"
+  pubspec.lock:44:  app_links_web:
+  pubspec.lock:45:    dependency: transitive
+  pubspec.lock:46:    description:
+> pubspec.lock:47:      name: app_links_web
+  pubspec.lock:48:      sha256: af060ed76183f9e2b87510a9480e56a5352b6c249778d07bd2c95fc35632a555
+  pubspec.lock:49:      url: "https://pub.dev"
+  pubspec.lock:50:    source: hosted
+  pubspec.lock:51:    version: "1.0.4"
+  pubspec.lock:52:  archive:
+  pubspec.lock:53:    dependency: transitive
+  pubspec.lock:54:    description:
+  pubspec.lock:55:      name: archive
+  pubspec.lock:56:      sha256: "2fde1607386ab523f7a36bb3e7edb43bd58e6edaf2ffb29d8a6d578b297fdbbd"
+  pubspec.lock:57:      url: "https://pub.dev"
+  pubspec.lock:58:    source: hosted
+  pubspec.lock:59:    version: "4.0.7"
+> pubspec.lock:372:      name: flutter_facebook_auth
+  pubspec.lock:373:      sha256: bc455122d3ea14fd0887b1a0f74d0ead845c04bfc2e68c64d9a701367d665724
+  pubspec.lock:374:      url: "https://pub.dev"
+  pubspec.lock:375:    source: hosted
+  pubspec.lock:376:    version: "6.2.0"
+  pubspec.lock:377:  flutter_facebook_auth_platform_interface:
+  pubspec.lock:378:    dependency: transitive
+  pubspec.lock:379:    description:
+> pubspec.lock:380:      name: flutter_facebook_auth_platform_interface
+  pubspec.lock:381:      sha256: "86630c4dbba1c20fba26ea9e59ad0d48f5ff59e7373cacd36f916160186f9ce9"
+  pubspec.lock:382:      url: "https://pub.dev"
+  pubspec.lock:383:    source: hosted
+  pubspec.lock:384:    version: "5.0.0"
+  pubspec.lock:385:  flutter_facebook_auth_web:
+  pubspec.lock:386:    dependency: transitive
+  pubspec.lock:387:    description:
+> pubspec.lock:388:      name: flutter_facebook_auth_web
+  pubspec.lock:389:      sha256: "22dca8091409309ad85b9f430fbd8f57b686276979da5195e7e97587352567ce"
+  pubspec.lock:390:      url: "https://pub.dev"
+  pubspec.lock:391:    source: hosted
+  pubspec.lock:392:    version: "5.0.0"
+  pubspec.lock:393:  flutter_image_compress:
+  pubspec.lock:394:    dependency: "direct main"
+  pubspec.lock:395:    description:
+  pubspec.lock:396:      name: flutter_image_compress
+  pubspec.lock:397:      sha256: "51d23be39efc2185e72e290042a0da41aed70b14ef97db362a6b5368d0523b27"
+  pubspec.lock:398:      url: "https://pub.dev"
+  pubspec.lock:399:    source: hosted
+  pubspec.lock:400:    version: "2.4.0"
+> pubspec.lock:595:      name: google_sign_in
+  pubspec.lock:596:      sha256: d0a2c3bcb06e607bb11e4daca48bd4b6120f0bbc4015ccebbe757d24ea60ed2a
+  pubspec.lock:597:      url: "https://pub.dev"
+  pubspec.lock:598:    source: hosted
+  pubspec.lock:599:    version: "6.3.0"
+  pubspec.lock:600:  google_sign_in_android:
+  pubspec.lock:601:    dependency: transitive
+  pubspec.lock:602:    description:
+> pubspec.lock:603:      name: google_sign_in_android
+  pubspec.lock:604:      sha256: d5e23c56a4b84b6427552f1cf3f98f716db3b1d1a647f16b96dbb5b93afa2805
+  pubspec.lock:605:      url: "https://pub.dev"
+  pubspec.lock:606:    source: hosted
+  pubspec.lock:607:    version: "6.2.1"
+  pubspec.lock:608:  google_sign_in_ios:
+  pubspec.lock:609:    dependency: transitive
+  pubspec.lock:610:    description:
+> pubspec.lock:611:      name: google_sign_in_ios
+  pubspec.lock:612:      sha256: "102005f498ce18442e7158f6791033bbc15ad2dcc0afa4cf4752e2722a516c96"
+  pubspec.lock:613:      url: "https://pub.dev"
+  pubspec.lock:614:    source: hosted
+  pubspec.lock:615:    version: "5.9.0"
+  pubspec.lock:616:  google_sign_in_platform_interface:
+  pubspec.lock:617:    dependency: transitive
+  pubspec.lock:618:    description:
+> pubspec.lock:619:      name: google_sign_in_platform_interface
+  pubspec.lock:620:      sha256: "5f6f79cf139c197261adb6ac024577518ae48fdff8e53205c5373b5f6430a8aa"
+  pubspec.lock:621:      url: "https://pub.dev"
+  pubspec.lock:622:    source: hosted
+  pubspec.lock:623:    version: "2.5.0"
+  pubspec.lock:624:  google_sign_in_web:
+  pubspec.lock:625:    dependency: transitive
+  pubspec.lock:626:    description:
+> pubspec.lock:627:      name: google_sign_in_web
+  pubspec.lock:628:      sha256: "460547beb4962b7623ac0fb8122d6b8268c951cf0b646dd150d60498430e4ded"
+  pubspec.lock:629:      url: "https://pub.dev"
+  pubspec.lock:630:    source: hosted
+  pubspec.lock:631:    version: "0.12.4+4"
+  pubspec.lock:632:  gotrue:
+  pubspec.lock:633:    dependency: transitive
+  pubspec.lock:634:    description:
+  pubspec.lock:635:      name: gotrue
+  pubspec.lock:636:      sha256: "636b7d8de00c96cb580c705f9eb12bc107df893595854f1efa08c6b1b449e5e5"
+  pubspec.lock:637:      url: "https://pub.dev"
+  pubspec.lock:638:    source: hosted
+  pubspec.lock:639:    version: "2.16.0"
+> pubspec.lock:1099:      name: sign_in_with_apple
+  pubspec.lock:1100:      sha256: "8bd875c8e8748272749eb6d25b896f768e7e9d60988446d543fe85a37a2392b8"
+  pubspec.lock:1101:      url: "https://pub.dev"
+  pubspec.lock:1102:    source: hosted
+  pubspec.lock:1103:    version: "7.0.1"
+  pubspec.lock:1104:  sign_in_with_apple_platform_interface:
+  pubspec.lock:1105:    dependency: transitive
+  pubspec.lock:1106:    description:
+> pubspec.lock:1107:      name: sign_in_with_apple_platform_interface
+  pubspec.lock:1108:      sha256: "981bca52cf3bb9c3ad7ef44aace2d543e5c468bb713fd8dda4275ff76dfa6659"
+  pubspec.lock:1109:      url: "https://pub.dev"
+  pubspec.lock:1110:    source: hosted
+  pubspec.lock:1111:    version: "2.0.0"
+  pubspec.lock:1112:  sign_in_with_apple_web:
+  pubspec.lock:1113:    dependency: transitive
+  pubspec.lock:1114:    description:
+> pubspec.lock:1115:      name: sign_in_with_apple_web
+  pubspec.lock:1116:      sha256: f316400827f52cafcf50d00e1a2e8a0abc534ca1264e856a81c5f06bd5b10fed
+  pubspec.lock:1117:      url: "https://pub.dev"
+  pubspec.lock:1118:    source: hosted
+  pubspec.lock:1119:    version: "3.0.0"
+  pubspec.lock:1120:  sky_engine:
+  pubspec.lock:1121:    dependency: transitive
+  pubspec.lock:1122:    description: flutter
+  pubspec.lock:1123:    source: sdk
+  pubspec.lock:1124:    version: "0.0.0"
+  pubspec.lock:1125:  source_span:
+  pubspec.lock:1126:    dependency: transitive
+  pubspec.lock:1127:    description:
+> pubspec.lock:1216:      name: supabase_flutter
+  pubspec.lock:1217:      sha256: "01fff52de41853373e1465acc2a3a3c9859a30357b84a548c3583d9ef0b02972"
+  pubspec.lock:1218:      url: "https://pub.dev"
+  pubspec.lock:1219:    source: hosted
+  pubspec.lock:1220:    version: "2.10.3"
+  pubspec.lock:1221:  synchronized:
+  pubspec.lock:1222:    dependency: transitive
+  pubspec.lock:1223:    description:
+  pubspec.lock:1224:      name: synchronized
+  pubspec.lock:1225:      sha256: c254ade258ec8282947a0acbbc90b9575b4f19673533ee46f2f6e9b3aeefd7c0
+  pubspec.lock:1226:      url: "https://pub.dev"
+  pubspec.lock:1227:    source: hosted
+  pubspec.lock:1228:    version: "3.4.0"
+> pubspec.lock:1272:      name: url_launcher
+  pubspec.lock:1273:      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
+  pubspec.lock:1274:      url: "https://pub.dev"
+  pubspec.lock:1275:    source: hosted
+  pubspec.lock:1276:    version: "6.3.2"
+  pubspec.lock:1277:  url_launcher_android:
+  pubspec.lock:1278:    dependency: transitive
+  pubspec.lock:1279:    description:
+> pubspec.lock:1280:      name: url_launcher_android
+  pubspec.lock:1281:      sha256: "767344bf3063897b5cf0db830e94f904528e6dd50a6dfaf839f0abf509009611"
+  pubspec.lock:1282:      url: "https://pub.dev"
+  pubspec.lock:1283:    source: hosted
+  pubspec.lock:1284:    version: "6.3.28"
+  pubspec.lock:1285:  url_launcher_ios:
+  pubspec.lock:1286:    dependency: transitive
+  pubspec.lock:1287:    description:
+> pubspec.lock:1288:      name: url_launcher_ios
+  pubspec.lock:1289:      sha256: cfde38aa257dae62ffe79c87fab20165dfdf6988c1d31b58ebf59b9106062aad
+  pubspec.lock:1290:      url: "https://pub.dev"
+  pubspec.lock:1291:    source: hosted
+  pubspec.lock:1292:    version: "6.3.6"
+  pubspec.lock:1293:  url_launcher_linux:
+  pubspec.lock:1294:    dependency: transitive
+  pubspec.lock:1295:    description:
+> pubspec.lock:1296:      name: url_launcher_linux
+  pubspec.lock:1297:      sha256: d5e14138b3bc193a0f63c10a53c94b91d399df0512b1f29b94a043db7482384a
+  pubspec.lock:1298:      url: "https://pub.dev"
+  pubspec.lock:1299:    source: hosted
+  pubspec.lock:1300:    version: "3.2.2"
+  pubspec.lock:1301:  url_launcher_macos:
+  pubspec.lock:1302:    dependency: transitive
+  pubspec.lock:1303:    description:
+> pubspec.lock:1304:      name: url_launcher_macos
+  pubspec.lock:1305:      sha256: "368adf46f71ad3c21b8f06614adb38346f193f3a59ba8fe9a2fd74133070ba18"
+  pubspec.lock:1306:      url: "https://pub.dev"
+  pubspec.lock:1307:    source: hosted
+  pubspec.lock:1308:    version: "3.2.5"
+  pubspec.lock:1309:  url_launcher_platform_interface:
+  pubspec.lock:1310:    dependency: transitive
+  pubspec.lock:1311:    description:
+> pubspec.lock:1312:      name: url_launcher_platform_interface
+  pubspec.lock:1313:      sha256: "552f8a1e663569be95a8190206a38187b531910283c3e982193e4f2733f01029"
+  pubspec.lock:1314:      url: "https://pub.dev"
+  pubspec.lock:1315:    source: hosted
+  pubspec.lock:1316:    version: "2.3.2"
+  pubspec.lock:1317:  url_launcher_web:
+  pubspec.lock:1318:    dependency: transitive
+  pubspec.lock:1319:    description:
+> pubspec.lock:1320:      name: url_launcher_web
+  pubspec.lock:1321:      sha256: "4bd2b7b4dc4d4d0b94e5babfffbca8eac1a126c7f3d6ecbc1a11013faa3abba2"
+  pubspec.lock:1322:      url: "https://pub.dev"
+  pubspec.lock:1323:    source: hosted
+  pubspec.lock:1324:    version: "2.4.1"
+  pubspec.lock:1325:  url_launcher_windows:
+  pubspec.lock:1326:    dependency: transitive
+  pubspec.lock:1327:    description:
+> pubspec.lock:1328:      name: url_launcher_windows
+  pubspec.lock:1329:      sha256: "712c70ab1b99744ff066053cbe3e80c73332b38d46e5e945c98689b2e66fc15f"
+  pubspec.lock:1330:      url: "https://pub.dev"
+  pubspec.lock:1331:    source: hosted
+  pubspec.lock:1332:    version: "3.1.5"
+  pubspec.lock:1333:  uuid:
+  pubspec.lock:1334:    dependency: "direct main"
+  pubspec.lock:1335:    description:
+  pubspec.lock:1336:      name: uuid
+  pubspec.lock:1337:      sha256: a11b666489b1954e01d992f3d601b1804a33937b5a8fe677bd26b8a9f96f96e8
+  pubspec.lock:1338:      url: "https://pub.dev"
+  pubspec.lock:1339:    source: hosted
+  pubspec.lock:1340:    version: "4.5.2"
+
+
+
+
+==== DART CODE (facebook/supabase oauth) ====
+>>> Get-ChildItem .\lib -Recurse -File -Filter *.dart | Select-String -Pattern 'OAuthProvider\.facebook|signInWithIdToken|signInWithOAuth|FacebookAuth|flutter_facebook_auth|limited\.facebook\.com|authScreenLaunchMode|LaunchMode\.inAppWebView|redirectTo|getAuthRedirectUri|auth/callback|/auth/v1/callback' -Context 2,2
+
+  lib\config.dart:49:
+  lib\config.dart:50:  /// OAuth 登录回调 URL（动态）
+> lib\config.dart:51:  @Deprecated('Use auth.getAuthRedirectUri() instead')
+> lib\config.dart:52:  static String get authRedirectUri => auth.getAuthRedirectUri();
+  lib\config.dart:53:
+  lib\config.dart:54:  /// OAuth 登录回调 URL（移动端常量）
+  lib\config.dart:371:  print('Supabase URL: ${SupabaseConfig.url}');
+  lib\config.dart:372:  // ignore: avoid_print
+> lib\config.dart:373:  print('OAuth回调: ${auth.getAuthRedirectUri()}');
+  lib\config.dart:374:  // ignore: avoid_print
+  lib\config.dart:375:  print('密码重置: ${auth.getResetPasswordRedirectUri()}');
+  lib\auth\forgot_password_screen.dart:51:      await Supabase.instance.client.auth.resetPasswordForEmail(
+  lib\auth\forgot_password_screen.dart:52:        email,
+> lib\auth\forgot_password_screen.dart:53:        redirectTo: AppConfig.resetPasswordRedirectUrl,
+  lib\auth\forgot_password_screen.dart:54:      );
+  lib\auth\forgot_password_screen.dart:55:
+  lib\auth\login_screen.dart:267:    if (OAuthEntry.inFlight) return;
+  lib\auth\login_screen.dart:268:    await _oauthSignIn(
+> lib\auth\login_screen.dart:269:      OAuthProvider.facebook,
+  lib\auth\login_screen.dart:270:      queryParams: const {'display': 'popup'},
+  lib\auth\login_screen.dart:271:    );
+  lib\auth\register_screen.dart:291:        email: email,
+  lib\auth\register_screen.dart:292:        password: password,
+> lib\auth\register_screen.dart:293:        emailRedirectTo: kAuthRedirectUri,
+  lib\auth\register_screen.dart:294:        data: {
+  lib\auth\register_screen.dart:295:          'full_name': fullName,
+  lib\auth\register_screen.dart:342:    if (OAuthEntry.inFlight) return;
+  lib\auth\register_screen.dart:343:    await _oauthSignIn(
+> lib\auth\register_screen.dart:344:      OAuthProvider.facebook,
+  lib\auth\register_screen.dart:345:      queryParams: const {'display': 'popup'},
+  lib\auth\register_screen.dart:346:    );
+  lib\config\auth_config.dart:9:///   • Supabase Dashboard → Authentication → URL Configuration:
+  lib\config\auth_config.dart:10:///     - 添加: swaply://login-callback （移动端 OAuth）
+> lib\config\auth_config.dart:11:///     - 添加: https://swaply.cc/auth/callback （Web OAuth）
+  lib\config\auth_config.dart:12:///     - 添加: https://swaply.cc/reset-password （密码重置）
+  lib\config\auth_config.dart:13:///   • iOS: Info.plist 已配置 swaply scheme
+  lib\config\auth_config.dart:18:
+  lib\config\auth_config.dart:19:/// ✅ OAuth 回调（Web 端）
+> lib\config\auth_config.dart:20:const String kAuthWebRedirectUri = 'https://swaply.cc/auth/callback';
+  lib\config\auth_config.dart:21:
+  lib\config\auth_config.dart:22:/// ✅ 向后兼容：统一的 OAuth 回调 URL（优先使用移动端配置）
+> lib\config\auth_config.dart:23:/// 注意：这是为了兼容旧代码，新代码应该使用 getAuthRedirectUri()
+  lib\config\auth_config.dart:24:const String kAuthRedirectUri = kAuthMobileRedirectUri;
+  lib\config\auth_config.dart:25:
+  lib\config\auth_config.dart:29:
+  lib\config\auth_config.dart:30:/// ✅ 动态获取当前平台的 OAuth 回调
+> lib\config\auth_config.dart:31:String getAuthRedirectUri() {
+  lib\config\auth_config.dart:32:  return kIsWeb ? kAuthWebRedirectUri : kAuthMobileRedirectUri;
+  lib\config\auth_config.dart:33:}
+  lib\debug\recovery_probe.dart:28:            uri.host == 'cc.swaply.app');
+  lib\debug\recovery_probe.dart:29:
+> lib\debug\recovery_probe.dart:30:    //    - https://swaply.cc/auth/callback?...   ← supabase 官方回调
+  lib\debug\recovery_probe.dart:31:    //    - （兜底）https://swaply.cc/login-callback?... 也视为回调
+  lib\debug\recovery_probe.dart:32:    final segments = uri.pathSegments;
+  lib\pages\profile_page.dart:631:                                  onTap: () => launchUrl(
+  lib\pages\profile_page.dart:632:                                    Uri.parse(_kPrivacyUrl),
+> lib\pages\profile_page.dart:633:                                    mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:634:                                  ),
+  lib\pages\profile_page.dart:635:                                ),
+  lib\pages\profile_page.dart:641:                                  onTap: () => launchUrl(
+  lib\pages\profile_page.dart:642:                                    Uri.parse(_kDeleteUrl),
+> lib\pages\profile_page.dart:643:                                    mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:644:                                  ),
+  lib\pages\profile_page.dart:645:                                ),
+  lib\pages\profile_page.dart:1195:              onTap: () => launchUrl(
+  lib\pages\profile_page.dart:1196:                Uri.parse('https://www.swaply.cc'),
+> lib\pages\profile_page.dart:1197:                mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:1198:              ),
+  lib\pages\profile_page.dart:1199:            ),
+  lib\services\apple_auth_service.dart:3:// 逻辑要点：
+  lib\services\apple_auth_service.dart:4:// 1) 生成 raw nonce，并将其 sha256 作为 nonce 传给 Apple
+> lib\services\apple_auth_service.dart:5:// 2) 用 Apple 返回的 identityToken + raw nonce 调 Supabase 的 signInWithIdToken
+  lib\services\apple_auth_service.dart:6:// 3) 首登时可把姓名/邮箱写入 profiles（忽略失败）
+  lib\services\apple_auth_service.dart:7:
+  lib\services\apple_auth_service.dart:67:
+  lib\services\apple_auth_service.dart:68:      // 3) 用 Apple 的 idToken + 原始 rawNonce 登录 Supabase
+> lib\services\apple_auth_service.dart:69:      final resp = await _sb.auth.signInWithIdToken(
+  lib\services\apple_auth_service.dart:70:        provider: OAuthProvider.apple,
+  lib\services\apple_auth_service.dart:71:        idToken: idToken,
+  lib\services\auth_service.dart:14:
+  lib\services\auth_service.dart:15:import 'package:google_sign_in/google_sign_in.dart';
+> lib\services\auth_service.dart:16:import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'; // ✅ 新增
+  lib\services\auth_service.dart:17:import 'package:swaply/services/apple_auth_service.dart';
+  lib\services\auth_service.dart:18:
+  lib\services\auth_service.dart:38:        } else {
+  lib\services\auth_service.dart:39:          // Android：使用系统浏览器（Chrome Custom Tabs）
+> lib\services\auth_service.dart:40:          await Supabase.instance.client.auth.signInWithOAuth(
+  lib\services\auth_service.dart:41:            OAuthProvider.apple,
+> lib\services\auth_service.dart:42:            authScreenLaunchMode: LaunchMode.externalApplication,
+> lib\services\auth_service.dart:43:            redirectTo: getAuthRedirectUri(),
+  lib\services\auth_service.dart:44:            scopes: 'email name',
+  lib\services\auth_service.dart:45:          );
+  lib\services\auth_service.dart:51:        break;
+  lib\services\auth_service.dart:52:
+> lib\services\auth_service.dart:53:      case OAuthProvider.facebook:
+  lib\services\auth_service.dart:54:        await _signInWithFacebookNative(); // ✅ 修改：使用原生登录
+  lib\services\auth_service.dart:55:        break;
+  lib\services\auth_service.dart:84:      }
+  lib\services\auth_service.dart:85:
+> lib\services\auth_service.dart:86:      await supabase.auth.signInWithIdToken(
+  lib\services\auth_service.dart:87:        provider: OAuthProvider.google,
+  lib\services\auth_service.dart:88:        idToken: googleAuth.idToken!,
+  lib\services\auth_service.dart:101:
+  lib\services\auth_service.dart:102:      // 1. 使用 Facebook SDK 登录
+> lib\services\auth_service.dart:103:      final result = await FacebookAuth.instance.login(
+  lib\services\auth_service.dart:104:        permissions: ['public_profile', 'email'],
+  lib\services\auth_service.dart:105:      );
+  lib\services\auth_service.dart:125:
+  lib\services\auth_service.dart:126:      // 4. 使用 Facebook Access Token 登录 Supabase
+> lib\services\auth_service.dart:127:      await supabase.auth.signInWithIdToken(
+> lib\services\auth_service.dart:128:        provider: OAuthProvider.facebook,
+  lib\services\auth_service.dart:129:        idToken: accessToken.token,
+  lib\services\auth_service.dart:130:      );
+  lib\services\auth_service.dart:191:        password: password,
+  lib\services\auth_service.dart:192:        data: meta.isEmpty ? null : meta,
+> lib\services\auth_service.dart:193:        emailRedirectTo: kAuthWebRedirectUri,
+  lib\services\auth_service.dart:194:      );
+  lib\services\auth_service.dart:195:
+  lib\services\auth_service.dart:244:  Future<bool> signInWithFacebook() async {
+  lib\services\auth_service.dart:245:    try {
+> lib\services\auth_service.dart:246:      await signInWithNativeProvider(OAuthProvider.facebook);
+  lib\services\auth_service.dart:247:
+  lib\services\auth_service.dart:248:      // ✅ 等待 Supabase session 建立
+  lib\services\oauth_entry.dart:8:// 建议用法：
+  lib\services\oauth_entry.dart:9:// 1) 启动时：await OAuthEntry.restoreState(); // 恢复持久化状态
+> lib\services\oauth_entry.dart:10:// 2) 触发：await OAuthEntry.signIn(OAuthProvider.facebook, ...);
+  lib\services\oauth_entry.dart:11:// 3) 在回调命中时：OAuthEntry.finish();
+  lib\services\oauth_entry.dart:12:// 4) 或在全局 onAuthStateChange 里：OAuthEntry.clearGuardIfSignedIn(state);
+  lib\services\oauth_entry.dart:129:  ///   - swaply://login-callback
+  lib\services\oauth_entry.dart:130:  /// Web 端:
+> lib\services\oauth_entry.dart:131:  ///   - https://swaply.cc/auth/callback
+  lib\services\oauth_entry.dart:132:  ///   - https://swaply.cc/login-callback（兼容）
+  lib\services\oauth_entry.dart:133:  static bool isOAuthCallback(Uri? uri) {
+  lib\services\oauth_entry.dart:206:          resolvedScopes = 'openid email profile';
+  lib\services\oauth_entry.dart:207:          break;
+> lib\services\oauth_entry.dart:208:        case OAuthProvider.facebook:
+  lib\services\oauth_entry.dart:209:          resolvedScopes = 'public_profile,email';
+  lib\services\oauth_entry.dart:210:          break;
+  lib\services\oauth_entry.dart:222:      switch (provider) {
+  lib\services\oauth_entry.dart:223:        case OAuthProvider.google:
+> lib\services\oauth_entry.dart:224:        case OAuthProvider.facebook:
+  lib\services\oauth_entry.dart:225:        case OAuthProvider.apple:
+  lib\services\oauth_entry.dart:226:        // ✅ 三种都走原生/系统浏览器方案（由 AuthService 内部决定）
+  lib\services\oauth_entry.dart:230:        default:
+  lib\services\oauth_entry.dart:231:        // ✅ 其它供应商（未来新增）才走内置 WebView
+> lib\services\oauth_entry.dart:232:          await Supabase.instance.client.auth.signInWithOAuth(
+  lib\services\oauth_entry.dart:233:            provider,
+> lib\services\oauth_entry.dart:234:            redirectTo: getAuthRedirectUri(),
+> lib\services\oauth_entry.dart:235:            authScreenLaunchMode: LaunchMode.inAppWebView,
+  lib\services\oauth_entry.dart:236:            scopes: resolvedScopes.isEmpty ? null : resolvedScopes,
+  lib\services\oauth_entry.dart:237:            queryParams: qp.isEmpty ? null : qp,
+  lib\services\oauth_service.dart:22:  static Future<void> signInWithFacebook() async {
+  lib\services\oauth_service.dart:23:    await OAuthEntry.signIn(
+> lib\services\oauth_service.dart:24:      sf.OAuthProvider.facebook,
+  lib\services\oauth_service.dart:25:      scopes: 'public_profile,email',
+  lib\services\oauth_service.dart:26:      // ✅ 仅 Web 才传 popup。移动端不传，底层也会再次净化。
+
+
+
+
+==== iOS Info.plist Facebook keys ====
+>>> Select-String -Path .\ios\Runner\Info.plist -Pattern 'FacebookAppID|FacebookClientToken|CFBundleURLTypes|fb[0-9]+|LSApplicationQueriesSchemes|fbapi|fbauth2|facebook' -Context 2,2
+
+  ios\Runner\Info.plist:63:       <string>We use Face ID to secure your app data</string>
+  ios\Runner\Info.plist:64:
+> ios\Runner\Info.plist:65:       <!-- ========== Facebook 配置 ========== -->
+> ios\Runner\Info.plist:66:       <key>FacebookAppID</key>
+  ios\Runner\Info.plist:67:       <string>1286488642887674</string>
+  ios\Runner\Info.plist:68:
+> ios\Runner\Info.plist:69:       <key>FacebookDisplayName</key>
+  ios\Runner\Info.plist:70:       <string>Swaply</string>
+  ios\Runner\Info.plist:71:
+> ios\Runner\Info.plist:72:       <key>FacebookClientToken</key>
+> ios\Runner\Info.plist:73:       <string>c9abdffdb869f25d95fb42c3824cfdcc</string>
+  ios\Runner\Info.plist:74:
+  ios\Runner\Info.plist:75:       <!-- Background modes -->
+  ios\Runner\Info.plist:93:
+  ios\Runner\Info.plist:94:       <!-- URL Schemes -->
+> ios\Runner\Info.plist:95:       <key>CFBundleURLTypes</key>
+  ios\Runner\Info.plist:96:       <array>
+  ios\Runner\Info.plist:97:          <dict>
+  ios\Runner\Info.plist:128:             </array>
+  ios\Runner\Info.plist:129:          </dict>
+> ios\Runner\Info.plist:130:          <!-- Facebook URL Scheme -->
+  ios\Runner\Info.plist:131:          <dict>
+  ios\Runner\Info.plist:132:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:133:             <array>
+> ios\Runner\Info.plist:134:                <string>fb1286488642887674</string>
+  ios\Runner\Info.plist:135:             </array>
+  ios\Runner\Info.plist:136:          </dict>
+  ios\Runner\Info.plist:138:
+  ios\Runner\Info.plist:139:       <!-- 外部 app scheme 查询白名单 -->
+> ios\Runner\Info.plist:140:       <key>LSApplicationQueriesSchemes</key>
+  ios\Runner\Info.plist:141:       <array>
+  ios\Runner\Info.plist:142:          <string>google</string>
+  ios\Runner\Info.plist:144:          <string>whatsapp-business</string>
+  ios\Runner\Info.plist:145:          <string>tg</string>
+> ios\Runner\Info.plist:146:          <!-- Facebook schemes -->
+> ios\Runner\Info.plist:147:          <string>fbapi</string>
+> ios\Runner\Info.plist:148:          <string>fbauth2</string>
+  ios\Runner\Info.plist:149:          <string>fbshareextension</string>
+  ios\Runner\Info.plist:150:          <string>fb-messenger-share-api</string>
+
+
+
+
+==== iOS AppDelegate / SceneDelegate Facebook SDK traces ====
+>>> Get-ChildItem .\ios -Recurse -File -Include AppDelegate.swift,AppDelegate.m,AppDelegate.mm,SceneDelegate.swift,SceneDelegate.m,SceneDelegate.mm -ErrorAction SilentlyContinue | Select-String -Pattern 'FBSDK|Facebook|ApplicationDelegate|initializeSDK|didFinishLaunchingWithOptions|openURL|continueUserActivity' -Context 2,2
+
+  ios\Runner\AppDelegate.swift:3:import FirebaseCore
+  ios\Runner\AppDelegate.swift:4:import FirebaseMessaging
+> ios\Runner\AppDelegate.swift:5:import FBSDKCoreKit
+  ios\Runner\AppDelegate.swift:6:
+  ios\Runner\AppDelegate.swift:7:@main
+  ios\Runner\AppDelegate.swift:10:    override func application(
+  ios\Runner\AppDelegate.swift:11:        _ application: UIApplication,
+> ios\Runner\AppDelegate.swift:12:        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ios\Runner\AppDelegate.swift:13:    ) -> Bool {
+> ios\Runner\AppDelegate.swift:14:        // ✅ Facebook SDK 初始化
+> ios\Runner\AppDelegate.swift:15:        ApplicationDelegate.shared.application(
+  ios\Runner\AppDelegate.swift:16:            application,
+> ios\Runner\AppDelegate.swift:17:            didFinishLaunchingWithOptions: launchOptions
+  ios\Runner\AppDelegate.swift:18:        )
+  ios\Runner\AppDelegate.swift:19:
+  ios\Runner\AppDelegate.swift:57:
+  ios\Runner\AppDelegate.swift:58:        GeneratedPluginRegistrant.register(with: self)
+> ios\Runner\AppDelegate.swift:59:        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  ios\Runner\AppDelegate.swift:60:    }
+  ios\Runner\AppDelegate.swift:61:
+  ios\Runner\AppDelegate.swift:188:        _ app: UIApplication,
+  ios\Runner\AppDelegate.swift:189:        open url: URL,
+> ios\Runner\AppDelegate.swift:190:        options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+  ios\Runner\AppDelegate.swift:191:    ) -> Bool {
+  ios\Runner\AppDelegate.swift:192:        print("✅ [DeepLink] Custom URL Scheme: \(url.absoluteString)")
+  ios\Runner\AppDelegate.swift:193:
+> ios\Runner\AppDelegate.swift:194:        // ✅ 优先让 Facebook SDK 处理
+> ios\Runner\AppDelegate.swift:195:        if ApplicationDelegate.shared.application(
+  ios\Runner\AppDelegate.swift:196:            app,
+  ios\Runner\AppDelegate.swift:197:            open: url,
+  ios\Runner\AppDelegate.swift:199:            annotation: options[.annotation]
+  ios\Runner\AppDelegate.swift:200:        ) {
+> ios\Runner\AppDelegate.swift:201:            print("   → Facebook callback handled")
+  ios\Runner\AppDelegate.swift:202:            return true
+  ios\Runner\AppDelegate.swift:203:        }
+
+
+
+
+==== iOS Podfile.lock Facebook SDK ====
+ios/Podfile.lock NOT FOUND (maybe not pod install yet)
+
+==== Android Manifest / strings / gradle Facebook traces ====
+>>> Select-String -Path .\android\app\src\main\AndroidManifest.xml -Pattern 'com\.facebook|facebook|Facebook|FACEBOOK|ClientToken|ApplicationId' -Context 2,2
+
+  android\app\src\main\AndroidManifest.xml:71:
+  android\app\src\main\AndroidManifest.xml:72:            <!-- ✅ 新增：自定义 URL Scheme OAuth 回调（移动端） -->
+> android\app\src\main\AndroidManifest.xml:73:            <!-- 用于接收 Facebook/Apple OAuth 回调：swaply://login-callback -->
+  android\app\src\main\AndroidManifest.xml:74:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:75:                <action android:name="android.intent.action.VIEW" />
+
+
+
+>>> Select-String -Path .\android\app\src\main\res\values\strings.xml -Pattern 'facebook|fb_' -Context 2,2
+
+>>> Get-ChildItem .\android -Recurse -File -Include build.gradle,build.gradle.kts -ErrorAction SilentlyContinue | Select-String -Pattern 'facebook|com\.facebook|FBSDK|app_id|client_token' -Context 2,2
+
+
+==== DONE ====
+Report saved to: D:\Apps\swaply_clean\fb_audit_20251213_032235.txt
