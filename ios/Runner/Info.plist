@@ -94,7 +94,10 @@
        <!-- URL Schemes -->
        <key>CFBundleURLTypes</key>
        <array>
+          <!-- ✅ 修复：cc.swaply.app scheme -->
           <dict>
+             <key>CFBundleTypeRole</key>
+             <string>Editor</string>
              <key>CFBundleURLName</key>
              <string>cc.swaply.app</string>
              <key>CFBundleURLSchemes</key>
@@ -102,7 +105,10 @@
                 <string>cc.swaply.app</string>
              </array>
           </dict>
+          <!-- ✅ 修复：Supabase scheme -->
           <dict>
+             <key>CFBundleTypeRole</key>
+             <string>Editor</string>
              <key>CFBundleURLName</key>
              <string>io.supabase.flutter</string>
              <key>CFBundleURLSchemes</key>
@@ -110,7 +116,10 @@
                 <string>io.supabase.flutter</string>
              </array>
           </dict>
+          <!-- ✅ 修复：swaply scheme -->
           <dict>
+             <key>CFBundleTypeRole</key>
+             <string>Editor</string>
              <key>CFBundleURLName</key>
              <string>swaply</string>
              <key>CFBundleURLSchemes</key>
@@ -127,8 +136,10 @@
                 <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
              </array>
           </dict>
-          <!-- Facebook URL Scheme -->
+          <!-- ✅ 修复：Facebook URL Scheme -->
           <dict>
+             <key>CFBundleTypeRole</key>
+             <string>Editor</string>
              <key>CFBundleURLSchemes</key>
              <array>
                 <string>fb1286488642887674</string>
