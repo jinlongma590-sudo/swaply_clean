@@ -2,7 +2,7 @@
 // 登录/注册/OAuth 统一：
 // - Apple：iOS 原生；Android 用系统浏览器
 // - Google：原生 SDK（完全应用内）
-// - Facebook：系统浏览器 OAuth（ASWebAuthenticationSession / Chrome Custom Tabs）✅ 修改完成
+// - Facebook：Web 中转方案 ✅ 仅修改此部分
 // 备注：为兼容你当前的 supabase_flutter 版本，移除了 flowType / OAuthFlowType
 
 import 'dart:async';
@@ -13,7 +13,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
-// ❌ 已删除：import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:swaply/services/apple_auth_service.dart';
 
 import 'package:swaply/config/auth_config.dart';
@@ -51,7 +50,7 @@ class AuthService {
         break;
 
       case OAuthProvider.facebook:
-        await _signInWithFacebookOAuth(); // ✅ 修改：使用 OAuth 系统浏览器方式
+        await _signInWithFacebookOAuth(); // ✅ 修改：使用 Web 中转
         break;
 
       default:
@@ -94,26 +93,28 @@ class AuthService {
     }
   }
 
-  /// ✅ Facebook OAuth 登录（系统浏览器）
-  /// iOS: 自动使用 ASWebAuthenticationSession
-  /// Android: 自动使用 Chrome Custom Tabs
+  /// ✅ Facebook OAuth 登录（Web 中转方案）- 已修改
+  ///
+  /// 流程：
+  /// 1. Facebook 授权
+  /// 2. 重定向到 https://swaply.cc/auth/callback (Next.js 页面)
+  /// 3. 页面 JavaScript 自动跳转到 cc.swaply.app://login-callback
+  /// 4. iOS 唤醒 App，Supabase 处理 OAuth callback
+  /// 5. AuthFlowObserver 自动导航到 /home
   Future<void> _signInWithFacebookOAuth() async {
     try {
-      debugPrint('[AuthService] 🔵 Starting Facebook OAuth sign-in...');
+      debugPrint('[AuthService] 🔵 Starting Facebook OAuth (Web redirect)...');
+      debugPrint('[AuthService] redirectTo: https://swaply.cc/auth/callback');
 
-      // 使用 Supabase OAuth flow（系统浏览器）
+      // 使用 Web URL 中转（Facebook 只接受 HTTPS）
       await supabase.auth.signInWithOAuth(
         OAuthProvider.facebook,
-        redirectTo: kIsWeb ? null : 'cc.swaply.app://login-callback',
-        // ✅ 不指定 authScreenLaunchMode，让 SDK 自动选择最佳方式：
-        // - iOS: ASWebAuthenticationSession（系统级安全登录页）
-        // - Android: Chrome Custom Tabs（类似效果）
-        //
-        // 如果需要强制使用外部浏览器（不推荐），可以设置：
-        // authScreenLaunchMode: LaunchMode.externalApplication,
+        redirectTo: kIsWeb ? null : 'https://swaply.cc/auth/callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
 
       debugPrint('[AuthService] ✅ Facebook OAuth initiated');
+      debugPrint('[AuthService] ⏳ Waiting for web redirect → app deep link...');
     } catch (e, st) {
       debugPrint('[AuthService] ❌ Facebook OAuth error: $e\n$st');
       rethrow;
@@ -225,6 +226,7 @@ class AuthService {
     }
   }
 
+  /// ✅ Facebook 登录（修复了类型错误 + Web 中转）
   Future<bool> signInWithFacebook() async {
     try {
       await signInWithNativeProvider(OAuthProvider.facebook);
@@ -232,14 +234,20 @@ class AuthService {
       // ✅ 注意：OAuth flow 后，session 由 Supabase 的 deep link 处理自动建立
       // AuthFlowObserver 会处理导航到 /home
 
-      // 等待 session 建立（最多 5 秒）
-      final user = await supabase.auth.onAuthStateChange
-          .map((e) => e.session?.user)
-          .firstWhere((u) => u != null, orElse: () => null)
-          .timeout(const Duration(seconds: 5), onTimeout: () => null);
+      // 等待 session 建立（最多 10 秒）- 修复了类型错误
+      User? user;
+      try {
+        user = await supabase.auth.onAuthStateChange
+            .map((e) => e.session?.user)
+            .firstWhere((u) => u != null, orElse: () => null)
+            .timeout(const Duration(seconds: 10));
+      } on TimeoutException {
+        debugPrint('[AuthService] ❌ Facebook session timeout');
+        throw Exception('Facebook login timeout - please try again');
+      }
 
       if (user == null) {
-        throw AuthException('Facebook login session timeout');
+        throw Exception('Facebook login failed - no session');
       }
 
       final existing = await supabase
@@ -258,9 +266,11 @@ class AuthService {
 
       await NotificationService.initializeFCM();
       return isNew;
-    } on AuthException catch (e) {
-      throw Exception('Facebook login failed: ${e.message}');
+    } on Exception catch (e) {
+      debugPrint('[AuthService] ❌ Facebook login error: $e');
+      rethrow;
     } catch (e) {
+      debugPrint('[AuthService] ❌ Unexpected error: $e');
       throw Exception('Facebook login failed: $e');
     }
   }
