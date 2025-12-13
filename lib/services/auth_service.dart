@@ -110,7 +110,6 @@ class AuthService {
       await supabase.auth.signInWithOAuth(
         OAuthProvider.facebook,
         redirectTo: kIsWeb ? null : 'https://swaply.cc/auth/callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
       );
 
       debugPrint('[AuthService] ✅ Facebook OAuth initiated');
