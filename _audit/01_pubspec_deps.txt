@@ -1,0 +1,9 @@
+﻿
+  url_launcher:
+  app_links:
+  supabase_flutter: ^2.10.3
+  google_sign_in: ^6.2.1
+  sign_in_with_apple:
+  flutter_facebook_auth: ^6.0.3  # 鉁?鎭㈠锛欶acebook 鍘熺敓鐧诲綍鏀寔
+
+

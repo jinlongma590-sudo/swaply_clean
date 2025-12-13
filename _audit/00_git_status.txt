@@ -1,0 +1,9 @@
+﻿## main...origin/main
+ M android/app/build.gradle.kts
+ M android/app/google-services.json
+ M android/app/src/main/AndroidManifest.xml
+D  android/app/src/main/res/values/facebook.xml
+ M android/app/src/main/res/values/strings.xml
+ M lib/services/oauth_entry.dart
+ M pubspec.yaml
+?? _audit/

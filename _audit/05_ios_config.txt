@@ -1,0 +1,147 @@
+﻿
+  ios\Runner\Info.plist:3:<plist version="1.0">
+  ios\Runner\Info.plist:4:    <dict>
+> ios\Runner\Info.plist:5:       <key>CFBundleDevelopmentRegion</key>
+  ios\Runner\Info.plist:6:       <string>$(DEVELOPMENT_LANGUAGE)</string>
+> ios\Runner\Info.plist:7:       <key>CFBundleDisplayName</key>
+> ios\Runner\Info.plist:8:       <string>Swaply</string>
+> ios\Runner\Info.plist:9:       <key>CFBundleExecutable</key>
+  ios\Runner\Info.plist:10:       <string>$(EXECUTABLE_NAME)</string>
+> ios\Runner\Info.plist:11:       <key>CFBundleIdentifier</key>
+  ios\Runner\Info.plist:12:       <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+> ios\Runner\Info.plist:13:       <key>CFBundleInfoDictionaryVersion</key>
+  ios\Runner\Info.plist:14:       <string>6.0</string>
+> ios\Runner\Info.plist:15:       <key>CFBundleName</key>
+> ios\Runner\Info.plist:16:       <string>Swaply</string>
+> ios\Runner\Info.plist:17:       <key>CFBundlePackageType</key>
+  ios\Runner\Info.plist:18:       <string>APPL</string>
+> ios\Runner\Info.plist:19:       <key>CFBundleShortVersionString</key>
+  ios\Runner\Info.plist:20:       <string>$(FLUTTER_BUILD_NAME)</string>
+> ios\Runner\Info.plist:21:       <key>CFBundleSignature</key>
+  ios\Runner\Info.plist:22:       <string>????</string>
+> ios\Runner\Info.plist:23:       <key>CFBundleVersion</key>
+  ios\Runner\Info.plist:24:       <string>$(FLUTTER_BUILD_NUMBER)</string>
+  ios\Runner\Info.plist:25:       <key>LSRequiresIPhoneOS</key>
+  ios\Runner\Info.plist:26:       <true/>
+  ios\Runner\Info.plist:27:       <key>UILaunchStoryboardName</key>
+  ios\Runner\Info.plist:28:       <string>LaunchScreen</string>
+  ios\Runner\Info.plist:29:       <key>UIMainStoryboardFile</key>
+  ios\Runner\Info.plist:30:       <string>Main</string>
+  ios\Runner\Info.plist:31:
+  ios\Runner\Info.plist:32:       <!-- iPhone 方向 -->
+  ios\Runner\Info.plist:33:       <key>UISupportedInterfaceOrientations</key>
+  ios\Runner\Info.plist:34:       <array>
+  ios\Runner\Info.plist:35:          <string>UIInterfaceOrientationPortrait</string>
+  ios\Runner\Info.plist:64:
+  ios\Runner\Info.plist:65:       <!-- ========== Facebook 配置 ========== -->
+> ios\Runner\Info.plist:66:       <key>FacebookAppID</key>
+  ios\Runner\Info.plist:67:       <string>1286488642887674</string>
+  ios\Runner\Info.plist:68:
+  ios\Runner\Info.plist:69:       <key>FacebookDisplayName</key>
+> ios\Runner\Info.plist:70:       <string>Swaply</string>
+  ios\Runner\Info.plist:71:
+> ios\Runner\Info.plist:72:       <key>FacebookClientToken</key>
+> ios\Runner\Info.plist:73:       <string>c9abdffdb869f25d95fb42c3824cfdcc</string>
+  ios\Runner\Info.plist:74:
+  ios\Runner\Info.plist:75:       <!-- Background modes -->
+  ios\Runner\Info.plist:76:       <key>UIBackgroundModes</key>
+  ios\Runner\Info.plist:77:       <array>
+  ios\Runner\Info.plist:78:          <string>remote-notification</string>
+  ios\Runner\Info.plist:79:          <string>fetch</string>
+  ios\Runner\Info.plist:80:          <string>processing</string>
+  ios\Runner\Info.plist:81:       </array>
+  ios\Runner\Info.plist:82:
+  ios\Runner\Info.plist:83:       <!-- BGTask identifiers -->
+  ios\Runner\Info.plist:84:       <key>BGTaskSchedulerPermittedIdentifiers</key>
+  ios\Runner\Info.plist:85:       <array>
+> ios\Runner\Info.plist:86:          <string>cc.swaply.app.bgrefresh</string>
+> ios\Runner\Info.plist:87:          <string>cc.swaply.app.bgprocessing</string>
+  ios\Runner\Info.plist:88:       </array>
+  ios\Runner\Info.plist:89:
+  ios\Runner\Info.plist:90:       <!-- Flutter deep link support -->
+  ios\Runner\Info.plist:91:       <key>FlutterDeepLinkingEnabled</key>
+  ios\Runner\Info.plist:92:       <true/>
+  ios\Runner\Info.plist:93:
+  ios\Runner\Info.plist:94:       <!-- URL Schemes -->
+> ios\Runner\Info.plist:95:       <key>CFBundleURLTypes</key>
+  ios\Runner\Info.plist:96:       <array>
+  ios\Runner\Info.plist:97:          <dict>
+> ios\Runner\Info.plist:98:             <key>CFBundleURLName</key>
+> ios\Runner\Info.plist:99:             <string>cc.swaply.app</string>
+> ios\Runner\Info.plist:100:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:101:             <array>
+> ios\Runner\Info.plist:102:                <string>cc.swaply.app</string>
+  ios\Runner\Info.plist:103:             </array>
+  ios\Runner\Info.plist:104:          </dict>
+  ios\Runner\Info.plist:105:          <dict>
+> ios\Runner\Info.plist:106:             <key>CFBundleURLName</key>
+  ios\Runner\Info.plist:107:             <string>io.supabase.flutter</string>
+> ios\Runner\Info.plist:108:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:109:             <array>
+  ios\Runner\Info.plist:110:                <string>io.supabase.flutter</string>
+  ios\Runner\Info.plist:111:             </array>
+  ios\Runner\Info.plist:112:          </dict>
+  ios\Runner\Info.plist:113:          <dict>
+> ios\Runner\Info.plist:114:             <key>CFBundleURLName</key>
+> ios\Runner\Info.plist:115:             <string>swaply</string>
+> ios\Runner\Info.plist:116:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:117:             <array>
+> ios\Runner\Info.plist:118:                <string>swaply</string>
+  ios\Runner\Info.plist:119:             </array>
+  ios\Runner\Info.plist:120:          </dict>
+  ios\Runner\Info.plist:121:          <!-- Google REVERSED_CLIENT_ID -->
+  ios\Runner\Info.plist:122:          <dict>
+> ios\Runner\Info.plist:123:             <key>CFBundleTypeRole</key>
+  ios\Runner\Info.plist:124:             <string>Editor</string>
+> ios\Runner\Info.plist:125:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:126:             <array>
+  ios\Runner\Info.plist:127:                <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</
+string>
+  ios\Runner\Info.plist:128:             </array>
+  ios\Runner\Info.plist:129:          </dict>
+  ios\Runner\Info.plist:130:          <!-- Facebook URL Scheme -->
+  ios\Runner\Info.plist:131:          <dict>
+> ios\Runner\Info.plist:132:             <key>CFBundleURLSchemes</key>
+  ios\Runner\Info.plist:133:             <array>
+> ios\Runner\Info.plist:134:                <string>fb1286488642887674</string>
+  ios\Runner\Info.plist:135:             </array>
+  ios\Runner\Info.plist:136:          </dict>
+  ios\Runner\Info.plist:137:       </array>
+  ios\Runner\Info.plist:138:
+  ios\Runner\Info.plist:139:       <!-- 外部 app scheme 查询白名单 -->
+> ios\Runner\Info.plist:140:       <key>LSApplicationQueriesSchemes</key>
+  ios\Runner\Info.plist:141:       <array>
+  ios\Runner\Info.plist:142:          <string>google</string>
+  ios\Runner\Info.plist:143:          <string>whatsapp</string>
+  ios\Runner\Info.plist:144:          <string>whatsapp-business</string>
+  ios\Runner\Info.plist:145:          <string>tg</string>
+  ios\Runner\Info.plist:146:          <!-- Facebook schemes -->
+> ios\Runner\Info.plist:147:          <string>fbapi</string>
+> ios\Runner\Info.plist:148:          <string>fbauth2</string>
+> ios\Runner\Info.plist:149:          <string>fbshareextension</string>
+> ios\Runner\Info.plist:150:          <string>fb-messenger-share-api</string>
+  ios\Runner\Info.plist:151:       </array>
+  ios\Runner\Info.plist:152:
+  ios\Runner\Info.plist:153:       <key>UIViewControllerBasedStatusBarAppearance</key>
+  ios\Runner\Info.plist:154:       <false/>
+  ios\Runner\Info.plist:155:    </dict>
+  ios\Runner\Info.plist:156:</plist>
+  ios\Runner\Runner.entitlements:8:    <key>com.apple.developer.associated-domains</key>
+  ios\Runner\Runner.entitlements:9:    <array>
+> ios\Runner\Runner.entitlements:10:       <string>applinks:swaply.cc</string>
+> ios\Runner\Runner.entitlements:11:       <string>applinks:www.swaply.cc</string>
+  ios\Runner\Runner.entitlements:12:    </array>
+  ios\Runner\Runner.entitlements:13:
+  ios\Runner\Runner.entitlements:14:    <key>com.apple.developer.applesignin</key>
+  ios\Runner\Runner.entitlements:15:    <array>
+  ios\Runner\Runner.entitlements:16:       <string>Default</string>
+  ios\Runner\Runner.entitlements:17:    </array>
+  ios\Runner\Runner.entitlements:18:
+  ios\Runner\Runner.entitlements:19:    <key>keychain-access-groups</key>
+  ios\Runner\Runner.entitlements:20:    <array>
+> ios\Runner\Runner.entitlements:21:       <string>$(AppIdentifierPrefix)cc.swaply.app</string>
+  ios\Runner\Runner.entitlements:22:    </array>
+  ios\Runner\Runner.entitlements:23:</dict>
+  ios\Runner\Runner.entitlements:24:</plist>
+
+

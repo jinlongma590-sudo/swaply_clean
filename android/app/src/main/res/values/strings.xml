@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Swaply</string>
+
+    <!-- ✅ Facebook SDK 配置 -->
+    <string name="facebook_app_id">1286488642887674</string>
+    <string name="facebook_client_token">2f29da11907fd5216fe194bbda6611b2</string>
 </resources>

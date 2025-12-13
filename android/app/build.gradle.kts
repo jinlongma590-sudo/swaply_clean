@@ -83,6 +83,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
+
+    // ✅ Facebook SDK - 修复 Facebook 登录问题
+    implementation("com.facebook.android:facebook-android-sdk:16.0.0")
 }
 
 // ✅ 应用 Google Services 插件（必须在文件最后）

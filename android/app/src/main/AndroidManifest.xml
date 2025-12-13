@@ -11,7 +11,8 @@
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher">
+        android:roundIcon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
 
         <!-- ✅ FCM 默认通知配置 -->
         <meta-data
@@ -23,6 +24,17 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="swaply_notifications" />
+
+        <!-- ✅ [可选删除] Facebook SDK 配置 - 不再需要原生 SDK -->
+        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这两个 meta-data -->
+        <!--
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id"/>
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="@string/facebook_client_token"/>
+        -->
 
         <activity
             android:name=".MainActivity"
@@ -69,8 +81,17 @@
                 <data android:host="swaply.cc" />
             </intent-filter>
 
-            <!-- ✅ 新增：自定义 URL Scheme OAuth 回调（移动端） -->
-            <!-- 用于接收 Facebook/Apple OAuth 回调：swaply://login-callback -->
+            <!-- ✅ [修改] OAuth 回调（Supabase 深链接） -->
+            <!-- 用于接收 Supabase OAuth 回调：cc.swaply.app://login-callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cc.swaply.app" android:host="login-callback" />
+            </intent-filter>
+
+            <!-- ✅ [保留] 兼容旧的 URL Scheme -->
+            <!-- 用于接收旧格式回调：swaply://login-callback -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -78,6 +99,25 @@
                 <data android:scheme="swaply" android:host="login-callback" />
             </intent-filter>
         </activity>
+
+        <!-- ✅ [可选删除] Facebook Login Activity - 不再需要 -->
+        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这个 activity -->
+        <!--
+        <activity
+            android:name="com.facebook.FacebookActivity"
+            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+            android:label="@string/app_name"
+            android:exported="false" />
+        -->
+
+        <!-- ✅ [可选删除] Facebook ContentProvider - 不再需要 -->
+        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这个 provider -->
+        <!--
+        <provider
+            android:name="com.facebook.FacebookContentProvider"
+            android:authorities="com.facebook.app.FacebookContentProvider1286488642887674"
+            android:exported="false" />
+        -->
 
         <!-- ✅ FCM service -->
         <service

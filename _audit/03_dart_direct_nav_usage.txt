@@ -1,0 +1,113 @@
+﻿
+> lib\pages\account_settings_page.dart:193:        // 閸ョ偛鍩岄弽纭呯熅閻㈡唻绱欓幋鏍ㄥ瘻娴ｇ娀銆嶉惄顔芥暭娑?SafeNavigator.pushNamedAndRemoveUntil('/wel
+come', (_) => false)閿?
+  lib\pages\account_settings_page.dart:194:        navReplaceAll('/welcome');
+  lib\pages\account_settings_page.dart:195:        return;
+> lib\pages\category_products_page.dart:1162:    SafeNavigator.push(
+  lib\pages\category_products_page.dart:1163:      MaterialPageRoute(
+  lib\pages\category_products_page.dart:1164:        builder: (_) => ProductDetailPage(
+> lib\pages\coupon_management_page.dart:1080:      SafeNavigator.push(
+  lib\pages\coupon_management_page.dart:1081:        MaterialPageRoute(
+  lib\pages\coupon_management_page.dart:1082:          builder: (context) => const SellFormPage(),
+> lib\pages\coupon_management_page.dart:1134:                SafeNavigator.push(
+  lib\pages\coupon_management_page.dart:1135:                  MaterialPageRoute(
+  lib\pages\coupon_management_page.dart:1136:                    builder: (context) => const SellFormPage(),
+> lib\pages\home_page.dart:321:      SafeNavigator.push(
+  lib\pages\home_page.dart:322:        MaterialPageRoute(
+  lib\pages\home_page.dart:323:          builder: (_) => CategoryProductsPage(
+> lib\pages\home_page.dart:333:    SafeNavigator.push(
+  lib\pages\home_page.dart:334:      MaterialPageRoute(builder: (_) => ProductDetailPage(productId: productId)),
+  lib\pages\home_page.dart:335:    );
+> lib\pages\home_page.dart:355:    SafeNavigator.push(
+  lib\pages\home_page.dart:356:      MaterialPageRoute(
+  lib\pages\home_page.dart:357:        builder: (_) => _SearchInputPage(
+> lib\pages\home_page.dart:368:            SafeNavigator.push(
+  lib\pages\home_page.dart:369:              MaterialPageRoute(
+  lib\pages\home_page.dart:370:                builder: (_) {
+> lib\pages\home_page.dart:401:        await SafeNavigator.pushNamed('/login');
+  lib\pages\home_page.dart:402:      }
+  lib\pages\home_page.dart:403:      if (Supabase.instance.client.auth.currentUser == null) return;
+> lib\pages\home_page.dart:406:    final ok = await SafeNavigator.push(
+  lib\pages\home_page.dart:407:      MaterialPageRoute(builder: (_) => const SellFormPage()),
+  lib\pages\home_page.dart:408:    );
+> lib\pages\my_listings_page.dart:927:                                  SafeNavigator.push(
+  lib\pages\my_listings_page.dart:928:                                    MaterialPageRoute(
+  lib\pages\my_listings_page.dart:929:                                      builder: (context) =>
+> lib\pages\my_listings_page.dart:995:                                SafeNavigator.push(
+  lib\pages\my_listings_page.dart:996:                                  MaterialPageRoute(
+  lib\pages\my_listings_page.dart:997:                                    builder: (context) => ProductDetailPage(
+> lib\pages\my_listings_page.dart:1766:                  SafeNavigator.push(
+  lib\pages\my_listings_page.dart:1767:                    MaterialPageRoute(
+  lib\pages\my_listings_page.dart:1768:                        builder: (context) => const SellFormPage()),
+> lib\pages\product_detail_page.dart:354:      SafeNavigator.push(
+  lib\pages\product_detail_page.dart:355:        MaterialPageRoute(
+  lib\pages\product_detail_page.dart:356:          builder: (context) => SellerProfileViewPage(
+> lib\pages\product_detail_page.dart:2147:      await SafeNavigator.push(
+  lib\pages\product_detail_page.dart:2148:        MaterialPageRoute(
+  lib\pages\product_detail_page.dart:2149:          builder: (_) => _SafeImageViewer(
+> lib\pages\profile_page.dart:534:                                    await SafeNavigator.push<bool>(
+  lib\pages\profile_page.dart:535:                                      MaterialPageRoute(
+  lib\pages\profile_page.dart:536:                                          builder: (_) => const VerificationPage()),
+> lib\pages\profile_page.dart:553:                                  onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:554:                                    MaterialPageRoute(
+  lib\pages\profile_page.dart:555:                                        builder: (_) => const TaskManagementPage()),
+> lib\pages\profile_page.dart:563:                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
+  lib\pages\profile_page.dart:564:                                      builder: (_) => const MyListingsPage())),
+  lib\pages\profile_page.dart:565:                                ),
+> lib\pages\profile_page.dart:582:                                    SafeNavigator.push(MaterialPageRoute(
+  lib\pages\profile_page.dart:583:                                        builder: (_) => const WishlistPage()));
+  lib\pages\profile_page.dart:584:                                  },
+> lib\pages\profile_page.dart:592:                                  onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:593:                                    MaterialPageRoute(
+  lib\pages\profile_page.dart:594:                                        builder: (_) => const InviteFriendsPage()),
+> lib\pages\profile_page.dart:603:                                  onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:604:                                    MaterialPageRoute(
+  lib\pages\profile_page.dart:605:                                        builder: (_) => const CouponManagementPage()),
+> lib\pages\profile_page.dart:621:                                  onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:622:                                    MaterialPageRoute(
+  lib\pages\profile_page.dart:623:                                        builder: (_) => const AccountSettingsPage()),
+> lib\pages\profile_page.dart:651:                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
+  lib\pages\profile_page.dart:652:                                      builder: (_) => const HelpSupportPage())),
+  lib\pages\profile_page.dart:653:                                ),
+> lib\pages\profile_page.dart:659:                                  onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:660:                                      MaterialPageRoute(builder: (_) => const AboutPage())),
+  lib\pages\profile_page.dart:661:                                ),
+> lib\pages\profile_page.dart:1111:          onTap: () => SafeNavigator.push(
+  lib\pages\profile_page.dart:1112:              MaterialPageRoute(builder: (_) => const HelpSupportPage())),
+  lib\pages\profile_page.dart:1113:        ),
+> lib\pages\profile_page.dart:1120:              SafeNavigator.push(MaterialPageRoute(builder: (_) => const AboutPage())),
+  lib\pages\profile_page.dart:1121:        ),
+  lib\pages\profile_page.dart:1122:      ],
+> lib\pages\search_results_page.dart:307:    SafeNavigator.push(
+  lib\pages\search_results_page.dart:308:      MaterialPageRoute(
+  lib\pages\search_results_page.dart:309:        builder: (_) => ProductDetailPage(
+> lib\pages\seller_profile_page.dart:429:        SafeNavigator.push(
+  lib\pages\seller_profile_page.dart:430:          MaterialPageRoute(
+  lib\pages\seller_profile_page.dart:431:            builder: (_) => ProductDetailPage(
+> lib\pages\sell_form_page.dart:517:    SafeNavigator.push(
+  lib\pages\sell_form_page.dart:518:      MaterialPageRoute(
+  lib\pages\sell_form_page.dart:519:        builder: (_) =>
+> lib\pages\task_management_page.dart:1343:    SafeNavigator.push(
+  lib\pages\task_management_page.dart:1344:      MaterialPageRoute(
+  lib\pages\task_management_page.dart:1345:        builder: (context) => const SellFormPage(), // ✅ 正确的 WidgetBuilder
+> lib\router\root_nav.dart:65:  return nav.pushNamedAndRemoveUntil<T>(
+  lib\router\root_nav.dart:66:    routeName,
+  lib\router\root_nav.dart:67:        (route) => false,
+> lib\router\safe_navigator.dart:14:  static Future<T?> pushNamedAndRemoveUntil<T extends Object?>(
+  lib\router\safe_navigator.dart:15:      String route,
+  lib\router\safe_navigator.dart:16:      bool Function(Route<dynamic>) predicate, {Object? args}
+> lib\router\safe_navigator.dart:21:    return nav.pushNamedAndRemoveUntil<T>(route, predicate, arguments: args);
+  lib\router\safe_navigator.dart:22:  }
+  lib\router\safe_navigator.dart:23:
+> lib\services\verification_guard.dart:195:                    final changed = await SafeNavigator.push<bool>(
+  lib\services\verification_guard.dart:196:                      MaterialPageRoute(
+  lib\services\verification_guard.dart:197:                        builder: (_) => const VerificationPage(),
+> lib\widgets\my_rewards_tile.dart:94:            SafeNavigator.push(MaterialPageRoute(builder: (_) => const TaskManagementPag
+e()));
+  lib\widgets\my_rewards_tile.dart:95:          },
+  lib\widgets\my_rewards_tile.dart:96:        );
+> lib\widgets\remote_listings_section.dart:244:    SafeNavigator.push(
+  lib\widgets\remote_listings_section.dart:245:      MaterialPageRoute(
+  lib\widgets\remote_listings_section.dart:246:        builder: (_) => CategoryProductsPage(
+
+

@@ -1,0 +1,127 @@
+﻿
+  android\app\src\main\AndroidManifest.xml:23:        <meta-data
+  android\app\src\main\AndroidManifest.xml:24:            android:name="com.google.firebase.messaging.default_notification_cha
+nnel_id"
+> android\app\src\main\AndroidManifest.xml:25:            android:value="swaply_notifications" />
+  android\app\src\main\AndroidManifest.xml:26:
+> android\app\src\main\AndroidManifest.xml:27:        <!-- ✅ Facebook SDK 配置 - 修复 Facebook 登录 -->
+  android\app\src\main\AndroidManifest.xml:28:        <meta-data
+> android\app\src\main\AndroidManifest.xml:29:            android:name="com.facebook.sdk.ApplicationId"
+> android\app\src\main\AndroidManifest.xml:30:            android:value="@string/facebook_app_id"/>
+  android\app\src\main\AndroidManifest.xml:31:        <meta-data
+> android\app\src\main\AndroidManifest.xml:32:            android:name="com.facebook.sdk.ClientToken"
+> android\app\src\main\AndroidManifest.xml:33:            android:value="@string/facebook_client_token"/>
+  android\app\src\main\AndroidManifest.xml:34:
+  android\app\src\main\AndroidManifest.xml:35:        <activity
+  android\app\src\main\AndroidManifest.xml:36:            android:name=".MainActivity"
+  android\app\src\main\AndroidManifest.xml:37:            android:exported="true"
+  android\app\src\main\AndroidManifest.xml:38:            android:launchMode="singleTask"
+  android\app\src\main\AndroidManifest.xml:39:            android:alwaysRetainTaskState="true"
+  android\app\src\main\AndroidManifest.xml:40:            android:theme="@style/LaunchTheme"
+  android\app\src\main\AndroidManifest.xml:41:            android:configChanges="orientation|keyboardHidden|keyboard|screenSiz
+e|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+  android\app\src\main\AndroidManifest.xml:42:            android:hardwareAccelerated="true"
+  android\app\src\main\AndroidManifest.xml:43:            android:windowSoftInputMode="adjustResize">
+  android\app\src\main\AndroidManifest.xml:44:
+  android\app\src\main\AndroidManifest.xml:45:            <!-- Flutter normal theme while engine boots -->
+  android\app\src\main\AndroidManifest.xml:49:
+  android\app\src\main\AndroidManifest.xml:50:            <!-- App launcher -->
+> android\app\src\main\AndroidManifest.xml:51:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:52:                <action android:name="android.intent.action.MAIN" />
+  android\app\src\main\AndroidManifest.xml:53:                <category android:name="android.intent.category.LAUNCHER" />
+> android\app\src\main\AndroidManifest.xml:54:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:55:
+  android\app\src\main\AndroidManifest.xml:56:            <!-- ✅ 点击 FCM 通知回到应用 -->
+> android\app\src\main\AndroidManifest.xml:57:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:58:                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+  android\app\src\main\AndroidManifest.xml:59:                <category android:name="android.intent.category.DEFAULT" />
+> android\app\src\main\AndroidManifest.xml:60:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:61:
+  android\app\src\main\AndroidManifest.xml:62:            <!-- ✅ App Links 验证（HTTPS 深链，自动验证） -->
+> android\app\src\main\AndroidManifest.xml:63:            <intent-filter android:autoVerify="true">
+  android\app\src\main\AndroidManifest.xml:64:                <action android:name="android.intent.action.VIEW" />
+  android\app\src\main\AndroidManifest.xml:65:                <category android:name="android.intent.category.DEFAULT" />
+  android\app\src\main\AndroidManifest.xml:66:                <category android:name="android.intent.category.BROWSABLE" />
+  android\app\src\main\AndroidManifest.xml:67:                <data android:scheme="https" />
+> android\app\src\main\AndroidManifest.xml:68:                <data android:host="swaply.cc" />
+> android\app\src\main\AndroidManifest.xml:69:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:70:
+> android\app\src\main\AndroidManifest.xml:71:            <!-- ✅ 处理所有 https://swaply.cc/*，由应用内 DeepLinkService 解析 -->
+> android\app\src\main\AndroidManifest.xml:72:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:73:                <action android:name="android.intent.action.VIEW" />
+  android\app\src\main\AndroidManifest.xml:74:                <category android:name="android.intent.category.DEFAULT" />
+  android\app\src\main\AndroidManifest.xml:75:                <category android:name="android.intent.category.BROWSABLE" />
+  android\app\src\main\AndroidManifest.xml:76:                <data android:scheme="https" />
+> android\app\src\main\AndroidManifest.xml:77:                <data android:host="swaply.cc" />
+> android\app\src\main\AndroidManifest.xml:78:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:79:
+  android\app\src\main\AndroidManifest.xml:80:            <!-- ✅ 自定义 URL Scheme OAuth 回调（移动端） -->
+> android\app\src\main\AndroidManifest.xml:81:            <!-- 用于接收 Facebook/Apple OAuth 回调：swaply://login-callback -->
+> android\app\src\main\AndroidManifest.xml:82:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:83:                <action android:name="android.intent.action.VIEW" />
+  android\app\src\main\AndroidManifest.xml:84:                <category android:name="android.intent.category.DEFAULT" />
+  android\app\src\main\AndroidManifest.xml:85:                <category android:name="android.intent.category.BROWSABLE" />
+> android\app\src\main\AndroidManifest.xml:86:                <data android:scheme="swaply" android:host="login-callback" />
+> android\app\src\main\AndroidManifest.xml:87:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:88:        </activity>
+  android\app\src\main\AndroidManifest.xml:89:
+> android\app\src\main\AndroidManifest.xml:90:        <!-- ✅ Facebook Login Activity -->
+  android\app\src\main\AndroidManifest.xml:91:        <activity
+> android\app\src\main\AndroidManifest.xml:92:            android:name="com.facebook.FacebookActivity"
+  android\app\src\main\AndroidManifest.xml:93:            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSi
+ze|orientation"
+  android\app\src\main\AndroidManifest.xml:94:            android:label="@string/app_name"
+  android\app\src\main\AndroidManifest.xml:95:            android:exported="false" />
+  android\app\src\main\AndroidManifest.xml:96:
+> android\app\src\main\AndroidManifest.xml:97:        <!-- ✅ Facebook ContentProvider - 已替换为真实 App ID -->
+  android\app\src\main\AndroidManifest.xml:98:        <provider
+> android\app\src\main\AndroidManifest.xml:99:            android:name="com.facebook.FacebookContentProvider"
+> android\app\src\main\AndroidManifest.xml:100:            android:authorities="com.facebook.app.FacebookContentProvider128648
+8642887674"
+  android\app\src\main\AndroidManifest.xml:101:            android:exported="false" />
+  android\app\src\main\AndroidManifest.xml:102:
+  android\app\src\main\AndroidManifest.xml:103:        <!-- ✅ FCM service -->
+  android\app\src\main\AndroidManifest.xml:104:        <service
+  android\app\src\main\AndroidManifest.xml:105:            android:name="com.google.firebase.messaging.FirebaseMessagingServic
+e"
+  android\app\src\main\AndroidManifest.xml:106:            android:exported="false"
+  android\app\src\main\AndroidManifest.xml:107:            android:directBootAware="true">
+> android\app\src\main\AndroidManifest.xml:108:            <intent-filter>
+  android\app\src\main\AndroidManifest.xml:109:                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+> android\app\src\main\AndroidManifest.xml:110:            </intent-filter>
+  android\app\src\main\AndroidManifest.xml:111:        </service>
+  android\app\src\main\AndroidManifest.xml:112:
+  android\app\src\main\AndroidManifest.xml:113:        <meta-data
+  android\app\src\main\AndroidManifest.xml:114:            android:name="flutterEmbedding"
+  android\app\src\main\AndroidManifest.xml:115:            android:value="2" />
+  android\app\src\main\AndroidManifest.xml:116:    </application>
+  android\app\src\main\AndroidManifest.xml:117:
+  android\app\src\main\AndroidManifest.xml:118:    <!-- Package visibility for Process Text & common intents -->
+> android\app\src\main\AndroidManifest.xml:119:    <queries>
+  android\app\src\main\AndroidManifest.xml:120:        <!-- 浏览器 -->
+  android\app\src\main\AndroidManifest.xml:121:        <intent>
+  android\app\src\main\AndroidManifest.xml:122:            <action android:name="android.intent.action.VIEW" />
+  android\app\src\main\AndroidManifest.xml:123:            <data android:scheme="https" />
+  android\app\src\main\AndroidManifest.xml:124:        </intent>
+  android\app\src\main\AndroidManifest.xml:125:        <intent>
+  android\app\src\main\AndroidManifest.xml:126:            <action android:name="android.intent.action.VIEW" />
+  android\app\src\main\AndroidManifest.xml:127:            <data android:scheme="http" />
+  android\app\src\main\AndroidManifest.xml:128:        </intent>
+  android\app\src\main\AndroidManifest.xml:129:
+  android\app\src\main\AndroidManifest.xml:130:        <!-- 社交应用（可保留） -->
+  android\app\src\main\AndroidManifest.xml:131:        <package android:name="com.whatsapp" />
+  android\app\src\main\AndroidManifest.xml:154:            <data android:mimeType="text/plain" />
+  android\app\src\main\AndroidManifest.xml:155:        </intent>
+> android\app\src\main\AndroidManifest.xml:156:    </queries>
+  android\app\src\main\AndroidManifest.xml:157:</manifest>
+  android\app\src\main\res\values\strings.xml:1:<?xml version="1.0" encoding="utf-8"?>
+  android\app\src\main\res\values\strings.xml:2:<resources>
+> android\app\src\main\res\values\strings.xml:3:    <string name="app_name">Swaply</string>
+  android\app\src\main\res\values\strings.xml:4:
+> android\app\src\main\res\values\strings.xml:5:    <!-- ✅ Facebook SDK 配置 -->
+> android\app\src\main\res\values\strings.xml:6:    <string name="facebook_app_id">1286488642887674</string>
+> android\app\src\main\res\values\strings.xml:7:    <string name="facebook_client_token">2f29da11907fd5216fe194bbda6611b2</str
+ing>
+  android\app\src\main\res\values\strings.xml:8:</resources>
+
+

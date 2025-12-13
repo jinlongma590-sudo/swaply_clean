@@ -1,0 +1,1312 @@
+﻿
+  lib\config.dart:66:
+  lib\config.dart:67:  /// Deep Link 基础 scheme
+> lib\config.dart:68:  static const String deepLinkScheme = 'cc.swaply.app';
+  lib\config.dart:69:
+  lib\config.dart:70:  /// 完整 Deep Link 示例：
+> lib\config.dart:71:  /// - 密码重置: cc.swaply.app://reset-password?token=xxx
+> lib\config.dart:72:  /// - OAuth 回调: cc.swaply.app://login-callback
+  lib\config.dart:73:  /// - 商品详情: https://swaply.cc/listing?id=xxx
+  lib\config.dart:74:  /// - 报价详情: https://swaply.cc/offer?id=xxx
+  lib\config.dart:75:
+  lib\config.dart:76:  // ═════════════════════════════════════════════════════════════════
+  lib\config.dart:77:  // Web URLs（用于网页跳转）
+  lib\config.dart:78:  // ═════════════════════════════════════════════════════════════════
+  lib\config.dart:79:
+  lib\config.dart:80:  /// 主网站 URL
+  lib\config.dart:81:  static const String websiteUrl = 'https://swaply.cc';
+  lib\config.dart:82:
+  lib\firebase_options.dart:64:    projectId: 'swaply-prod',
+  lib\firebase_options.dart:65:    storageBucket: 'swaply-prod.firebasestorage.app',
+> lib\firebase_options.dart:66:    iosBundleId: 'cc.swaply.app',
+  lib\firebase_options.dart:67:  );
+  lib\firebase_options.dart:68:}
+  lib\main.dart:329:
+  lib\main.dart:330:    // 2. 获取 FCM Token（仅用于日志，不保存）
+> lib\main.dart:331:    // ⚠️ Token 的保存由登录流程负责（AuthService → NotificationService.initializeFCM）
+  lib\main.dart:332:    try {
+  lib\main.dart:333:      final token = await messaging.getToken();
+  lib\main.dart:334:      if (token != null) {
+  lib\main.dart:335:        debugPrint('🔔 FCM Token 已获取（长度: ${token.length}）');
+  lib\main.dart:336:        debugPrint('📌 Token 将在登录成功后自动保存到数据库');
+  lib\main.dart:337:      } else {
+  lib\main.dart:338:        debugPrint('⚠️ FCM Token 为空（可能在模拟器上运行）');
+  lib\main.dart:339:      }
+  lib\main.dart:340:    } catch (e) {
+  lib\main.dart:341:      // 🔧 关键修复：getToken 失败不应该阻塞启动
+  lib\main.dart:495:
+  lib\main.dart:496:  // ✅ [OAuth 修复] 恢复 OAuth 状态（轻量级操作）
+> lib\main.dart:497:  await OAuthEntry.restoreState();
+  lib\main.dart:498:  debugPrint('✅ OAuth 状态恢复完成');
+  lib\main.dart:499:
+  lib\main.dart:500:  // ================================================
+  lib\main.dart:501:  // ✅ [性能优化] 推送通知延迟初始化
+  lib\main.dart:502:  // 不阻塞首屏渲染，在后台异步初始化
+  lib\main.dart:503:  // ================================================
+  lib\main.dart:504:  _initPushNotificationsLazy();
+  lib\main.dart:505:
+  lib\main.dart:506:  debugPrint('⏱️ [Startup] 总耗时: ${DateTime.now().difference(startTime).inMilliseconds}ms');
+  lib\main.dart:507:  debugPrint('🚀 [Startup] 启动应用...');
+  lib\auth\forgot_password_screen.dart:51:      await Supabase.instance.client.auth.resetPasswordForEmail(
+  lib\auth\forgot_password_screen.dart:52:        email,
+> lib\auth\forgot_password_screen.dart:53:        redirectTo: AppConfig.resetPasswordRedirectUrl,
+  lib\auth\forgot_password_screen.dart:54:      );
+  lib\auth\forgot_password_screen.dart:55:
+  lib\auth\forgot_password_screen.dart:56:      if (!mounted) return;
+  lib\auth\forgot_password_screen.dart:57:      setState(() {
+  lib\auth\forgot_password_screen.dart:58:        _isLoading = false;
+  lib\auth\forgot_password_screen.dart:59:        _isEmailSent = true;
+  lib\auth\forgot_password_screen.dart:60:      });
+  lib\auth\forgot_password_screen.dart:61:      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+  lib\auth\forgot_password_screen.dart:62:        content: Text('Reset link sent to $email'),
+  lib\auth\forgot_password_screen.dart:63:        backgroundColor: Colors.green[600],
+  lib\auth\google_signin.dart:4:import 'package:swaply/services/oauth_entry.dart';
+  lib\auth\google_signin.dart:5:
+> lib\auth\google_signin.dart:6:class GoogleSignInButton extends StatelessWidget {
+  lib\auth\google_signin.dart:7:  final VoidCallback? onBefore;
+  lib\auth\google_signin.dart:8:  final VoidCallback? onAfter;
+  lib\auth\google_signin.dart:9:
+> lib\auth\google_signin.dart:10:  const GoogleSignInButton({super.key, this.onBefore, this.onAfter});
+  lib\auth\google_signin.dart:11:
+  lib\auth\google_signin.dart:12:  Future<void> _startGoogleOAuth(BuildContext context) async {
+  lib\auth\google_signin.dart:13:    onBefore?.call();
+  lib\auth\google_signin.dart:14:    try {
+> lib\auth\google_signin.dart:15:      await OAuthEntry.signIn(OAuthProvider.google);
+  lib\auth\google_signin.dart:16:    } catch (e) {
+  lib\auth\google_signin.dart:17:      ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\google_signin.dart:18:        SnackBar(content: Text('Google 登录失败：$e')),
+  lib\auth\google_signin.dart:19:      );
+  lib\auth\google_signin.dart:20:    } finally {
+  lib\auth\google_signin.dart:21:      onAfter?.call();
+  lib\auth\google_signin.dart:22:    }
+  lib\auth\google_signin.dart:23:  }
+  lib\auth\google_signin.dart:24:
+  lib\auth\google_signin.dart:25:  @override
+  lib\auth\google_signin.dart:26:  Widget build(BuildContext context) {
+  lib\auth\google_signin.dart:27:    return ValueListenableBuilder<bool>(
+> lib\auth\google_signin.dart:28:      valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\google_signin.dart:29:      builder: (context, inFlight, _) {
+  lib\auth\google_signin.dart:30:        return ElevatedButton(
+  lib\auth\google_signin.dart:31:          onPressed: inFlight ? null : () => _startGoogleOAuth(context),
+  lib\auth\google_signin.dart:32:          child: inFlight
+  lib\auth\google_signin.dart:33:              ? const SizedBox(
+  lib\auth\google_signin.dart:34:            height: 18,
+  lib\auth\google_signin.dart:35:            width: 18,
+  lib\auth\google_signin.dart:36:            child: CircularProgressIndicator(strokeWidth: 2),
+  lib\auth\google_signin.dart:37:          )
+  lib\auth\google_signin.dart:38:              : const Text('Continue with Google'),
+  lib\auth\login_screen.dart:1:// lib/auth/login_screen.dart
+  lib\auth\login_screen.dart:2:// ✅ 增强版：添加网络错误检测和友好提示
+> lib\auth\login_screen.dart:3:// ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
+  lib\auth\login_screen.dart:4:// ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
+  lib\auth\login_screen.dart:5:// ✅ [修复] 登录页返回按钮跳转到 welcome 而不是 navPop（避免栈底页面无法返回）
+  lib\auth\login_screen.dart:6:import 'package:swaply/services/oauth_entry.dart';
+  lib\auth\login_screen.dart:7:import 'package:swaply/router/root_nav.dart';
+  lib\auth\login_screen.dart:8:
+  lib\auth\login_screen.dart:9:import 'package:flutter/foundation.dart'
+  lib\auth\login_screen.dart:10:    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+  lib\auth\login_screen.dart:11:import 'package:flutter/material.dart';
+  lib\auth\login_screen.dart:12:import 'package:flutter_screenutil/flutter_screenutil.dart';
+  lib\auth\login_screen.dart:13:import 'package:supabase_flutter/supabase_flutter.dart';
+  lib\auth\login_screen.dart:40:  void dispose() {
+  lib\auth\login_screen.dart:41:    WidgetsBinding.instance.removeObserver(this);
+> lib\auth\login_screen.dart:42:    OAuthEntry.cancelIfInFlight();
+  lib\auth\login_screen.dart:43:    _emailController.dispose();
+  lib\auth\login_screen.dart:44:    _passwordController.dispose();
+  lib\auth\login_screen.dart:45:    super.dispose();
+  lib\auth\login_screen.dart:46:  }
+  lib\auth\login_screen.dart:47:
+  lib\auth\login_screen.dart:48:  // ========== ✅ 新增：网络错误检测工具 ==========
+  lib\auth\login_screen.dart:49:
+  lib\auth\login_screen.dart:50:  /// 判断是否为网络相关错误
+  lib\auth\login_screen.dart:51:  bool _isNetworkError(dynamic error) {
+  lib\auth\login_screen.dart:52:    final errorStr = error.toString().toLowerCase();
+  lib\auth\login_screen.dart:169:    if (!mounted || _busy) return;
+  lib\auth\login_screen.dart:170:
+> lib\auth\login_screen.dart:171:    if (!OAuthEntry.mayStartInteractive()) {
+> lib\auth\login_screen.dart:172:      OAuthEntry.forceCancel();
+  lib\auth\login_screen.dart:173:      if (mounted) {
+  lib\auth\login_screen.dart:174:        ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\login_screen.dart:175:          const SnackBar(content: Text('Canceled. Tap again to retry')),
+  lib\auth\login_screen.dart:176:        );
+  lib\auth\login_screen.dart:177:      }
+  lib\auth\login_screen.dart:178:      return;
+  lib\auth\login_screen.dart:179:    }
+  lib\auth\login_screen.dart:180:
+  lib\auth\login_screen.dart:181:    setState(() => _busy = true);
+  lib\auth\login_screen.dart:182:    try {
+> lib\auth\login_screen.dart:183:      await OAuthEntry.signIn(
+  lib\auth\login_screen.dart:184:        provider,
+  lib\auth\login_screen.dart:185:        queryParams: {
+  lib\auth\login_screen.dart:186:          if (queryParams != null) ...queryParams,
+  lib\auth\login_screen.dart:187:          'display': 'popup',
+  lib\auth\login_screen.dart:188:        },
+  lib\auth\login_screen.dart:189:      ).timeout(const Duration(seconds: 20));
+  lib\auth\login_screen.dart:190:    } on TimeoutException {
+> lib\auth\login_screen.dart:191:      OAuthEntry.finish();
+  lib\auth\login_screen.dart:192:      debugPrint('[Login._oauthSignIn] timeout/canceled');
+  lib\auth\login_screen.dart:193:      if (mounted) {
+  lib\auth\login_screen.dart:194:        // ✅ 使用新的网络错误提示
+  lib\auth\login_screen.dart:195:        _showNetworkError('Login timeout. Please try again.');
+  lib\auth\login_screen.dart:196:      }
+  lib\auth\login_screen.dart:197:    } catch (e, st) {
+> lib\auth\login_screen.dart:198:      OAuthEntry.finish();
+  lib\auth\login_screen.dart:199:      debugPrint('[Login._oauthSignIn] error: $e');
+  lib\auth\login_screen.dart:200:      debugPrint(st.toString());
+  lib\auth\login_screen.dart:201:
+  lib\auth\login_screen.dart:202:      if (mounted) {
+  lib\auth\login_screen.dart:203:        // ✅ 区分网络错误和其他错误
+  lib\auth\login_screen.dart:204:        if (_isNetworkError(e)) {
+  lib\auth\login_screen.dart:205:          _showNetworkError(_getNetworkErrorMessage(e));
+  lib\auth\login_screen.dart:206:        } else {
+  lib\auth\login_screen.dart:207:          ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\login_screen.dart:208:            SnackBar(
+  lib\auth\login_screen.dart:220:  Future<void> _loginEmailPassword() async {
+  lib\auth\login_screen.dart:221:    final valid = _formKey.currentState?.validate() ?? false;
+> lib\auth\login_screen.dart:222:    if (!valid || _busy || OAuthEntry.inFlight) return;
+  lib\auth\login_screen.dart:223:
+  lib\auth\login_screen.dart:224:    setState(() => _busy = true);
+  lib\auth\login_screen.dart:225:    try {
+  lib\auth\login_screen.dart:226:      await Supabase.instance.client.auth.signInWithPassword(
+  lib\auth\login_screen.dart:227:        email: _emailController.text.trim(),
+  lib\auth\login_screen.dart:228:        password: _passwordController.text,
+  lib\auth\login_screen.dart:229:      );
+  lib\auth\login_screen.dart:230:    } on AuthException catch (e) {
+  lib\auth\login_screen.dart:231:      // ✅ 检查是否为网络导致的认证错误
+  lib\auth\login_screen.dart:232:      if (_isNetworkError(e)) {
+  lib\auth\login_screen.dart:257:
+  lib\auth\login_screen.dart:258:  Future<void> _handleGoogleLogin() async {
+> lib\auth\login_screen.dart:259:    if (OAuthEntry.inFlight) return;
+  lib\auth\login_screen.dart:260:    await _oauthSignIn(
+  lib\auth\login_screen.dart:261:      OAuthProvider.google,
+  lib\auth\login_screen.dart:262:      queryParams: const {'prompt': 'select_account'},
+  lib\auth\login_screen.dart:263:    );
+  lib\auth\login_screen.dart:264:  }
+  lib\auth\login_screen.dart:265:
+  lib\auth\login_screen.dart:266:  Future<void> _handleFacebookLogin() async {
+> lib\auth\login_screen.dart:267:    if (OAuthEntry.inFlight) return;
+  lib\auth\login_screen.dart:268:    await _oauthSignIn(
+  lib\auth\login_screen.dart:269:      OAuthProvider.facebook,
+  lib\auth\login_screen.dart:270:      queryParams: const {'display': 'popup'},
+  lib\auth\login_screen.dart:271:    );
+  lib\auth\login_screen.dart:272:  }
+  lib\auth\login_screen.dart:273:
+  lib\auth\login_screen.dart:274:  Future<void> _handleAppleLogin() async {
+> lib\auth\login_screen.dart:275:    if (OAuthEntry.inFlight) return;
+  lib\auth\login_screen.dart:276:    await _oauthSignIn(OAuthProvider.apple);
+  lib\auth\login_screen.dart:277:  }
+  lib\auth\login_screen.dart:278:
+  lib\auth\login_screen.dart:279:  void _showError(String msg) {
+  lib\auth\login_screen.dart:280:    if (!mounted) return;
+  lib\auth\login_screen.dart:281:    ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\login_screen.dart:282:      SnackBar(
+  lib\auth\login_screen.dart:283:        content: Text(msg),
+  lib\auth\login_screen.dart:284:        backgroundColor: Colors.red[400],
+  lib\auth\login_screen.dart:285:        behavior: SnackBarBehavior.floating,
+  lib\auth\login_screen.dart:293:
+  lib\auth\login_screen.dart:294:  void _goBack() {
+> lib\auth\login_screen.dart:295:    OAuthEntry.cancelIfInFlight();
+  lib\auth\login_screen.dart:296:    if (mounted) setState(() => _busy = false);
+  lib\auth\login_screen.dart:297:    navReplaceAll('/welcome');
+  lib\auth\login_screen.dart:298:  }
+  lib\auth\login_screen.dart:299:
+  lib\auth\login_screen.dart:300:  @override
+  lib\auth\login_screen.dart:301:  Widget build(BuildContext context) {
+  lib\auth\login_screen.dart:302:    final bool showApple =
+  lib\auth\login_screen.dart:303:        !kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS);
+  lib\auth\login_screen.dart:304:
+  lib\auth\login_screen.dart:305:    return PopScope(
+  lib\auth\login_screen.dart:445:
+  lib\auth\login_screen.dart:446:                  ValueListenableBuilder<bool>(
+> lib\auth\login_screen.dart:447:                    valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\login_screen.dart:448:                    builder: (context, isOAuthInFlight, child) {
+  lib\auth\login_screen.dart:449:                      return Container(
+  lib\auth\login_screen.dart:450:                        height: 44.h,
+  lib\auth\login_screen.dart:451:                        width: double.infinity,
+  lib\auth\login_screen.dart:452:                        decoration: BoxDecoration(
+  lib\auth\login_screen.dart:453:                          borderRadius: BorderRadius.circular(12.r),
+  lib\auth\login_screen.dart:454:                          gradient: (_busy || isOAuthInFlight)
+  lib\auth\login_screen.dart:455:                              ? null
+  lib\auth\login_screen.dart:456:                              : const LinearGradient(
+  lib\auth\login_screen.dart:457:                            colors: [
+  lib\auth\login_screen.dart:512:
+  lib\auth\login_screen.dart:513:                  ValueListenableBuilder<bool>(
+> lib\auth\login_screen.dart:514:                    valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\login_screen.dart:515:                    builder: (context, isOAuthInFlight, child) {
+  lib\auth\login_screen.dart:516:                      return Row(
+  lib\auth\login_screen.dart:517:                        children: [
+  lib\auth\login_screen.dart:518:                          Expanded(
+  lib\auth\login_screen.dart:519:                            child: _socialBtn(
+  lib\auth\login_screen.dart:520:                              'Google',
+  lib\auth\login_screen.dart:521:                              Colors.red[600]!,
+  lib\auth\login_screen.dart:522:                              Icons.g_mobiledata,
+  lib\auth\login_screen.dart:523:                              _handleGoogleLogin,
+  lib\auth\login_screen.dart:524:                              disabled: isOAuthInFlight,
+  lib\auth\login_screen.dart:543:                  if (showApple)
+  lib\auth\login_screen.dart:544:                    ValueListenableBuilder<bool>(
+> lib\auth\login_screen.dart:545:                      valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\login_screen.dart:546:                      builder: (context, isOAuthInFlight, child) {
+  lib\auth\login_screen.dart:547:                        return _appleSignInButton(disabled: isOAuthInFlight);
+  lib\auth\login_screen.dart:548:                      },
+  lib\auth\login_screen.dart:549:                    ),
+  lib\auth\login_screen.dart:550:
+  lib\auth\login_screen.dart:551:                  SizedBox(height: 22.h),
+  lib\auth\login_screen.dart:552:
+  lib\auth\login_screen.dart:553:                  Row(
+  lib\auth\login_screen.dart:554:                    mainAxisAlignment: MainAxisAlignment.center,
+  lib\auth\login_screen.dart:555:                    children: [
+  lib\auth\register_screen.dart:1:// lib/auth/register_screen.dart
+  lib\auth\register_screen.dart:2:// ✅ 增强版：添加网络错误检测和友好提示
+> lib\auth\register_screen.dart:3:// ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
+  lib\auth\register_screen.dart:4:// ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
+  lib\auth\register_screen.dart:5:// ✅ [新增] 监听 App 生命周期，从后台返回时自动清理 OAuth 状态
+  lib\auth\register_screen.dart:6:import 'package:swaply/services/oauth_entry.dart';
+  lib\auth\register_screen.dart:7:import 'package:swaply/router/root_nav.dart';
+  lib\auth\register_screen.dart:8:
+  lib\auth\register_screen.dart:9:import 'package:flutter/foundation.dart'
+  lib\auth\register_screen.dart:10:    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+  lib\auth\register_screen.dart:11:import 'package:flutter/material.dart';
+  lib\auth\register_screen.dart:12:import 'package:flutter_screenutil/flutter_screenutil.dart';
+  lib\auth\register_screen.dart:13:import 'package:swaply/services/reward_service.dart';
+  lib\auth\register_screen.dart:61:  void dispose() {
+  lib\auth\register_screen.dart:62:    WidgetsBinding.instance.removeObserver(this);
+> lib\auth\register_screen.dart:63:    OAuthEntry.cancelIfInFlight();
+  lib\auth\register_screen.dart:64:
+  lib\auth\register_screen.dart:65:    _emailController.dispose();
+  lib\auth\register_screen.dart:66:    _passwordController.dispose();
+  lib\auth\register_screen.dart:67:    _confirmPasswordController.dispose();
+  lib\auth\register_screen.dart:68:    _nameController.dispose();
+  lib\auth\register_screen.dart:69:    _phoneController.dispose();
+  lib\auth\register_screen.dart:70:    _invitationCodeController.dispose();
+  lib\auth\register_screen.dart:71:    super.dispose();
+  lib\auth\register_screen.dart:72:  }
+  lib\auth\register_screen.dart:73:
+  lib\auth\register_screen.dart:191:    if (!mounted || _busy) return;
+  lib\auth\register_screen.dart:192:
+> lib\auth\register_screen.dart:193:    if (!OAuthEntry.mayStartInteractive()) {
+> lib\auth\register_screen.dart:194:      OAuthEntry.forceCancel();
+  lib\auth\register_screen.dart:195:      if (mounted) {
+  lib\auth\register_screen.dart:196:        ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\register_screen.dart:197:          const SnackBar(content: Text('Canceled. Tap again to retry')),
+  lib\auth\register_screen.dart:198:        );
+  lib\auth\register_screen.dart:199:      }
+  lib\auth\register_screen.dart:200:      return;
+  lib\auth\register_screen.dart:201:    }
+  lib\auth\register_screen.dart:202:
+  lib\auth\register_screen.dart:203:    setState(() => _busy = true);
+  lib\auth\register_screen.dart:204:    try {
+> lib\auth\register_screen.dart:205:      await OAuthEntry.signIn(
+  lib\auth\register_screen.dart:206:        provider,
+  lib\auth\register_screen.dart:207:        queryParams: {
+  lib\auth\register_screen.dart:208:          if (queryParams != null) ...queryParams,
+  lib\auth\register_screen.dart:209:          'display': 'popup',
+  lib\auth\register_screen.dart:210:        },
+  lib\auth\register_screen.dart:211:      ).timeout(const Duration(seconds: 20));
+  lib\auth\register_screen.dart:212:    } on TimeoutException {
+> lib\auth\register_screen.dart:213:      OAuthEntry.finish();
+  lib\auth\register_screen.dart:214:      debugPrint('[Register._oauthSignIn] timeout/canceled');
+  lib\auth\register_screen.dart:215:      if (mounted) {
+  lib\auth\register_screen.dart:216:        // ✅ 使用新的网络错误提示
+  lib\auth\register_screen.dart:217:        _showNetworkError('Registration timeout. Please try again.');
+  lib\auth\register_screen.dart:218:      }
+  lib\auth\register_screen.dart:219:    } catch (e, st) {
+> lib\auth\register_screen.dart:220:      OAuthEntry.finish();
+  lib\auth\register_screen.dart:221:      debugPrint('[Register._oauthSignIn] error: $e');
+  lib\auth\register_screen.dart:222:      debugPrint(st.toString());
+  lib\auth\register_screen.dart:223:
+  lib\auth\register_screen.dart:224:      if (mounted) {
+  lib\auth\register_screen.dart:225:        // ✅ 区分网络错误和其他错误
+  lib\auth\register_screen.dart:226:        if (_isNetworkError(e)) {
+  lib\auth\register_screen.dart:227:          _showNetworkError(_getNetworkErrorMessage(e));
+  lib\auth\register_screen.dart:228:        } else {
+  lib\auth\register_screen.dart:229:          ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\register_screen.dart:230:            SnackBar(
+  lib\auth\register_screen.dart:291:        email: email,
+  lib\auth\register_screen.dart:292:        password: password,
+> lib\auth\register_screen.dart:293:        emailRedirectTo: kAuthRedirectUri,
+  lib\auth\register_screen.dart:294:        data: {
+  lib\auth\register_screen.dart:295:          'full_name': fullName,
+  lib\auth\register_screen.dart:296:          'phone': phone,
+  lib\auth\register_screen.dart:297:        },
+  lib\auth\register_screen.dart:298:      );
+  lib\auth\register_screen.dart:299:
+  lib\auth\register_screen.dart:300:      if (res.session == null) {
+  lib\auth\register_screen.dart:301:        _showInfo('Verification email sent. Please check your inbox.');
+  lib\auth\register_screen.dart:302:      } else {
+  lib\auth\register_screen.dart:303:        _showInfo('Account created.');
+  lib\auth\register_screen.dart:332:
+  lib\auth\register_screen.dart:333:  Future<void> _googleRegister() async {
+> lib\auth\register_screen.dart:334:    if (OAuthEntry.inFlight) return;
+  lib\auth\register_screen.dart:335:    await _oauthSignIn(
+  lib\auth\register_screen.dart:336:      OAuthProvider.google,
+  lib\auth\register_screen.dart:337:      queryParams: const {'prompt': 'select_account'},
+  lib\auth\register_screen.dart:338:    );
+  lib\auth\register_screen.dart:339:  }
+  lib\auth\register_screen.dart:340:
+  lib\auth\register_screen.dart:341:  Future<void> _facebookRegister() async {
+> lib\auth\register_screen.dart:342:    if (OAuthEntry.inFlight) return;
+  lib\auth\register_screen.dart:343:    await _oauthSignIn(
+  lib\auth\register_screen.dart:344:      OAuthProvider.facebook,
+  lib\auth\register_screen.dart:345:      queryParams: const {'display': 'popup'},
+  lib\auth\register_screen.dart:346:    );
+  lib\auth\register_screen.dart:347:  }
+  lib\auth\register_screen.dart:348:
+  lib\auth\register_screen.dart:349:  Future<void> _appleRegister() async {
+> lib\auth\register_screen.dart:350:    if (OAuthEntry.inFlight) return;
+  lib\auth\register_screen.dart:351:    await _oauthSignIn(OAuthProvider.apple);
+  lib\auth\register_screen.dart:352:  }
+  lib\auth\register_screen.dart:353:
+  lib\auth\register_screen.dart:354:  void _showError(String msg) {
+  lib\auth\register_screen.dart:355:    if (!mounted) return;
+  lib\auth\register_screen.dart:356:    ScaffoldMessenger.of(context).showSnackBar(
+  lib\auth\register_screen.dart:357:      SnackBar(
+  lib\auth\register_screen.dart:358:        content: Text(msg),
+  lib\auth\register_screen.dart:359:        backgroundColor: Colors.red[400],
+  lib\auth\register_screen.dart:360:        behavior: SnackBarBehavior.floating,
+  lib\auth\register_screen.dart:615:
+  lib\auth\register_screen.dart:616:                  ValueListenableBuilder<bool>(
+> lib\auth\register_screen.dart:617:                    valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\register_screen.dart:618:                    builder: (context, isOAuthInFlight, child) {
+  lib\auth\register_screen.dart:619:                      return Container(
+  lib\auth\register_screen.dart:620:                        height: 44.h,
+  lib\auth\register_screen.dart:621:                        width: double.infinity,
+  lib\auth\register_screen.dart:622:                        decoration: BoxDecoration(
+  lib\auth\register_screen.dart:623:                          borderRadius: BorderRadius.circular(12.r),
+  lib\auth\register_screen.dart:624:                          gradient: (_isLoading || isOAuthInFlight)
+  lib\auth\register_screen.dart:625:                              ? null
+  lib\auth\register_screen.dart:626:                              : const LinearGradient(
+  lib\auth\register_screen.dart:627:                            colors: [
+  lib\auth\register_screen.dart:683:
+  lib\auth\register_screen.dart:684:                  ValueListenableBuilder<bool>(
+> lib\auth\register_screen.dart:685:                    valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\register_screen.dart:686:                    builder: (context, isOAuthInFlight, child) {
+  lib\auth\register_screen.dart:687:                      return Row(
+  lib\auth\register_screen.dart:688:                        children: [
+  lib\auth\register_screen.dart:689:                          Expanded(
+  lib\auth\register_screen.dart:690:                            child: _socialBtn(
+  lib\auth\register_screen.dart:691:                              'Google',
+  lib\auth\register_screen.dart:692:                              Colors.red[600]!,
+  lib\auth\register_screen.dart:693:                              Icons.g_mobiledata,
+  lib\auth\register_screen.dart:694:                              _googleRegister,
+  lib\auth\register_screen.dart:695:                              disabled: isOAuthInFlight,
+  lib\auth\register_screen.dart:714:                  if (showApple)
+  lib\auth\register_screen.dart:715:                    ValueListenableBuilder<bool>(
+> lib\auth\register_screen.dart:716:                      valueListenable: OAuthEntry.inFlightNotifier,
+  lib\auth\register_screen.dart:717:                      builder: (context, isOAuthInFlight, child) {
+  lib\auth\register_screen.dart:718:                        return _appleSignInButtonIOS(disabled: isOAuthInFlight);
+  lib\auth\register_screen.dart:719:                      },
+  lib\auth\register_screen.dart:720:                    ),
+  lib\auth\register_screen.dart:721:
+  lib\auth\register_screen.dart:722:                  SizedBox(height: 22.h),
+  lib\auth\register_screen.dart:723:
+  lib\auth\register_screen.dart:724:                  Row(
+  lib\auth\register_screen.dart:725:                    mainAxisAlignment: MainAxisAlignment.center,
+  lib\auth\register_screen.dart:726:                    children: [
+  lib\auth\reset_password_page.dart:197:
+  lib\auth\reset_password_page.dart:198:      if (kDebugMode) {
+> lib\auth\reset_password_page.dart:199:        debugPrint('[ResetPassword] 🔄 Method 2: getSessionFromUrl...');
+  lib\auth\reset_password_page.dart:200:      }
+  lib\auth\reset_password_page.dart:201:
+  lib\auth\reset_password_page.dart:202:      try {
+  lib\auth\reset_password_page.dart:203:        // ✅ 使用统一配置
+  lib\auth\reset_password_page.dart:204:        String recoveryUrl;
+  lib\auth\reset_password_page.dart:205:        if (_refreshToken != null && _refreshToken!.isNotEmpty) {
+  lib\auth\reset_password_page.dart:206:          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&refresh_tok
+en=$_refreshToken&type=${_type ?? "recovery"}';
+  lib\auth\reset_password_page.dart:207:        } else {
+  lib\auth\reset_password_page.dart:208:          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&type=${_typ
+e ?? "recovery"}';
+  lib\auth\reset_password_page.dart:209:        }
+  lib\auth\reset_password_page.dart:213:        }
+  lib\auth\reset_password_page.dart:214:
+> lib\auth\reset_password_page.dart:215:        final response = await auth.getSessionFromUrl(Uri.parse(recoveryUrl));
+  lib\auth\reset_password_page.dart:216:        sessionRestored = response.session != null;
+  lib\auth\reset_password_page.dart:217:
+  lib\auth\reset_password_page.dart:218:        if (kDebugMode) {
+> lib\auth\reset_password_page.dart:219:          debugPrint('[ResetPassword] ${sessionRestored ? "✅" : "❌"} getSessionFromUrl
+: $sessionRestored');
+  lib\auth\reset_password_page.dart:220:        }
+  lib\auth\reset_password_page.dart:221:
+  lib\auth\reset_password_page.dart:222:        if (sessionRestored) {
+  lib\auth\reset_password_page.dart:223:          if (!mounted) return;
+  lib\auth\reset_password_page.dart:224:          setState(() {
+  lib\auth\reset_password_page.dart:225:            _hasSession = true;
+  lib\auth\reset_password_page.dart:226:            _checkingSession = false;
+  lib\auth\reset_password_page.dart:227:          });
+  lib\auth\reset_password_page.dart:228:          _toast('Reset link verified! Please enter your new password.', isError: fals
+e);
+  lib\auth\reset_password_page.dart:229:          return;
+  lib\config\auth_config.dart:8:/// 配置提示：
+  lib\config\auth_config.dart:9:///   • Supabase Dashboard → Authentication → URL Configuration:
+> lib\config\auth_config.dart:10:///     - 添加: swaply://login-callback （移动端 OAuth）
+  lib\config\auth_config.dart:11:///     - 添加: https://swaply.cc/auth/callback （Web OAuth）
+> lib\config\auth_config.dart:12:///     - 添加: https://swaply.cc/reset-password （密码重置）
+  lib\config\auth_config.dart:13:///   • iOS: Info.plist 已配置 swaply scheme
+  lib\config\auth_config.dart:14:///   • Android: AndroidManifest.xml 需要添加 intent-filter（待配置）
+  lib\config\auth_config.dart:15:
+  lib\config\auth_config.dart:16:/// ✅ OAuth 回调（移动端）
+> lib\config\auth_config.dart:17:const String kAuthMobileRedirectUri = 'swaply://login-callback';
+  lib\config\auth_config.dart:18:
+  lib\config\auth_config.dart:19:/// ✅ OAuth 回调（Web 端）
+  lib\config\auth_config.dart:20:const String kAuthWebRedirectUri = 'https://swaply.cc/auth/callback';
+  lib\config\auth_config.dart:21:
+  lib\config\auth_config.dart:22:/// ✅ 向后兼容：统一的 OAuth 回调 URL（优先使用移动端配置）
+  lib\config\auth_config.dart:23:/// 注意：这是为了兼容旧代码，新代码应该使用 getAuthRedirectUri()
+  lib\config\auth_config.dart:24:const String kAuthRedirectUri = kAuthMobileRedirectUri;
+  lib\config\auth_config.dart:25:
+  lib\config\auth_config.dart:26:/// ✅ 密码重置回调（继续使用 HTTPS，因为是邮件链接）
+> lib\config\auth_config.dart:27:const String kResetPasswordRedirectUri = 'https://swaply.cc/reset-password';
+> lib\config\auth_config.dart:28:const String kResetPasswordWebRedirectUri = 'https://swaply.cc/reset-password';
+  lib\config\auth_config.dart:29:
+  lib\config\auth_config.dart:30:/// ✅ 动态获取当前平台的 OAuth 回调
+  lib\config\auth_config.dart:31:String getAuthRedirectUri() {
+  lib\config\auth_config.dart:32:  return kIsWeb ? kAuthWebRedirectUri : kAuthMobileRedirectUri;
+  lib\config\auth_config.dart:33:}
+  lib\config\auth_config.dart:34:
+  lib\config\auth_config.dart:35:/// ✅ 动态获取当前平台的密码重置回调
+  lib\config\auth_config.dart:36:String getResetPasswordRedirectUri() {
+  lib\config\auth_config.dart:37:  return kIsWeb ? kResetPasswordWebRedirectUri : kResetPasswordRedirectUri;
+  lib\config\auth_config.dart:38:}
+  lib\core\app.dart:74:    // ✅ [P0 修复] 新增：恢复 OAuth 状态
+  lib\core\app.dart:75:    // 解决进程重启后 inFlight 状态丢失的问题
+> lib\core\app.dart:76:    OAuthEntry.restoreState();
+  lib\core\app.dart:77:
+  lib\core\app.dart:78:    // ✅ [冷启动深链修复] 关键改动：在首帧后立即初始化 DeepLinkService
+  lib\core\app.dart:79:    // 必须在 AuthFlowObserver.start() 之前完成，避免时序竞态
+  lib\core\app.dart:80:    WidgetsBinding.instance.addPostFrameCallback((_) async {
+  lib\core\app.dart:81:      if (!mounted || _dlBooted) return;
+  lib\core\app.dart:82:      _dlBooted = true;
+  lib\core\app.dart:83:
+  lib\core\app.dart:84:      final startTime = DateTime.now();
+  lib\core\app.dart:85:
+  lib\core\app.dart:86:      // ✅ [方案 2 - 关键修复] 先初始化深链服务
+  lib\core\navigation\app_router.dart:66:        return _fade(const ForgotPasswordScreen(), '/forgot-password');
+  lib\core\navigation\app_router.dart:67:
+> lib\core\navigation\app_router.dart:68:      case '/reset-password':
+  lib\core\navigation\app_router.dart:69:      // ✅ 传递完整的arguments，让ResetPasswordPage自己提取参数
+  lib\core\navigation\app_router.dart:70:        final args = settings.arguments as Map<String, dynamic>?;
+  lib\core\navigation\app_router.dart:71:        final token = args?['token'] as String?;
+  lib\core\navigation\app_router.dart:72:        return _fade(
+  lib\core\navigation\app_router.dart:73:          ResetPasswordPage(token: token),
+> lib\core\navigation\app_router.dart:74:          '/reset-password',
+  lib\core\navigation\app_router.dart:75:          arguments: settings.arguments,  // ✅ 关键：传递完整arguments
+  lib\core\navigation\app_router.dart:76:        );
+  lib\core\navigation\app_router.dart:77:
+  lib\core\navigation\app_router.dart:78:
+  lib\core\navigation\app_router.dart:79:    /* ================= 我的优惠券 ================= */
+  lib\core\navigation\app_router.dart:80:      case '/coupons':
+  lib\core\navigation\app_router.dart:81:        return _fade(const CouponManagementPage(), '/coupons');
+  lib\core\navigation\app_router.dart:82:
+  lib\core\navigation\app_router.dart:83:    /* ================= 发布页 ================= */
+  lib\core\navigation\app_router.dart:84:      case '/sell-form':
+  lib\debug\recovery_probe.dart:14:  /// 统一判断：是否是 Supabase 的认证回调（必须让 supabase_flutter 自己处理）
+  lib\debug\recovery_probe.dart:15:  static bool _isSupabaseAuthCallback(Uri uri) {
+> lib\debug\recovery_probe.dart:16:    // 1) 自定义 scheme：cc.swaply.app://login-callback?code=...
+> lib\debug\recovery_probe.dart:17:    final isOurScheme = uri.scheme == 'cc.swaply.app';
+  lib\debug\recovery_probe.dart:18:    final host = (uri.host).toLowerCase();
+> lib\debug\recovery_probe.dart:19:    final isLoginHost = host == 'login-callback';
+> lib\debug\recovery_probe.dart:20:    final isResetHost = host == 'reset-password';
+  lib\debug\recovery_probe.dart:21:    final schemeAuth = isOurScheme && (isLoginHost || isResetHost);
+  lib\debug\recovery_probe.dart:22:
+  lib\debug\recovery_probe.dart:23:    // 2) App/Universal Links（https）
+  lib\debug\recovery_probe.dart:24:    final isHttps = uri.scheme == 'https';
+  lib\debug\recovery_probe.dart:25:    final isOurHttpsHost = isHttps &&
+  lib\debug\recovery_probe.dart:26:        (uri.host == 'swaply.cc' ||
+  lib\debug\recovery_probe.dart:27:            uri.host == 'www.swaply.cc' ||
+> lib\debug\recovery_probe.dart:28:            uri.host == 'cc.swaply.app');
+  lib\debug\recovery_probe.dart:29:
+  lib\debug\recovery_probe.dart:30:    //    - https://swaply.cc/auth/callback?...   ← supabase 官方回调
+> lib\debug\recovery_probe.dart:31:    //    - （兜底）https://swaply.cc/login-callback?... 也视为回调
+  lib\debug\recovery_probe.dart:32:    final segments = uri.pathSegments;
+  lib\debug\recovery_probe.dart:33:    final first = segments.isNotEmpty ? segments.first : '';
+  lib\debug\recovery_probe.dart:34:    final second = segments.length >= 2 ? segments[1] : '';
+  lib\debug\recovery_probe.dart:35:
+  lib\debug\recovery_probe.dart:36:    final isAuthCallbackHttps =
+  lib\debug\recovery_probe.dart:37:        isOurHttpsHost && first == 'auth' && second == 'callback';
+  lib\debug\recovery_probe.dart:38:    final isLoginCallbackHttps =
+> lib\debug\recovery_probe.dart:39:        isOurHttpsHost && first == 'login-callback';
+  lib\debug\recovery_probe.dart:40:
+  lib\debug\recovery_probe.dart:41:    return schemeAuth || isAuthCallbackHttps || isLoginCallbackHttps;
+  lib\debug\recovery_probe.dart:42:  }
+  lib\debug\recovery_probe.dart:43:
+  lib\debug\recovery_probe.dart:44:  /// 仅在 Debug 模式下附加监听；Release/Profile 下直接返回，不做任何事
+  lib\debug\recovery_probe.dart:45:  static Future<void> attach() async {
+  lib\debug\recovery_probe.dart:46:    if (!kDebugMode) return;
+  lib\debug\recovery_probe.dart:47:
+  lib\debug\recovery_probe.dart:48:    final appLinks = AppLinks();
+  lib\debug\recovery_probe.dart:49:
+  lib\debug\recovery_probe.dart:55:            '[RECOVERY.PROBE] skip initial auth-callback (handled by Supabase): $initial');
+  lib\debug\recovery_probe.dart:56:        try {
+> lib\debug\recovery_probe.dart:57:          OAuthEntry.finish(); // 立刻解锁，防止按钮短暂失效
+  lib\debug\recovery_probe.dart:58:        } catch (_) {}
+  lib\debug\recovery_probe.dart:59:      } else {
+  lib\debug\recovery_probe.dart:60:        _handle(initial, source: 'initial');
+  lib\debug\recovery_probe.dart:61:      }
+  lib\debug\recovery_probe.dart:62:    }
+  lib\debug\recovery_probe.dart:63:
+  lib\debug\recovery_probe.dart:64:    // 运行期深链
+  lib\debug\recovery_probe.dart:65:    await _sub?.cancel();
+  lib\debug\recovery_probe.dart:66:    _sub = appLinks.uriLinkStream.listen(
+  lib\debug\recovery_probe.dart:67:          (uri) {
+  lib\debug\recovery_probe.dart:70:              '[RECOVERY.PROBE] skip login/auth callback (handled by Supabase): $uri');
+  lib\debug\recovery_probe.dart:71:          try {
+> lib\debug\recovery_probe.dart:72:            OAuthEntry.finish();
+  lib\debug\recovery_probe.dart:73:          } catch (_) {}
+  lib\debug\recovery_probe.dart:74:          return; // 不拦截 supabase 的认证回调
+  lib\debug\recovery_probe.dart:75:        }
+  lib\debug\recovery_probe.dart:76:        _handle(uri, source: 'stream');
+  lib\debug\recovery_probe.dart:77:      },
+  lib\debug\recovery_probe.dart:78:      onError: (e) => debugPrint('[RECOVERY.PROBE] stream error: $e'),
+  lib\debug\recovery_probe.dart:79:    );
+  lib\debug\recovery_probe.dart:80:  }
+  lib\debug\recovery_probe.dart:81:
+  lib\debug\recovery_probe.dart:82:  static Future<void> _handle(Uri uri, {required String source}) async {
+  lib\pages\account_settings_page.dart:9:import 'package:swaply/router/safe_navigator.dart';
+  lib\pages\account_settings_page.dart:10:import 'package:swaply/services/auth_service.dart';
+> lib\pages\account_settings_page.dart:11:import 'package:swaply/router/safe_navigator.dart'; // 鉁?鏂板锛氱粺涓€璧?AuthService 鐧诲嚭
+  lib\pages\account_settings_page.dart:12:import 'package:swaply/services/auth_flow_observer.dart';
+  lib\pages\account_settings_page.dart:13:import 'package:swaply/router/safe_navigator.dart'; // 鉁?鏂板 Observer
+  lib\pages\account_settings_page.dart:14:import 'package:swaply/router/root_nav.dart';
+  lib\pages\account_settings_page.dart:15:import 'package:swaply/router/safe_navigator.dart';
+  lib\pages\account_settings_page.dart:16:class AccountSettingsPage extends StatefulWidget {
+  lib\pages\account_settings_page.dart:17:  const AccountSettingsPage({super.key});
+  lib\pages\account_settings_page.dart:18:
+  lib\pages\account_settings_page.dart:19:  @override
+  lib\pages\account_settings_page.dart:20:  State<AccountSettingsPage> createState() => _AccountSettingsPageState();
+  lib\pages\account_settings_page.dart:21:}
+  lib\pages\account_settings_page.dart:178:          _logoutAfterDeletionOnce = true;
+  lib\pages\account_settings_page.dart:179:          try {
+> lib\pages\account_settings_page.dart:180:            // 缁熶竴浠?AuthService 鐧诲嚭锛屽苟鎵撳嵃璋冪敤鏍堬紝渚夸簬杩借釜鏉ユ簮
+  lib\pages\account_settings_page.dart:181:            debugPrint(
+  lib\pages\account_settings_page.dart:182:                '[[SIGNOUT-TRACE]] account_settings_page -> direct signOut');
+  lib\pages\account_settings_page.dart:183:            debugPrint(StackTrace.current.toString());
+  lib\pages\account_settings_page.dart:184:
+  lib\pages\account_settings_page.dart:185:            // 鉁?1) 鏍囪蹇溅閬?
+  lib\pages\account_settings_page.dart:186:            AuthFlowObserver.I.markManualSignOut();
+  lib\pages\account_settings_page.dart:187:            // 鉁?2) 鎵ц鐧诲嚭
+> lib\pages\account_settings_page.dart:188:            await AuthService().signOut();
+  lib\pages\account_settings_page.dart:189:          } catch (_) {/* 闂堟瑩绮?*/}
+  lib\pages\account_settings_page.dart:190:        }
+  lib\pages\account_settings_page.dart:191:
+  lib\pages\account_settings_page.dart:192:        if (!mounted) return;
+  lib\pages\account_settings_page.dart:193:        // 閸ョ偛鍩岄弽纭呯熅閻㈡唻绱欓幋鏍ㄥ瘻娴ｇ娀銆嶉惄顔芥暭娑?SafeNavigator.pushNamedAndRemoveUntil('/wel
+come', (_) => false)閿?
+  lib\pages\account_settings_page.dart:194:        navReplaceAll('/welcome');
+  lib\pages\account_settings_page.dart:195:        return;
+  lib\pages\account_settings_page.dart:196:      } else {
+  lib\pages\account_settings_page.dart:197:        final msg = (data['error'] ?? 'Delete failed').toString();
+  lib\pages\account_settings_page.dart:198:        throw Exception(msg);
+  lib\pages\product_detail_page.dart:852:    Future<bool> tryLaunch(Uri u) async {
+  lib\pages\product_detail_page.dart:853:      if (await canLaunchUrl(u)) {
+> lib\pages\product_detail_page.dart:854:        await launchUrl(u, mode: LaunchMode.externalApplication);
+  lib\pages\product_detail_page.dart:855:        return true;
+  lib\pages\product_detail_page.dart:856:      }
+  lib\pages\product_detail_page.dart:857:      return false;
+  lib\pages\product_detail_page.dart:858:    }
+  lib\pages\product_detail_page.dart:859:
+  lib\pages\product_detail_page.dart:860:    if (digits.length >= 7) {
+  lib\pages\product_detail_page.dart:861:      if (await tryLaunch(
+  lib\pages\product_detail_page.dart:862:          Uri.parse('whatsapp://send?phone=$digits&text=$encMsg'))) {
+  lib\pages\product_detail_page.dart:863:        return;
+  lib\pages\product_detail_page.dart:864:      }
+  lib\pages\profile_page.dart:631:                                  onTap: () => launchUrl(
+  lib\pages\profile_page.dart:632:                                    Uri.parse(_kPrivacyUrl),
+> lib\pages\profile_page.dart:633:                                    mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:634:                                  ),
+  lib\pages\profile_page.dart:635:                                ),
+  lib\pages\profile_page.dart:636:                                const SizedBox(height: 14),
+  lib\pages\profile_page.dart:637:                                _ProfileOptionEnhanced(
+  lib\pages\profile_page.dart:638:                                  icon: Icons.delete_outline,
+  lib\pages\profile_page.dart:639:                                  title: 'Data Deletion / How to delete my account',
+  lib\pages\profile_page.dart:640:                                  color: Colors.deepOrange,
+  lib\pages\profile_page.dart:641:                                  onTap: () => launchUrl(
+  lib\pages\profile_page.dart:642:                                    Uri.parse(_kDeleteUrl),
+> lib\pages\profile_page.dart:643:                                    mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:644:                                  ),
+  lib\pages\profile_page.dart:645:                                ),
+  lib\pages\profile_page.dart:646:                                const SizedBox(height: 14),
+  lib\pages\profile_page.dart:647:                                _ProfileOptionEnhanced(
+  lib\pages\profile_page.dart:648:                                  icon: Icons.help_outline_rounded,
+  lib\pages\profile_page.dart:649:                                  title: l10n.helpSupport,
+  lib\pages\profile_page.dart:650:                                  color: Colors.teal,
+  lib\pages\profile_page.dart:651:                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
+  lib\pages\profile_page.dart:652:                                      builder: (_) => const HelpSupportPage())),
+  lib\pages\profile_page.dart:653:                                ),
+  lib\pages\profile_page.dart:728:                                        AuthFlowObserver.I.markManualSignOut();
+  lib\pages\profile_page.dart:729:                                        RewardService.clearCache();
+> lib\pages\profile_page.dart:730:                                        OAuthEntry.forceCancel();
+> lib\pages\profile_page.dart:731:                                        await AuthService().signOut(
+  lib\pages\profile_page.dart:732:                                            global: true,
+  lib\pages\profile_page.dart:733:                                            reason: 'user-tap-profile-logout');
+  lib\pages\profile_page.dart:734:
+  lib\pages\profile_page.dart:735:                                        if (mounted) {
+  lib\pages\profile_page.dart:736:                                          Navigator.of(context).pop();
+  lib\pages\profile_page.dart:737:                                          navReplaceAll('/welcome');
+  lib\pages\profile_page.dart:738:                                        }
+  lib\pages\profile_page.dart:739:                                      } catch (e) {
+  lib\pages\profile_page.dart:740:                                        AuthFlowObserver.I.clearManualSignOutFlag();
+  lib\pages\profile_page.dart:741:                                        if (mounted) {
+  lib\pages\profile_page.dart:1195:              onTap: () => launchUrl(
+  lib\pages\profile_page.dart:1196:                Uri.parse('https://www.swaply.cc'),
+> lib\pages\profile_page.dart:1197:                mode: LaunchMode.inAppWebView,
+  lib\pages\profile_page.dart:1198:              ),
+  lib\pages\profile_page.dart:1199:            ),
+  lib\pages\profile_page.dart:1200:          ],
+  lib\pages\profile_page.dart:1201:        ),
+  lib\pages\profile_page.dart:1202:      ),
+  lib\pages\profile_page.dart:1203:    );
+  lib\pages\profile_page.dart:1204:  }
+  lib\pages\profile_page.dart:1205:
+  lib\pages\profile_page.dart:1206:  Widget _buildContactCard({
+  lib\pages\profile_page.dart:1207:    required IconData icon,
+  lib\services\apple_auth_service.dart:3:// 逻辑要点：
+  lib\services\apple_auth_service.dart:4:// 1) 生成 raw nonce，并将其 sha256 作为 nonce 传给 Apple
+> lib\services\apple_auth_service.dart:5:// 2) 用 Apple 返回的 identityToken + raw nonce 调 Supabase 的 signInWithIdToken
+  lib\services\apple_auth_service.dart:6:// 3) 首登时可把姓名/邮箱写入 profiles（忽略失败）
+  lib\services\apple_auth_service.dart:7:
+  lib\services\apple_auth_service.dart:8:import 'dart:convert';
+  lib\services\apple_auth_service.dart:9:import 'dart:io' show Platform;
+  lib\services\apple_auth_service.dart:10:import 'dart:math';
+  lib\services\apple_auth_service.dart:11:import 'package:crypto/crypto.dart';
+  lib\services\apple_auth_service.dart:12:import 'package:flutter/foundation.dart';
+  lib\services\apple_auth_service.dart:13:import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+  lib\services\apple_auth_service.dart:14:import 'package:supabase_flutter/supabase_flutter.dart';
+  lib\services\apple_auth_service.dart:15:
+> lib\services\apple_auth_service.dart:16:class AppleAuthService {
+> lib\services\apple_auth_service.dart:17:  AppleAuthService._();
+> lib\services\apple_auth_service.dart:18:  static final AppleAuthService _instance = AppleAuthService._();
+> lib\services\apple_auth_service.dart:19:  factory AppleAuthService() => _instance;
+  lib\services\apple_auth_service.dart:20:
+  lib\services\apple_auth_service.dart:21:  final SupabaseClient _sb = Supabase.instance.client;
+  lib\services\apple_auth_service.dart:22:
+  lib\services\apple_auth_service.dart:23:  /// 生成安全随机 nonce
+  lib\services\apple_auth_service.dart:24:  String _generateNonce([int length = 32]) {
+  lib\services\apple_auth_service.dart:25:    const charset =
+  lib\services\apple_auth_service.dart:26:        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  lib\services\apple_auth_service.dart:27:    final random = Random.secure();
+  lib\services\apple_auth_service.dart:28:    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+  lib\services\apple_auth_service.dart:29:        .join();
+  lib\services\apple_auth_service.dart:52:    try {
+  lib\services\apple_auth_service.dart:53:      // 2) 走 Apple 授权
+> lib\services\apple_auth_service.dart:54:      final credential = await SignInWithApple.getAppleIDCredential(
+  lib\services\apple_auth_service.dart:55:        scopes: const [
+  lib\services\apple_auth_service.dart:56:          AppleIDAuthorizationScopes.fullName,
+  lib\services\apple_auth_service.dart:57:          AppleIDAuthorizationScopes.email,
+  lib\services\apple_auth_service.dart:58:        ],
+  lib\services\apple_auth_service.dart:59:        nonce: hashedNonce, // 注意：传给 Apple 是 sha256 后的
+  lib\services\apple_auth_service.dart:60:      );
+  lib\services\apple_auth_service.dart:61:
+  lib\services\apple_auth_service.dart:62:      final idToken = credential.identityToken;
+  lib\services\apple_auth_service.dart:63:      if (idToken == null || idToken.isEmpty) {
+  lib\services\apple_auth_service.dart:64:        debugPrint('[AppleAuth] identityToken 为空');
+  lib\services\apple_auth_service.dart:67:
+  lib\services\apple_auth_service.dart:68:      // 3) 用 Apple 的 idToken + 原始 rawNonce 登录 Supabase
+> lib\services\apple_auth_service.dart:69:      final resp = await _sb.auth.signInWithIdToken(
+  lib\services\apple_auth_service.dart:70:        provider: OAuthProvider.apple,
+  lib\services\apple_auth_service.dart:71:        idToken: idToken,
+  lib\services\apple_auth_service.dart:72:        nonce: rawNonce, // 注意：传给 Supabase 是原始 nonce
+  lib\services\apple_auth_service.dart:73:      );
+  lib\services\apple_auth_service.dart:74:
+  lib\services\apple_auth_service.dart:75:      final user = resp.user ?? _sb.auth.currentUser;
+  lib\services\apple_auth_service.dart:76:      if (user == null) {
+  lib\services\apple_auth_service.dart:77:        debugPrint('[AppleAuth] Supabase 登录后 user 为空');
+  lib\services\apple_auth_service.dart:78:        return false;
+  lib\services\apple_auth_service.dart:79:      }
+  lib\services\apple_auth_service.dart:119:
+  lib\services\apple_auth_service.dart:120:      return true;
+> lib\services\apple_auth_service.dart:121:    } on SignInWithAppleAuthorizationException catch (e) {
+  lib\services\apple_auth_service.dart:122:      if (e.code == AuthorizationErrorCode.canceled) {
+  lib\services\apple_auth_service.dart:123:        debugPrint('[AppleAuth] 用户取消 Apple 登录');
+  lib\services\apple_auth_service.dart:124:        return false;
+  lib\services\apple_auth_service.dart:125:      }
+  lib\services\apple_auth_service.dart:126:      debugPrint('[AppleAuth] 授权异常: $e');
+  lib\services\apple_auth_service.dart:127:      return false;
+  lib\services\apple_auth_service.dart:128:    } catch (e, st) {
+  lib\services\apple_auth_service.dart:129:      debugPrint('[AppleAuth] 未知异常: $e\n$st');
+  lib\services\apple_auth_service.dart:130:      rethrow; // 如果你不想抛出，也可以 return false;
+  lib\services\apple_auth_service.dart:131:    }
+  lib\services\app_update_service.dart:143:                      final uri = Uri.parse(url);
+  lib\services\app_update_service.dart:144:                      if (await canLaunchUrl(uri)) {
+> lib\services\app_update_service.dart:145:                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+  lib\services\app_update_service.dart:146:                      }
+  lib\services\app_update_service.dart:147:                    }
+  lib\services\app_update_service.dart:148:
+  lib\services\app_update_service.dart:149:                    if (!force && ctx.mounted) {
+  lib\services\app_update_service.dart:150:                      Navigator.of(ctx).pop();
+  lib\services\app_update_service.dart:151:                    }
+  lib\services\app_update_service.dart:152:                  },
+  lib\services\app_update_service.dart:153:                  child: const Text('立即更新'),
+  lib\services\app_update_service.dart:154:                ),
+  lib\services\app_update_service.dart:155:              ],
+  lib\services\auth_flow_observer.dart:296:      _lastEvent = eventName;
+  lib\services\auth_flow_observer.dart:297:
+> lib\services\auth_flow_observer.dart:298:      OAuthEntry.clearGuardIfSignedIn(data);
+  lib\services\auth_flow_observer.dart:299:
+  lib\services\auth_flow_observer.dart:300:      switch (data.event) {
+  lib\services\auth_flow_observer.dart:301:        case AuthChangeEvent.signedIn:
+  lib\services\auth_flow_observer.dart:302:          _manualSignOutOnce = false;
+  lib\services\auth_flow_observer.dart:303:          _signOutDebounce?.cancel();
+  lib\services\auth_flow_observer.dart:304:
+  lib\services\auth_flow_observer.dart:305:          // ✅ [ProfilePage修复] 判断是否需要force（在执行异步操作前）
+  lib\services\auth_flow_observer.dart:306:          final needsForceNav = _lastRoute == '/home' || _lastRoute == '/welcome';
+  lib\services\auth_flow_observer.dart:307:
+  lib\services\auth_flow_observer.dart:308:          if (kDebugMode && needsForceNav) {
+  lib\services\auth_flow_observer.dart:486:            }
+  lib\services\auth_flow_observer.dart:487:
+> lib\services\auth_flow_observer.dart:488:            final isOAuthReturn = OAuthEntry.isOAuthCallback(initialLink);
+  lib\services\auth_flow_observer.dart:489:
+  lib\services\auth_flow_observer.dart:490:            if (kDebugMode) {
+  lib\services\auth_flow_observer.dart:491:              debugPrint('[AuthFlowObserver] initialSession: no session, '
+> lib\services\auth_flow_observer.dart:492:                  'inFlight=${OAuthEntry.inFlight}, '
+  lib\services\auth_flow_observer.dart:493:                  'isOAuthReturn=$isOAuthReturn, '
+  lib\services\auth_flow_observer.dart:494:                  'initialLink=$initialLink');
+  lib\services\auth_flow_observer.dart:495:            }
+  lib\services\auth_flow_observer.dart:496:
+  lib\services\auth_flow_observer.dart:497:            var spins = 0;
+  lib\services\auth_flow_observer.dart:498:            final maxSpins = 6;
+> lib\services\auth_flow_observer.dart:499:            final shouldInitiallyWait = OAuthEntry.inFlight || isOAuthReturn;
+  lib\services\auth_flow_observer.dart:500:
+  lib\services\auth_flow_observer.dart:501:            if (shouldInitiallyWait) {
+  lib\services\auth_flow_observer.dart:502:              debugPrint('[AuthFlowObserver] Waiting for OAuth callback...');
+  lib\services\auth_flow_observer.dart:503:            }
+  lib\services\auth_flow_observer.dart:504:
+  lib\services\auth_flow_observer.dart:505:            while (spins < maxSpins) {
+> lib\services\auth_flow_observer.dart:506:              if (!OAuthEntry.inFlight && !isOAuthReturn) {
+  lib\services\auth_flow_observer.dart:507:                if (kDebugMode) {
+  lib\services\auth_flow_observer.dart:508:                  debugPrint('[AuthFlowObserver] OAuth cleared, stopping wait');
+  lib\services\auth_flow_observer.dart:509:                }
+  lib\services\auth_flow_observer.dart:510:                break;
+  lib\services\auth_flow_observer.dart:511:              }
+  lib\services\auth_flow_observer.dart:512:
+  lib\services\auth_flow_observer.dart:513:              if (Supabase.instance.client.auth.currentSession != null) {
+  lib\services\auth_flow_observer.dart:514:                if (kDebugMode) {
+  lib\services\auth_flow_observer.dart:515:                  debugPrint('[AuthFlowObserver] Session appeared during wait (${sp
+ins * 300}ms), breaking');
+  lib\services\auth_flow_observer.dart:516:                }
+  lib\services\auth_flow_observer.dart:521:                if (kDebugMode && spins % 2 == 0) {
+  lib\services\auth_flow_observer.dart:522:                  debugPrint(
+> lib\services\auth_flow_observer.dart:523:                      '[AuthFlowObserver] Wait OAuth... inFlight=${OAuthEntry.inFli
+ght} isOAuthReturn=$isOAuthReturn (${spins * 300}ms)');
+  lib\services\auth_flow_observer.dart:524:                }
+  lib\services\auth_flow_observer.dart:525:                await Future.delayed(const Duration(milliseconds: 300));
+  lib\services\auth_flow_observer.dart:526:                spins++;
+  lib\services\auth_flow_observer.dart:527:              } else {
+  lib\services\auth_flow_observer.dart:528:                break;
+  lib\services\auth_flow_observer.dart:529:              }
+  lib\services\auth_flow_observer.dart:530:            }
+  lib\services\auth_flow_observer.dart:531:
+  lib\services\auth_flow_observer.dart:532:            if (Supabase.instance.client.auth.currentSession != null) {
+  lib\services\auth_flow_observer.dart:533:              if (kDebugMode) {
+  lib\services\auth_flow_observer.dart:668:
+  lib\services\auth_flow_observer.dart:669:              try {
+> lib\services\auth_flow_observer.dart:670:                OAuthEntry.finish();
+  lib\services\auth_flow_observer.dart:671:              } catch (e) {
+  lib\services\auth_flow_observer.dart:672:                if (kDebugMode) {
+> lib\services\auth_flow_observer.dart:673:                  debugPrint('[AuthFlowObserver] OAuthEntry.finish() error: $e');
+  lib\services\auth_flow_observer.dart:674:                }
+  lib\services\auth_flow_observer.dart:675:              }
+  lib\services\auth_flow_observer.dart:676:
+  lib\services\auth_flow_observer.dart:677:              await _goOnce('/welcome');
+  lib\services\auth_flow_observer.dart:678:            }
+  lib\services\auth_flow_observer.dart:679:          }
+  lib\services\auth_flow_observer.dart:680:          break;
+  lib\services\auth_flow_observer.dart:681:
+  lib\services\auth_flow_observer.dart:682:        case AuthChangeEvent.userUpdated:
+  lib\services\auth_flow_observer.dart:683:          _manualSignOutOnce = false;
+  lib\services\auth_service.dart:11:import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, kDebugMode;
+  lib\services\auth_service.dart:12:import 'package:supabase_flutter/supabase_flutter.dart';
+> lib\services\auth_service.dart:13:// LaunchMode 由 supabase_flutter 间接提供；如仍有提示，可改为：import 'package:url_launcher/url_launcher.
+dart' show LaunchMode;
+  lib\services\auth_service.dart:14:
+  lib\services\auth_service.dart:15:import 'package:google_sign_in/google_sign_in.dart';
+  lib\services\auth_service.dart:16:import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'; // ✅ 新增
+  lib\services\auth_service.dart:17:import 'package:swaply/services/apple_auth_service.dart';
+  lib\services\auth_service.dart:18:
+  lib\services\auth_service.dart:19:import 'package:swaply/config/auth_config.dart';
+  lib\services\auth_service.dart:20:import 'package:swaply/services/profile_service.dart';
+  lib\services\auth_service.dart:21:import 'package:swaply/services/auth_flow_observer.dart';
+  lib\services\auth_service.dart:22:import 'package:swaply/services/notification_service.dart';
+  lib\services\auth_service.dart:23:
+> lib\services\auth_service.dart:24:class AuthService {
+  lib\services\auth_service.dart:25:  SupabaseClient get supabase => Supabase.instance.client;
+  lib\services\auth_service.dart:26:
+  lib\services\auth_service.dart:27:  User? get currentUser => supabase.auth.currentUser;
+  lib\services\auth_service.dart:28:  bool get isSignedIn => currentUser != null;
+  lib\services\auth_service.dart:29:
+  lib\services\auth_service.dart:30:  bool get isEmailVerified => false;
+  lib\services\auth_service.dart:31:
+  lib\services\auth_service.dart:32:  // ====== 应用内认证统一入口 ======
+  lib\services\auth_service.dart:33:  Future<void> signInWithNativeProvider(OAuthProvider provider) async {
+  lib\services\auth_service.dart:34:    switch (provider) {
+  lib\services\auth_service.dart:35:      case OAuthProvider.apple:
+  lib\services\auth_service.dart:36:        if (Platform.isIOS) {
+> lib\services\auth_service.dart:37:          await _signInWithAppleNative();
+  lib\services\auth_service.dart:38:        } else {
+  lib\services\auth_service.dart:39:          // Android：使用系统浏览器（Chrome Custom Tabs）
+> lib\services\auth_service.dart:40:          await Supabase.instance.client.auth.signInWithOAuth(
+  lib\services\auth_service.dart:41:            OAuthProvider.apple,
+> lib\services\auth_service.dart:42:            authScreenLaunchMode: LaunchMode.externalApplication,
+> lib\services\auth_service.dart:43:            redirectTo: getAuthRedirectUri(),
+  lib\services\auth_service.dart:44:            scopes: 'email name',
+  lib\services\auth_service.dart:45:          );
+  lib\services\auth_service.dart:46:        }
+  lib\services\auth_service.dart:47:        break;
+  lib\services\auth_service.dart:48:
+  lib\services\auth_service.dart:49:      case OAuthProvider.google:
+  lib\services\auth_service.dart:50:        await _signInWithGoogleNative();
+  lib\services\auth_service.dart:51:        break;
+  lib\services\auth_service.dart:52:
+  lib\services\auth_service.dart:53:      case OAuthProvider.facebook:
+  lib\services\auth_service.dart:61:
+  lib\services\auth_service.dart:62:  /// Apple 原生登录（仅 iOS）
+> lib\services\auth_service.dart:63:  Future<void> _signInWithAppleNative() async {
+> lib\services\auth_service.dart:64:    final success = await AppleAuthService().signIn();
+  lib\services\auth_service.dart:65:    if (!success) {
+  lib\services\auth_service.dart:66:      throw AuthException('Apple sign-in failed or was cancelled');
+  lib\services\auth_service.dart:67:    }
+  lib\services\auth_service.dart:68:  }
+  lib\services\auth_service.dart:69:
+  lib\services\auth_service.dart:70:  /// Google 原生登录（iOS/Android）
+  lib\services\auth_service.dart:71:  Future<void> _signInWithGoogleNative() async {
+  lib\services\auth_service.dart:72:    try {
+> lib\services\auth_service.dart:73:      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+> lib\services\auth_service.dart:74:      // 如需强制账号选择器可先 signOut：await googleSignIn.signOut();
+  lib\services\auth_service.dart:75:
+> lib\services\auth_service.dart:76:      final googleUser = await googleSignIn.signIn();
+  lib\services\auth_service.dart:77:      if (googleUser == null) {
+  lib\services\auth_service.dart:78:        throw AuthException('Google sign-in was cancelled');
+  lib\services\auth_service.dart:79:      }
+  lib\services\auth_service.dart:80:
+  lib\services\auth_service.dart:81:      final googleAuth = await googleUser.authentication;
+  lib\services\auth_service.dart:82:      if (googleAuth.idToken == null) {
+  lib\services\auth_service.dart:83:        throw AuthException('Google ID token is null');
+  lib\services\auth_service.dart:84:      }
+  lib\services\auth_service.dart:85:
+> lib\services\auth_service.dart:86:      await supabase.auth.signInWithIdToken(
+  lib\services\auth_service.dart:87:        provider: OAuthProvider.google,
+  lib\services\auth_service.dart:88:        idToken: googleAuth.idToken!,
+  lib\services\auth_service.dart:89:        accessToken: googleAuth.accessToken,
+  lib\services\auth_service.dart:90:      );
+  lib\services\auth_service.dart:91:    } catch (e) {
+> lib\services\auth_service.dart:92:      debugPrint('[AuthService] Google native sign-in error: $e');
+  lib\services\auth_service.dart:93:      rethrow;
+  lib\services\auth_service.dart:94:    }
+  lib\services\auth_service.dart:95:  }
+  lib\services\auth_service.dart:96:
+  lib\services\auth_service.dart:97:  /// ✅ Facebook 原生登录（iOS/Android）- 新增方法
+  lib\services\auth_service.dart:98:  Future<void> _signInWithFacebookNative() async {
+  lib\services\auth_service.dart:99:    try {
+> lib\services\auth_service.dart:100:      debugPrint('[AuthService] 🔵 Starting Facebook native sign-in...');
+  lib\services\auth_service.dart:101:
+  lib\services\auth_service.dart:102:      // 1. 使用 Facebook SDK 登录
+> lib\services\auth_service.dart:103:      final result = await FacebookAuth.instance.login(
+  lib\services\auth_service.dart:104:        permissions: ['public_profile', 'email'],
+  lib\services\auth_service.dart:105:      );
+  lib\services\auth_service.dart:106:
+> lib\services\auth_service.dart:107:      debugPrint('[AuthService] Facebook login status: ${result.status}');
+  lib\services\auth_service.dart:108:
+  lib\services\auth_service.dart:109:      // 2. 检查登录状态
+  lib\services\auth_service.dart:110:      if (result.status != LoginStatus.success) {
+  lib\services\auth_service.dart:111:        if (result.status == LoginStatus.cancelled) {
+  lib\services\auth_service.dart:112:          throw AuthException('Facebook login was cancelled');
+  lib\services\auth_service.dart:113:        } else {
+  lib\services\auth_service.dart:114:          throw AuthException('Facebook login failed: ${result.status}');
+  lib\services\auth_service.dart:115:        }
+  lib\services\auth_service.dart:116:      }
+  lib\services\auth_service.dart:117:
+  lib\services\auth_service.dart:122:      }
+  lib\services\auth_service.dart:123:
+> lib\services\auth_service.dart:124:      debugPrint('[AuthService] Facebook access token obtained');
+  lib\services\auth_service.dart:125:
+  lib\services\auth_service.dart:126:      // 4. 使用 Facebook Access Token 登录 Supabase
+> lib\services\auth_service.dart:127:      await supabase.auth.signInWithIdToken(
+  lib\services\auth_service.dart:128:        provider: OAuthProvider.facebook,
+  lib\services\auth_service.dart:129:        idToken: accessToken.token,
+  lib\services\auth_service.dart:130:      );
+  lib\services\auth_service.dart:131:
+> lib\services\auth_service.dart:132:      debugPrint('[AuthService] ✅ Facebook native sign-in successful');
+  lib\services\auth_service.dart:133:    } catch (e, st) {
+> lib\services\auth_service.dart:134:      debugPrint('[AuthService] ❌ Facebook native sign-in error: $e\n$st');
+  lib\services\auth_service.dart:135:      rethrow;
+  lib\services\auth_service.dart:136:    }
+  lib\services\auth_service.dart:137:  }
+  lib\services\auth_service.dart:138:
+  lib\services\auth_service.dart:139:  // ====== 会话手动刷新（保留接口，但默认不用）======
+  lib\services\auth_service.dart:140:  DateTime? _lastRefresh;
+  lib\services\auth_service.dart:141:  Future<void> refreshSession({Duration minInterval = const Duration(seconds: 30)}) async
+ {
+> lib\services\auth_service.dart:142:    debugPrint('[AuthService] refreshSession() disabled. Using Supabase auto-refresh.');
+  lib\services\auth_service.dart:143:    return;
+  lib\services\auth_service.dart:144:  }
+  lib\services\auth_service.dart:145:
+  lib\services\auth_service.dart:146:  Future<bool> signInWithEmailPassword({
+  lib\services\auth_service.dart:147:    required String email,
+  lib\services\auth_service.dart:148:    required String password,
+  lib\services\auth_service.dart:149:  }) async {
+  lib\services\auth_service.dart:150:    try {
+  lib\services\auth_service.dart:151:      await supabase.auth.signInWithPassword(email: email, password: password);
+  lib\services\auth_service.dart:152:      final user = supabase.auth.currentUser;
+  lib\services\auth_service.dart:191:        password: password,
+  lib\services\auth_service.dart:192:        data: meta.isEmpty ? null : meta,
+> lib\services\auth_service.dart:193:        emailRedirectTo: kAuthWebRedirectUri,
+  lib\services\auth_service.dart:194:      );
+  lib\services\auth_service.dart:195:
+  lib\services\auth_service.dart:196:      final user = supabase.auth.currentUser;
+  lib\services\auth_service.dart:197:      if (user == null) throw const AuthException('Registration failed');
+  lib\services\auth_service.dart:198:
+  lib\services\auth_service.dart:199:      await ProfileService.instance.ensureProfileAndWelcome(
+  lib\services\auth_service.dart:200:        userId: user.id,
+  lib\services\auth_service.dart:201:        email: email.trim().toLowerCase(),
+  lib\services\auth_service.dart:202:        fullName: fullName,
+  lib\services\auth_service.dart:203:        avatarUrl: user.userMetadata?['avatar_url'],
+  lib\services\auth_service.dart:326:      await supabase.auth.refreshSession();
+  lib\services\auth_service.dart:327:      await supabase.auth.getUser();
+> lib\services\auth_service.dart:328:      if (kDebugMode) debugPrint('[AuthService] session refreshed');
+  lib\services\auth_service.dart:329:    } catch (e) {
+  lib\services\auth_service.dart:330:      if (kDebugMode) print('syncEmailVerificationStatus failed: $e');
+  lib\services\auth_service.dart:331:    }
+  lib\services\auth_service.dart:332:  }
+  lib\services\auth_service.dart:333:
+  lib\services\auth_service.dart:334:  // ====== 登出 ======
+  lib\services\auth_service.dart:335:  static bool _signingOut = false;
+  lib\services\auth_service.dart:336:  Future<void> signOut({bool global = false, String reason = ''}) async {
+  lib\services\auth_service.dart:337:    AuthFlowObserver.I.markManualSignOut();
+  lib\services\auth_service.dart:338:
+  lib\services\deep_link_service.dart:12:// 完全符合 Swaply 架构：
+  lib\services\deep_link_service.dart:13://    1. 只负责业务跳转，不碰鉴权流程
+> lib\services\deep_link_service.dart:14://    2. reset-password 使用 navReplaceAll（全局跳转）
+  lib\services\deep_link_service.dart:15://    3. 其他业务页面使用 navPush（业务跳转）
+  lib\services\deep_link_service.dart:16://    4. 提供协调标志和 Completer，供 AuthFlowObserver 等待
+  lib\services\deep_link_service.dart:17:
+  lib\services\deep_link_service.dart:18:import 'dart:async';
+  lib\services\deep_link_service.dart:19:import 'dart:io' show Platform;
+  lib\services\deep_link_service.dart:20:import 'package:flutter/foundation.dart';
+  lib\services\deep_link_service.dart:21:import 'package:flutter/scheduler.dart';
+  lib\services\deep_link_service.dart:22:import 'package:flutter/widgets.dart';
+  lib\services\deep_link_service.dart:23:import 'package:supabase_flutter/supabase_flutter.dart';
+  lib\services\deep_link_service.dart:24:import 'package:app_links/app_links.dart';
+  lib\services\deep_link_service.dart:636:
+  lib\services\deep_link_service.dart:637:      // 忽略旧的 Supabase scheme
+> lib\services\deep_link_service.dart:638:      if (scheme == 'cc.swaply.app' && host == 'login-callback') {
+  lib\services\deep_link_service.dart:639:        if (kDebugMode) {
+> lib\services\deep_link_service.dart:640:          debugPrint('⏭️  Skipping Supabase login callback (cc.swaply.app)');
+  lib\services\deep_link_service.dart:641:          debugPrint('════════════════════════════════════════════════════════════')
+;
+  lib\services\deep_link_service.dart:642:          debugPrint('');
+  lib\services\deep_link_service.dart:643:        }
+  lib\services\deep_link_service.dart:644:        _completeInitialLink();
+  lib\services\deep_link_service.dart:645:        return;
+  lib\services\deep_link_service.dart:646:      }
+  lib\services\deep_link_service.dart:647:
+  lib\services\deep_link_service.dart:648:      // ✅ 新增：忽略自定义 URL Scheme OAuth 回调（移动端）
+> lib\services\deep_link_service.dart:649:      // swaply://login-callback
+> lib\services\deep_link_service.dart:650:      if (scheme == 'swaply' && host == 'login-callback') {
+  lib\services\deep_link_service.dart:651:        if (kDebugMode) {
+  lib\services\deep_link_service.dart:652:          debugPrint('🔐 Matched: OAuth Callback (Custom URL Scheme)');
+  lib\services\deep_link_service.dart:653:          debugPrint('   Scheme: $scheme');
+  lib\services\deep_link_service.dart:654:          debugPrint('   Host: $host');
+  lib\services\deep_link_service.dart:655:          debugPrint('   Fragment: ${uri.fragment}');
+  lib\services\deep_link_service.dart:656:          debugPrint('   Query: ${uri.queryParameters}');
+  lib\services\deep_link_service.dart:657:          debugPrint('');
+  lib\services\deep_link_service.dart:658:          debugPrint('⏭️  Ignoring OAuth callback (Supabase will handle)');
+  lib\services\deep_link_service.dart:659:          debugPrint('════════════════════════════════════════════════════════════')
+;
+  lib\services\deep_link_service.dart:660:          debugPrint('');
+  lib\services\deep_link_service.dart:668:      // ✅ 全局跳转，使用 navReplaceAll
+  lib\services\deep_link_service.dart:669:      // ============================================================
+> lib\services\deep_link_service.dart:670:      final isResetByHost = host == 'reset-password';
+> lib\services\deep_link_service.dart:671:      final isResetByPath = path.contains('reset-password');
+  lib\services\deep_link_service.dart:672:
+  lib\services\deep_link_service.dart:673:      if (isResetByHost || isResetByPath) {
+  lib\services\deep_link_service.dart:674:        if (kDebugMode) {
+  lib\services\deep_link_service.dart:675:          debugPrint('🔐 Matched: Reset Password Link');
+  lib\services\deep_link_service.dart:676:          debugPrint('');
+  lib\services\deep_link_service.dart:677:        }
+  lib\services\deep_link_service.dart:678:
+  lib\services\deep_link_service.dart:679:        final qp = uri.queryParameters;
+  lib\services\deep_link_service.dart:680:        final fp = _parseFragmentParams(uri.fragment);
+  lib\services\deep_link_service.dart:681:
+  lib\services\deep_link_service.dart:743:        if (kDebugMode) {
+  lib\services\deep_link_service.dart:744:          debugPrint('📦 Arguments for ResetPasswordPage: ${args.keys.toList()}');
+> lib\services\deep_link_service.dart:745:          debugPrint('🚀 Navigating to: /reset-password');
+  lib\services\deep_link_service.dart:746:          debugPrint('');
+  lib\services\deep_link_service.dart:747:        }
+  lib\services\deep_link_service.dart:748:
+  lib\services\deep_link_service.dart:749:        await SchedulerBinding.instance.endOfFrame;
+> lib\services\deep_link_service.dart:750:        navReplaceAll('/reset-password', arguments: args);
+  lib\services\deep_link_service.dart:751:
+  lib\services\deep_link_service.dart:752:        if (kDebugMode) {
+  lib\services\deep_link_service.dart:753:          debugPrint('✅ Navigation completed');
+  lib\services\deep_link_service.dart:754:          debugPrint('════════════════════════════════════════════════════════════')
+;
+  lib\services\deep_link_service.dart:755:          debugPrint('');
+  lib\services\deep_link_service.dart:756:        }
+  lib\services\deep_link_service.dart:757:
+  lib\services\deep_link_service.dart:758:        // Reset password 不算业务深链导航
+  lib\services\deep_link_service.dart:759:        _completeInitialLink();
+  lib\services\deep_link_service.dart:760:        return;
+  lib\services\oauth_entry.dart:2://
+  lib\services\oauth_entry.dart:3:// ✅ [P0 修复] 增加 ValueNotifier 通知机制，解决按钮锁死问题
+> lib\services\oauth_entry.dart:4:// ✅ [应用内认证] 三方登录统一调用 AuthService().signInWithNativeProvider(...)
+  lib\services\oauth_entry.dart:5:// ✅ [系统浏览器] Facebook/Apple 使用 ASWebAuthenticationSession / Chrome Custom Tabs
+  lib\services\oauth_entry.dart:6:// ✅ [回调 URL] 移动端使用自定义 URL Scheme，Web 端使用 HTTPS
+  lib\services\oauth_entry.dart:7://
+  lib\services\oauth_entry.dart:8:// 建议用法：
+> lib\services\oauth_entry.dart:9:// 1) 启动时：await OAuthEntry.restoreState(); // 恢复持久化状态
+> lib\services\oauth_entry.dart:10:// 2) 触发：await OAuthEntry.signIn(OAuthProvider.facebook, ...);
+> lib\services\oauth_entry.dart:11:// 3) 在回调命中时：OAuthEntry.finish();
+> lib\services\oauth_entry.dart:12:// 4) 或在全局 onAuthStateChange 里：OAuthEntry.clearGuardIfSignedIn(state);
+> lib\services\oauth_entry.dart:13:// 5) 页面 dispose 时：OAuthEntry.cancelIfInFlight();
+> lib\services\oauth_entry.dart:14:// 6) 页面监听状态：ValueListenableBuilder(valueListenable: OAuthEntry.inFlightNotifier, ...)
+  lib\services\oauth_entry.dart:15:
+  lib\services\oauth_entry.dart:16:import 'dart:async';
+  lib\services\oauth_entry.dart:17:import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, ValueNotifier;
+  lib\services\oauth_entry.dart:18:import 'package:supabase_flutter/supabase_flutter.dart';
+  lib\services\oauth_entry.dart:19:import 'package:shared_preferences/shared_preferences.dart';
+> lib\services\oauth_entry.dart:20:import 'package:url_launcher/url_launcher.dart' show LaunchMode;
+  lib\services\oauth_entry.dart:21:
+  lib\services\oauth_entry.dart:22:// ✅ 统一回调配置（移动端/Web 端分离）
+  lib\services\oauth_entry.dart:23:import 'package:swaply/config/auth_config.dart';
+  lib\services\oauth_entry.dart:24:
+  lib\services\oauth_entry.dart:25:// ✅ 应用内认证统一入口
+  lib\services\oauth_entry.dart:26:import 'package:swaply/services/auth_service.dart';
+  lib\services\oauth_entry.dart:27:
+> lib\services\oauth_entry.dart:28:class OAuthEntry {
+> lib\services\oauth_entry.dart:29:  OAuthEntry._();
+  lib\services\oauth_entry.dart:30:
+  lib\services\oauth_entry.dart:31:  static bool _inFlight = false;
+  lib\services\oauth_entry.dart:32:  static bool get inFlight => _inFlight;
+  lib\services\oauth_entry.dart:33:
+  lib\services\oauth_entry.dart:34:  // ✅ UI 通知
+  lib\services\oauth_entry.dart:35:  static final ValueNotifier<bool> inFlightNotifier = ValueNotifier<bool>(false);
+  lib\services\oauth_entry.dart:36:
+  lib\services\oauth_entry.dart:37:  // ✅ 持久化 key 与超时
+  lib\services\oauth_entry.dart:38:  static const String _kOAuthInFlightKey = 'oauth_in_flight_timestamp';
+  lib\services\oauth_entry.dart:39:  static const String _kOAuthProviderKey = 'oauth_provider';
+  lib\services\oauth_entry.dart:54:
+  lib\services\oauth_entry.dart:55:      if (timestamp == null) {
+> lib\services\oauth_entry.dart:56:        debugPrint('[OAuthEntry] No saved state');
+  lib\services\oauth_entry.dart:57:        return;
+  lib\services\oauth_entry.dart:58:      }
+  lib\services\oauth_entry.dart:59:
+  lib\services\oauth_entry.dart:60:      final elapsed = DateTime.now().millisecondsSinceEpoch - timestamp;
+  lib\services\oauth_entry.dart:61:      final elapsedSeconds = elapsed / 1000;
+  lib\services\oauth_entry.dart:62:
+  lib\services\oauth_entry.dart:63:      if (elapsedSeconds < 5) {
+  lib\services\oauth_entry.dart:64:        _setInFlight(true);
+  lib\services\oauth_entry.dart:65:        _lastProvider = provider;
+> lib\services\oauth_entry.dart:66:        debugPrint('[OAuthEntry] Restored inFlight=true (${elapsedSeconds.toStringAsFixed(1
+)}s ago, provider=$provider)');
+  lib\services\oauth_entry.dart:67:        final remaining = (_kOAuthTimeoutSeconds * 1000) - elapsed;
+  lib\services\oauth_entry.dart:68:        _armReset(++_epoch, Duration(milliseconds: remaining.toInt()));
+  lib\services\oauth_entry.dart:69:        return;
+  lib\services\oauth_entry.dart:70:      }
+  lib\services\oauth_entry.dart:71:
+  lib\services\oauth_entry.dart:72:      if (elapsedSeconds < 15) {
+  lib\services\oauth_entry.dart:73:        _setInFlight(true);
+  lib\services\oauth_entry.dart:74:        _lastProvider = provider;
+> lib\services\oauth_entry.dart:75:        debugPrint('[OAuthEntry] Restored inFlight=true with SHORT timeout (${elapsedSecond
+s.toStringAsFixed(1)}s ago)');
+  lib\services\oauth_entry.dart:76:        _armReset(++_epoch, const Duration(seconds: 5));
+  lib\services\oauth_entry.dart:77:        return;
+  lib\services\oauth_entry.dart:78:      }
+  lib\services\oauth_entry.dart:79:
+> lib\services\oauth_entry.dart:80:      debugPrint('[OAuthEntry] Clearing expired state (${elapsedSeconds.toStringAsFixed(1)}
+s ago)');
+  lib\services\oauth_entry.dart:81:      await prefs.remove(_kOAuthInFlightKey);
+  lib\services\oauth_entry.dart:82:      await prefs.remove(_kOAuthProviderKey);
+  lib\services\oauth_entry.dart:83:    } catch (e) {
+> lib\services\oauth_entry.dart:84:      debugPrint('[OAuthEntry] restoreState error: $e');
+  lib\services\oauth_entry.dart:85:    }
+  lib\services\oauth_entry.dart:86:  }
+  lib\services\oauth_entry.dart:87:
+  lib\services\oauth_entry.dart:88:  // ✅ 统一设置 inFlight
+  lib\services\oauth_entry.dart:89:  static void _setInFlight(bool value) {
+  lib\services\oauth_entry.dart:90:    _inFlight = value;
+  lib\services\oauth_entry.dart:91:    inFlightNotifier.value = value;
+  lib\services\oauth_entry.dart:92:  }
+  lib\services\oauth_entry.dart:93:
+  lib\services\oauth_entry.dart:94:  // ✅ 持久化 inFlight + provider
+  lib\services\oauth_entry.dart:106:      }
+  lib\services\oauth_entry.dart:107:    } catch (e) {
+> lib\services\oauth_entry.dart:108:      debugPrint('[OAuthEntry] _persistInFlight error: $e');
+  lib\services\oauth_entry.dart:109:    }
+  lib\services\oauth_entry.dart:110:  }
+  lib\services\oauth_entry.dart:111:
+  lib\services\oauth_entry.dart:112:  static bool mayStartInteractive() => !inFlight;
+  lib\services\oauth_entry.dart:113:
+  lib\services\oauth_entry.dart:114:  // ========== ✅ 强制取消（页面离开时调用） ==========
+  lib\services\oauth_entry.dart:115:  static void cancelIfInFlight() {
+  lib\services\oauth_entry.dart:116:    if (!_inFlight) return;
+> lib\services\oauth_entry.dart:117:    debugPrint('[OAuthEntry] cancelIfInFlight called (user left login screen)');
+  lib\services\oauth_entry.dart:118:    _clear(_epoch, reason: 'user_cancelled');
+  lib\services\oauth_entry.dart:119:  }
+  lib\services\oauth_entry.dart:120:
+  lib\services\oauth_entry.dart:121:  static void forceCancel() {
+  lib\services\oauth_entry.dart:122:    try {
+  lib\services\oauth_entry.dart:123:      finish();
+  lib\services\oauth_entry.dart:124:    } catch (_) {}
+  lib\services\oauth_entry.dart:125:  }
+  lib\services\oauth_entry.dart:126:
+  lib\services\oauth_entry.dart:127:  /// ✅ 识别 OAuth 回调（支持自定义 URL Scheme + HTTPS）
+  lib\services\oauth_entry.dart:128:  /// 移动端:
+> lib\services\oauth_entry.dart:129:  ///   - swaply://login-callback
+  lib\services\oauth_entry.dart:130:  /// Web 端:
+  lib\services\oauth_entry.dart:131:  ///   - https://swaply.cc/auth/callback
+> lib\services\oauth_entry.dart:132:  ///   - https://swaply.cc/login-callback（兼容）
+  lib\services\oauth_entry.dart:133:  static bool isOAuthCallback(Uri? uri) {
+  lib\services\oauth_entry.dart:134:    if (uri == null) return false;
+  lib\services\oauth_entry.dart:135:
+  lib\services\oauth_entry.dart:136:    // ✅ 自定义 URL Scheme 回调（移动端）
+> lib\services\oauth_entry.dart:137:    if (uri.scheme == 'swaply' && uri.host == 'login-callback') {
+  lib\services\oauth_entry.dart:138:      return true;
+  lib\services\oauth_entry.dart:139:    }
+  lib\services\oauth_entry.dart:140:
+  lib\services\oauth_entry.dart:141:    // ✅ HTTPS 回调（Web 端 + 兼容旧配置）
+  lib\services\oauth_entry.dart:142:    if (uri.scheme == 'https') {
+  lib\services\oauth_entry.dart:143:      final h = uri.host.toLowerCase();
+  lib\services\oauth_entry.dart:144:      if (h == 'swaply.cc' || h == 'www.swaply.cc') {
+  lib\services\oauth_entry.dart:145:        final seg = uri.pathSegments;
+  lib\services\oauth_entry.dart:146:        final isAuthCallback = (seg.length >= 2 && seg[0] == 'auth' && seg[1] == 'callback
+');
+> lib\services\oauth_entry.dart:147:        final isLoginCallback = (seg.isNotEmpty && seg[0] == 'login-callback');
+  lib\services\oauth_entry.dart:148:        return isAuthCallback || isLoginCallback;
+  lib\services\oauth_entry.dart:149:      }
+  lib\services\oauth_entry.dart:150:    }
+  lib\services\oauth_entry.dart:151:
+  lib\services\oauth_entry.dart:152:    return false;
+  lib\services\oauth_entry.dart:153:  }
+  lib\services\oauth_entry.dart:154:
+  lib\services\oauth_entry.dart:155:  // ✅ 兜底定时器，避免 UI 永久锁死
+  lib\services\oauth_entry.dart:156:  static void _armReset(int ticket, [Duration d = const Duration(seconds: 10)]) {
+  lib\services\oauth_entry.dart:157:    _resetTimer?.cancel();
+  lib\services\oauth_entry.dart:163:  static void _clear(int ticket, {String reason = 'finish'}) {
+  lib\services\oauth_entry.dart:164:    if (ticket != _epoch) {
+> lib\services\oauth_entry.dart:165:      debugPrint('[OAuthEntry] skip clear (stale ticket=$ticket < current=$_epoch), reason
+=$reason');
+  lib\services\oauth_entry.dart:166:      return;
+  lib\services\oauth_entry.dart:167:    }
+  lib\services\oauth_entry.dart:168:
+  lib\services\oauth_entry.dart:169:    _setInFlight(false);
+  lib\services\oauth_entry.dart:170:    _resetTimer?.cancel();
+  lib\services\oauth_entry.dart:171:    _resetTimer = null;
+  lib\services\oauth_entry.dart:172:    _lastTriggerTime = null;
+  lib\services\oauth_entry.dart:173:    _lastProvider = null;
+  lib\services\oauth_entry.dart:174:    _persistInFlight(false);
+  lib\services\oauth_entry.dart:175:
+> lib\services\oauth_entry.dart:176:    debugPrint('[OAuthEntry] cleared (reason=$reason), inFlight=false, epoch=$_epoch');
+  lib\services\oauth_entry.dart:177:  }
+  lib\services\oauth_entry.dart:178:
+  lib\services\oauth_entry.dart:179:  /// ✅ 统一入口：三方登录完全内置
+> lib\services\oauth_entry.dart:180:  /// Google / Facebook / Apple → 交给 AuthService().signInWithNativeProvider(provider)
+  lib\services\oauth_entry.dart:181:  /// 其它供应商（若未来新增）才走内置 WebView
+  lib\services\oauth_entry.dart:182:  static Future<void> signIn(
+  lib\services\oauth_entry.dart:183:      OAuthProvider provider, {
+  lib\services\oauth_entry.dart:184:        String? scopes,
+  lib\services\oauth_entry.dart:185:        Map<String, String>? queryParams,
+  lib\services\oauth_entry.dart:186:      }) async {
+  lib\services\oauth_entry.dart:187:    if (_inFlight) {
+> lib\services\oauth_entry.dart:188:      debugPrint('[OAuthEntry] duplicate signIn ignored: provider=$provider (inFlight=true
+, epoch=$_epoch)');
+  lib\services\oauth_entry.dart:189:      return;
+  lib\services\oauth_entry.dart:190:    }
+  lib\services\oauth_entry.dart:191:
+  lib\services\oauth_entry.dart:192:    final int ticket = ++_epoch;
+  lib\services\oauth_entry.dart:193:    _setInFlight(true);
+  lib\services\oauth_entry.dart:194:    _lastTriggerTime = DateTime.now();
+  lib\services\oauth_entry.dart:195:    _lastProvider = provider.name;
+  lib\services\oauth_entry.dart:196:    await _persistInFlight(true, provider: provider.name);
+  lib\services\oauth_entry.dart:197:
+> lib\services\oauth_entry.dart:198:    debugPrint('[OAuthEntry] signIn begin: provider=$provider, epoch=$ticket');
+  lib\services\oauth_entry.dart:199:    _armReset(ticket);
+  lib\services\oauth_entry.dart:200:
+  lib\services\oauth_entry.dart:201:    // ① 自动 scopes（备用，仅当走 WebView 分支时使用）
+  lib\services\oauth_entry.dart:202:    String resolvedScopes = (scopes ?? '').trim();
+  lib\services\oauth_entry.dart:203:    if (resolvedScopes.isEmpty) {
+  lib\services\oauth_entry.dart:204:      switch (provider) {
+  lib\services\oauth_entry.dart:205:        case OAuthProvider.google:
+  lib\services\oauth_entry.dart:206:          resolvedScopes = 'openid email profile';
+  lib\services\oauth_entry.dart:207:          break;
+  lib\services\oauth_entry.dart:208:        case OAuthProvider.facebook:
+  lib\services\oauth_entry.dart:224:        case OAuthProvider.facebook:
+  lib\services\oauth_entry.dart:225:        case OAuthProvider.apple:
+> lib\services\oauth_entry.dart:226:        // ✅ 三种都走原生/系统浏览器方案（由 AuthService 内部决定）
+> lib\services\oauth_entry.dart:227:          await AuthService().signInWithNativeProvider(provider);
+  lib\services\oauth_entry.dart:228:          break;
+  lib\services\oauth_entry.dart:229:
+  lib\services\oauth_entry.dart:230:        default:
+  lib\services\oauth_entry.dart:231:        // ✅ 其它供应商（未来新增）才走内置 WebView
+> lib\services\oauth_entry.dart:232:          await Supabase.instance.client.auth.signInWithOAuth(
+  lib\services\oauth_entry.dart:233:            provider,
+> lib\services\oauth_entry.dart:234:            redirectTo: getAuthRedirectUri(),
+> lib\services\oauth_entry.dart:235:            authScreenLaunchMode: LaunchMode.inAppWebView,
+  lib\services\oauth_entry.dart:236:            scopes: resolvedScopes.isEmpty ? null : resolvedScopes,
+  lib\services\oauth_entry.dart:237:            queryParams: qp.isEmpty ? null : qp,
+  lib\services\oauth_entry.dart:238:          );
+  lib\services\oauth_entry.dart:239:      }
+  lib\services\oauth_entry.dart:240:      // 成功后由 onAuthStateChange / deeplink 去 clear（幂等）
+  lib\services\oauth_entry.dart:241:    } on AuthException catch (e, st) {
+> lib\services\oauth_entry.dart:242:      debugPrint('[OAuthEntry] signIn error(AuthException): $e\n$st');
+  lib\services\oauth_entry.dart:243:      _clear(ticket, reason: 'error');
+  lib\services\oauth_entry.dart:244:      rethrow;
+  lib\services\oauth_entry.dart:245:    } catch (e, st) {
+> lib\services\oauth_entry.dart:246:      debugPrint('[OAuthEntry] signIn error: $e\n$st');
+  lib\services\oauth_entry.dart:247:      _clear(ticket, reason: 'error');
+  lib\services\oauth_entry.dart:248:      rethrow;
+  lib\services\oauth_entry.dart:249:    }
+  lib\services\oauth_entry.dart:250:  }
+  lib\services\oauth_entry.dart:251:
+  lib\services\oauth_entry.dart:252:  // 兼容旧入口
+  lib\services\oauth_entry.dart:253:  static Future<void> start({
+  lib\services\oauth_entry.dart:254:    required OAuthProvider provider,
+  lib\services\oauth_entry.dart:255:    String? scopes,
+  lib\services\oauth_entry.dart:256:    Map<String, dynamic>? queryParams,
+  lib\services\oauth_service.dart:1:// lib/services/oauth_service.dart
+  lib\services\oauth_service.dart:2://
+> lib\services\oauth_service.dart:3:// 轻量封装：三方登录统一从 OAuthEntry 走；
+  lib\services\oauth_service.dart:4:// - Google：带 prompt=select_account，便于切换账号
+  lib\services\oauth_service.dart:5:// - Facebook：仅 Web 传 display=popup，移动端一律不传（避免“双弹窗”）
+  lib\services\oauth_service.dart:6:// - Apple：默认 scopes 走系统流程
+  lib\services\oauth_service.dart:7:
+  lib\services\oauth_service.dart:8:import 'package:flutter/foundation.dart' show kIsWeb;
+  lib\services\oauth_service.dart:9:import 'package:supabase_flutter/supabase_flutter.dart' as sf;
+  lib\services\oauth_service.dart:10:import 'package:swaply/services/oauth_entry.dart';
+  lib\services\oauth_service.dart:11:
+> lib\services\oauth_service.dart:12:class OAuthService {
+> lib\services\oauth_service.dart:13:  OAuthService._();
+  lib\services\oauth_service.dart:14:
+  lib\services\oauth_service.dart:15:  static Future<void> signInWithGoogle() async {
+> lib\services\oauth_service.dart:16:    await OAuthEntry.signIn(
+  lib\services\oauth_service.dart:17:      sf.OAuthProvider.google,
+  lib\services\oauth_service.dart:18:      queryParams: const {'prompt': 'select_account'},
+  lib\services\oauth_service.dart:19:    );
+  lib\services\oauth_service.dart:20:  }
+  lib\services\oauth_service.dart:21:
+  lib\services\oauth_service.dart:22:  static Future<void> signInWithFacebook() async {
+> lib\services\oauth_service.dart:23:    await OAuthEntry.signIn(
+  lib\services\oauth_service.dart:24:      sf.OAuthProvider.facebook,
+  lib\services\oauth_service.dart:25:      scopes: 'public_profile,email',
+  lib\services\oauth_service.dart:26:      // ✅ 仅 Web 才传 popup。移动端不传，底层也会再次净化。
+  lib\services\oauth_service.dart:27:      queryParams: kIsWeb ? const {'display': 'popup'} : null,
+  lib\services\oauth_service.dart:28:    );
+  lib\services\oauth_service.dart:29:  }
+  lib\services\oauth_service.dart:30:
+> lib\services\oauth_service.dart:31:  static Future<void> signInWithApple() async {
+> lib\services\oauth_service.dart:32:    await OAuthEntry.signIn(sf.OAuthProvider.apple);
+  lib\services\oauth_service.dart:33:  }
+  lib\services\oauth_service.dart:34:}
+  lib\utils\share_utils.dart:10:      print('📱 [ShareUtils] Launching external: $uri');
+  lib\utils\share_utils.dart:11:    }
+> lib\utils\share_utils.dart:12:    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  lib\utils\share_utils.dart:13:  }
+  lib\utils\share_utils.dart:14:
+  lib\utils\share_utils.dart:15:  static Future<bool> _tryLaunch(Uri uri) async {
+  lib\utils\share_utils.dart:16:    try {
+  lib\utils\share_utils.dart:17:      if (kDebugMode) {
+  lib\utils\share_utils.dart:18:        print('🔍 [ShareUtils] Checking if can launch: $uri');
+  lib\utils\share_utils.dart:19:      }
+  lib\utils\share_utils.dart:20:
+  lib\utils\share_utils.dart:21:      if (await canLaunchUrl(uri)) {
+  lib\utils\share_utils.dart:22:        await _openExternal(uri);
+
+

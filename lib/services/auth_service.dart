@@ -2,7 +2,7 @@
 // 登录/注册/OAuth 统一：
 // - Apple：iOS 原生；Android 用系统浏览器
 // - Google：原生 SDK（完全应用内）
-// - Facebook：原生 SDK（完全应用内）✅ 修改
+// - Facebook：系统浏览器 OAuth（ASWebAuthenticationSession / Chrome Custom Tabs）✅ 修改完成
 // 备注：为兼容你当前的 supabase_flutter 版本，移除了 flowType / OAuthFlowType
 
 import 'dart:async';
@@ -10,10 +10,10 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
-// LaunchMode 由 supabase_flutter 间接提供；如仍有提示，可改为：import 'package:url_launcher/url_launcher.dart' show LaunchMode;
+import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'; // ✅ 新增
+// ❌ 已删除：import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:swaply/services/apple_auth_service.dart';
 
 import 'package:swaply/config/auth_config.dart';
@@ -51,7 +51,7 @@ class AuthService {
         break;
 
       case OAuthProvider.facebook:
-        await _signInWithFacebookNative(); // ✅ 修改：使用原生登录
+        await _signInWithFacebookOAuth(); // ✅ 修改：使用 OAuth 系统浏览器方式
         break;
 
       default:
@@ -94,44 +94,28 @@ class AuthService {
     }
   }
 
-  /// ✅ Facebook 原生登录（iOS/Android）- 新增方法
-  Future<void> _signInWithFacebookNative() async {
+  /// ✅ Facebook OAuth 登录（系统浏览器）
+  /// iOS: 自动使用 ASWebAuthenticationSession
+  /// Android: 自动使用 Chrome Custom Tabs
+  Future<void> _signInWithFacebookOAuth() async {
     try {
-      debugPrint('[AuthService] 🔵 Starting Facebook native sign-in...');
+      debugPrint('[AuthService] 🔵 Starting Facebook OAuth sign-in...');
 
-      // 1. 使用 Facebook SDK 登录
-      final result = await FacebookAuth.instance.login(
-        permissions: ['public_profile', 'email'],
+      // 使用 Supabase OAuth flow（系统浏览器）
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: kIsWeb ? null : 'cc.swaply.app://login-callback',
+        // ✅ 不指定 authScreenLaunchMode，让 SDK 自动选择最佳方式：
+        // - iOS: ASWebAuthenticationSession（系统级安全登录页）
+        // - Android: Chrome Custom Tabs（类似效果）
+        //
+        // 如果需要强制使用外部浏览器（不推荐），可以设置：
+        // authScreenLaunchMode: LaunchMode.externalApplication,
       );
 
-      debugPrint('[AuthService] Facebook login status: ${result.status}');
-
-      // 2. 检查登录状态
-      if (result.status != LoginStatus.success) {
-        if (result.status == LoginStatus.cancelled) {
-          throw AuthException('Facebook login was cancelled');
-        } else {
-          throw AuthException('Facebook login failed: ${result.status}');
-        }
-      }
-
-      // 3. 获取 Access Token
-      final accessToken = result.accessToken;
-      if (accessToken == null) {
-        throw AuthException('Facebook access token is null');
-      }
-
-      debugPrint('[AuthService] Facebook access token obtained');
-
-      // 4. 使用 Facebook Access Token 登录 Supabase
-      await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.facebook,
-        idToken: accessToken.token,
-      );
-
-      debugPrint('[AuthService] ✅ Facebook native sign-in successful');
+      debugPrint('[AuthService] ✅ Facebook OAuth initiated');
     } catch (e, st) {
-      debugPrint('[AuthService] ❌ Facebook native sign-in error: $e\n$st');
+      debugPrint('[AuthService] ❌ Facebook OAuth error: $e\n$st');
       rethrow;
     }
   }
@@ -245,17 +229,19 @@ class AuthService {
     try {
       await signInWithNativeProvider(OAuthProvider.facebook);
 
-      // ✅ 等待 Supabase session 建立
-      final ok = await supabase.auth.onAuthStateChange
-          .map((e) => e.session?.user != null)
-          .firstWhere((v) => v, orElse: () => false)
-          .timeout(const Duration(seconds: 30), onTimeout: () => false);
+      // ✅ 注意：OAuth flow 后，session 由 Supabase 的 deep link 处理自动建立
+      // AuthFlowObserver 会处理导航到 /home
 
-      if (!ok) {
+      // 等待 session 建立（最多 5 秒）
+      final user = await supabase.auth.onAuthStateChange
+          .map((e) => e.session?.user)
+          .firstWhere((u) => u != null, orElse: () => null)
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
+
+      if (user == null) {
         throw AuthException('Facebook login session timeout');
       }
 
-      final user = supabase.auth.currentUser!;
       final existing = await supabase
           .from('profiles')
           .select('id')
