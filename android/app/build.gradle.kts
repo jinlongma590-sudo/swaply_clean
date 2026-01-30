@@ -8,7 +8,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// ✅ 读取签名配置
+// 读取签名配置
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 
@@ -16,8 +16,7 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
-// ✅ 关键：保证 Android 12+ SplashScreen API 所需的 SDK 版本足够高
-// （避免 flutter.compileSdkVersion / flutter.targetSdkVersion 被你环境里某些配置拉低）
+// 保证 Android 12+ SplashScreen API 所需的 SDK 版本足够高
 val resolvedCompileSdk = max(flutter.compileSdkVersion, 34)
 val resolvedTargetSdk = max(flutter.targetSdkVersion, 34)
 val resolvedMinSdk = max(flutter.minSdkVersion, 21)
@@ -45,7 +44,7 @@ android {
         versionName = flutter.versionName
     }
 
-    // ✅ 签名配置
+    // 签名配置
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
@@ -59,7 +58,6 @@ android {
 
     buildTypes {
         release {
-            // ✅ 使用 release 签名
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
@@ -76,17 +74,15 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
-    // ✅ 关键修复：提供 Theme.SplashScreen / postSplashScreenTheme
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // ✅ Firebase（推送通知）
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
 
-    // ✅ Facebook SDK - 修复 Facebook 登录问题
+    // Facebook SDK
     implementation("com.facebook.android:facebook-android-sdk:16.0.0")
 }
 
-// ✅ 应用 Google Services 插件（必须在文件最后）
 apply(plugin = "com.google.gms.google-services")

@@ -46,10 +46,9 @@ dependencies:
   supabase: ^2.10.0
   google_sign_in: ^6.2.1
   sign_in_with_apple:
-  flutter_facebook_auth: ^6.0.3  # ✅ 恢复：Facebook 原生登录支持
+  flutter_facebook_auth: 6.0.4  # 稳定版本,兼容性更好 # ✅ 新增：Facebook 原生 SDK（可直接拉起 Facebook App）
   crypto:
   flutter_custom_tabs:
-
   # ✅ 新增：骨架屏动画（HomePage 性能优化）
   shimmer: ^3.0.0
 

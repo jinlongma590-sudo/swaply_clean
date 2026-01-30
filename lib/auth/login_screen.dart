@@ -3,6 +3,7 @@
 // ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
 // ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
 // ✅ [修复] 登录页返回按钮跳转到 welcome 而不是 navPop（避免栈底页面无法返回）
+// ✅ [关键修复] 移除 OAuth 超时限制 - OAuth 是用户交互流程，不应强制超时
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/router/root_nav.dart';
 
@@ -12,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import 'dart:io'; // ✅ 新增：用于网络错误检测
+import 'dart:io'; // ✅ 用于网络错误检测
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // ========== ✅ 新增：网络错误检测工具 ==========
+  // ========== ✅ 网络错误检测工具 ==========
 
   /// 判断是否为网络相关错误
   bool _isNetworkError(dynamic error) {
@@ -96,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     return 'Network error. Please check your connection and try again.';
   }
 
-  /// 显示增强的网络错误提示 - 匹配您的UI风格
+  /// 显示增强的网络错误提示 - 匹配UI风格
   void _showNetworkError(String message) {
     if (!mounted) return;
 
@@ -160,8 +161,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ========== 原有方法增强版 ==========
+  // ========== ✅ 核心修复：移除 OAuth 超时限制 ==========
 
+  /// 统一 OAuth 启动器（移除超时限制）
   Future<void> _oauthSignIn(
       OAuthProvider provider, {
         Map<String, String>? queryParams,
@@ -180,20 +182,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     setState(() => _busy = true);
     try {
+      // ✅ 移除超时限制 - OAuth 是用户交互流程，不应强制超时
       await OAuthEntry.signIn(
         provider,
         queryParams: {
           if (queryParams != null) ...queryParams,
           'display': 'popup',
         },
-      ).timeout(const Duration(seconds: 20));
-    } on TimeoutException {
-      OAuthEntry.finish();
-      debugPrint('[Login._oauthSignIn] timeout/canceled');
-      if (mounted) {
-        // ✅ 使用新的网络错误提示
-        _showNetworkError('Login timeout. Please try again.');
-      }
+      );
     } catch (e, st) {
       OAuthEntry.finish();
       debugPrint('[Login._oauthSignIn] error: $e');
@@ -474,10 +470,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           ],
                         ),
                         child: InkWell(
-                          onTap: _busy || isOAuthInFlight ? null : _loginEmailPassword,
+                          onTap: _busy || isOAuthInFlight
+                              ? null
+                              : _loginEmailPassword,
                           child: Center(
                             child: _busy
-                                ? const CircularProgressIndicator(color: Colors.white)
+                                ? const CircularProgressIndicator(
+                                color: Colors.white)
                                 : Text(
                               'Sign In',
                               style: TextStyle(
@@ -501,7 +500,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         padding: EdgeInsets.symmetric(horizontal: 12.w),
                         child: Text(
                           'OR',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12.sp),
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 12.sp),
                         ),
                       ),
                       Expanded(child: Divider(color: Colors.grey[300])),
@@ -555,7 +555,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     children: [
                       Text(
                         "Don't have an account? ",
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12.sp),
+                        style: TextStyle(
+                            color: Colors.grey[600], fontSize: 12.sp),
                       ),
                       GestureDetector(
                         onTap: () => navPush('/register'),
@@ -638,7 +639,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             borderRadius: BorderRadius.all(Radius.circular(12)),
             borderSide: BorderSide(color: Colors.red, width: 1.5),
           ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          contentPadding:
+          EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
         ),
       ),
     );
@@ -690,7 +692,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
           padding: EdgeInsets.symmetric(horizontal: 12.w),
         ),
         child: Row(
@@ -698,7 +701,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           children: const [
             Icon(Icons.apple, size: 20),
             SizedBox(width: 8),
-            Text('Sign in with Apple', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text('Sign in with Apple',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ],
         ),
       ),

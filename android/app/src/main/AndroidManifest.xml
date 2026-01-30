@@ -8,8 +8,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
+        android:name=".SwaplyApplication"
         android:label="@string/app_name"
-        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
@@ -25,16 +25,26 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="swaply_notifications" />
 
-        <!-- ✅ [可选删除] Facebook SDK 配置 - 不再需要原生 SDK -->
-        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这两个 meta-data -->
-        <!--
+        <!-- ✅ Facebook SDK 配置 -->
         <meta-data
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/facebook_app_id"/>
         <meta-data
             android:name="com.facebook.sdk.ClientToken"
             android:value="@string/facebook_client_token"/>
-        -->
+
+        <!-- ✅ Facebook Login Activity -->
+        <activity
+            android:name="com.facebook.FacebookActivity"
+            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+            android:label="@string/app_name"
+            android:exported="false" />
+
+        <!-- ✅ Facebook Content Provider（可选，如需分享功能） -->
+        <provider
+            android:name="com.facebook.FacebookContentProvider"
+            android:authorities="com.facebook.app.FacebookContentProvider1286488642887674"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
@@ -81,8 +91,8 @@
                 <data android:host="swaply.cc" />
             </intent-filter>
 
-            <!-- ✅ [修改] OAuth 回调（Supabase 深链接） -->
-            <!-- 用于接收 Supabase OAuth 回调：cc.swaply.app://login-callback -->
+            <!-- ✅ OAuth 回调（用于其他 OAuth 提供商，如 Apple） -->
+            <!-- Facebook 使用原生 SDK，不需要 Deep Link 回调 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -90,8 +100,7 @@
                 <data android:scheme="cc.swaply.app" android:host="login-callback" />
             </intent-filter>
 
-            <!-- ✅ [保留] 兼容旧的 URL Scheme -->
-            <!-- 用于接收旧格式回调：swaply://login-callback -->
+            <!-- ✅ 兼容旧的 URL Scheme（保留以备后用） -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -100,26 +109,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ✅ [可选删除] Facebook Login Activity - 不再需要 -->
-        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这个 activity -->
-        <!--
-        <activity
-            android:name="com.facebook.FacebookActivity"
-            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
-            android:label="@string/app_name"
-            android:exported="false" />
-        -->
-
-        <!-- ✅ [可选删除] Facebook ContentProvider - 不再需要 -->
-        <!-- 如果你确定不使用 Facebook 原生 SDK，可以删除这个 provider -->
-        <!--
-        <provider
-            android:name="com.facebook.FacebookContentProvider"
-            android:authorities="com.facebook.app.FacebookContentProvider1286488642887674"
-            android:exported="false" />
-        -->
-
-        <!-- ✅ FCM service -->
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
             android:exported="false"
@@ -134,8 +123,23 @@
             android:value="2" />
     </application>
 
-    <!-- Package visibility for Process Text & common intents -->
+    <!-- ✅ 查询权限（Android 11+） -->
     <queries>
+        <!-- ⭐ Facebook 应用查询（必须保留！让应用能检测和拉起 Facebook App） -->
+        <package android:name="com.facebook.katana" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="fb" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="fbapi" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="fbauth2" />
+        </intent>
+
         <!-- 浏览器 -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -146,7 +150,7 @@
             <data android:scheme="http" />
         </intent>
 
-        <!-- 社交应用（可保留） -->
+        <!-- WhatsApp -->
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <intent>
@@ -154,6 +158,7 @@
             <data android:scheme="whatsapp" />
         </intent>
 
+        <!-- Telegram -->
         <package android:name="org.telegram.messenger" />
         <package android:name="org.telegram.messenger.web" />
         <intent>

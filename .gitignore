@@ -1,4 +1,4 @@
-﻿# Logs & crash dumps
+# Logs & crash dumps
 *.log
 hs_err_pid*.log
 *.hprof
@@ -22,3 +22,6 @@ android/app/build/
 android/local.properties
 secrets/
 secrets/
+
+# FVM Version Cache
+.fvm/

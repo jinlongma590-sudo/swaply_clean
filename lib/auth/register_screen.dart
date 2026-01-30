@@ -3,6 +3,7 @@
 // ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
 // ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
 // ✅ [新增] 监听 App 生命周期，从后台返回时自动清理 OAuth 状态
+// ✅ [关键修复] 移除 OAuth 超时限制 - OAuth 是用户交互流程，不应强制超时
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/router/root_nav.dart';
 
@@ -15,7 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/config/auth_config.dart';
 import 'package:swaply/services/profile_service.dart';
 import 'dart:async';
-import 'dart:io'; // ✅ 新增：用于网络错误检测
+import 'dart:io'; // ✅ 用于网络错误检测
 
 class RegisterScreen extends StatefulWidget {
   final String? invitationCode;
@@ -28,7 +29,8 @@ class RegisterScreen extends StatefulWidget {
   static void clearPendingCode() => pendingInvitationCode = null;
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObserver {
+class _RegisterScreenState extends State<RegisterScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
@@ -71,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     super.dispose();
   }
 
-  // ========== ✅ 新增：网络错误检测工具（与登录页相同） ==========
+  // ========== ✅ 网络错误检测工具（与登录页相同） ==========
 
   /// 判断是否为网络相关错误
   bool _isNetworkError(dynamic error) {
@@ -117,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     return 'Network error. Please check your connection and try again.';
   }
 
-  /// 显示增强的网络错误提示 - 匹配您的UI风格
+  /// 显示增强的网络错误提示 - 匹配UI风格
   void _showNetworkError(String message) {
     if (!mounted) return;
 
@@ -181,9 +183,9 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
     );
   }
 
-  // ========== 原有方法增强版 ==========
+  // ========== ✅ 核心修复：移除 OAuth 超时限制 ==========
 
-  /// 统一 OAuth 启动器（增强版：添加网络错误处理）
+  /// 统一 OAuth 启动器（移除超时限制）
   Future<void> _oauthSignIn(
       OAuthProvider provider, {
         Map<String, String>? queryParams,
@@ -202,20 +204,14 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
 
     setState(() => _busy = true);
     try {
+      // ✅ 移除超时限制 - OAuth 是用户交互流程，不应强制超时
       await OAuthEntry.signIn(
         provider,
         queryParams: {
           if (queryParams != null) ...queryParams,
           'display': 'popup',
         },
-      ).timeout(const Duration(seconds: 20));
-    } on TimeoutException {
-      OAuthEntry.finish();
-      debugPrint('[Register._oauthSignIn] timeout/canceled');
-      if (mounted) {
-        // ✅ 使用新的网络错误提示
-        _showNetworkError('Registration timeout. Please try again.');
-      }
+      );
     } catch (e, st) {
       OAuthEntry.finish();
       debugPrint('[Register._oauthSignIn] error: $e');
@@ -456,7 +452,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                       if (v == null || v.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$').hasMatch(v)) {
+                      if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$')
+                          .hasMatch(v)) {
                         return 'Please enter a valid email';
                       }
                       return null;
@@ -536,7 +533,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                       ),
                       onPressed: () {
                         setState(() {
-                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                          _isConfirmPasswordVisible =
+                          !_isConfirmPasswordVisible;
                         });
                       },
                     ),
@@ -644,7 +642,9 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                           ],
                         ),
                         child: InkWell(
-                          onTap: _isLoading || isOAuthInFlight ? null : _register,
+                          onTap: _isLoading || isOAuthInFlight
+                              ? null
+                              : _register,
                           child: Center(
                             child: _isLoading
                                 ? const CircularProgressIndicator(
@@ -672,7 +672,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                         padding: EdgeInsets.symmetric(horizontal: 12.w),
                         child: Text(
                           'OR',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12.sp),
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 12.sp),
                         ),
                       ),
                       Expanded(child: Divider(color: Colors.grey[300])),
@@ -715,7 +716,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     ValueListenableBuilder<bool>(
                       valueListenable: OAuthEntry.inFlightNotifier,
                       builder: (context, isOAuthInFlight, child) {
-                        return _appleSignInButtonIOS(disabled: isOAuthInFlight);
+                        return _appleSignInButtonIOS(
+                            disabled: isOAuthInFlight);
                       },
                     ),
 
@@ -726,7 +728,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12.sp),
+                        style: TextStyle(
+                            color: Colors.grey[600], fontSize: 12.sp),
                       ),
                       GestureDetector(
                         onTap: () => navPop(),
@@ -772,7 +775,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                 setState(() => _showInvitationCode = !_showInvitationCode),
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(12.r),
-              bottom: _showInvitationCode ? Radius.zero : Radius.circular(12.r),
+              bottom:
+              _showInvitationCode ? Radius.zero : Radius.circular(12.r),
             ),
             child: Padding(
               padding: EdgeInsets.all(12.r),
@@ -805,14 +809,16 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                         ),
                         Text(
                           "Get extra rewards with friend's invitation",
-                          style:
-                          TextStyle(fontSize: 11.sp, color: Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 11.sp, color: Colors.grey[600]),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    _showInvitationCode ? Icons.expand_less : Icons.expand_more,
+                    _showInvitationCode
+                        ? Icons.expand_less
+                        : Icons.expand_more,
                     color: Colors.grey[600],
                     size: 20.r,
                   ),
@@ -837,8 +843,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                     textCapitalization: TextCapitalization.characters,
                     decoration: InputDecoration(
                       hintText: 'Enter invitation code',
-                      hintStyle:
-                      TextStyle(fontSize: 12.sp, color: Colors.grey[400]),
+                      hintStyle: TextStyle(
+                          fontSize: 12.sp, color: Colors.grey[400]),
                       prefixIcon: Icon(
                         Icons.vpn_key,
                         size: 18.r,
@@ -850,8 +856,8 @@ class _RegisterScreenState extends State<RegisterScreen> with WidgetsBindingObse
                         borderRadius: BorderRadius.circular(10.r),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12.w, vertical: 10.h),
                     ),
                     validator: (v) {
                       if (v != null && v.isNotEmpty && v.length < 6) {

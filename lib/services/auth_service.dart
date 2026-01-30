@@ -1,9 +1,13 @@
 ﻿// lib/services/auth_service.dart
 // 登录/注册/OAuth 统一：
 // - Apple：iOS 原生；Android 用系统浏览器
-// - Google：原生 SDK（完全应用内）
-// - Facebook：Web 中转方案 ✅ 仅修改此部分
-// 备注：为兼容你当前的 supabase_flutter 版本，移除了 flowType / OAuthFlowType
+// - Google：原生 SDK（完全应用内）✅
+// - Facebook：原生 SDK（完全应用内）✅ 可直接拉起 Facebook App
+//
+// ⚠️ 架构原则（Swaply 架构铁律）：
+// - AuthFlowObserver 是唯一鉴权仲裁者
+// - 本服务只负责启动认证流程，不处理导航
+// - 所有登录后的导航、Profile创建、FCM初始化由 AuthFlowObserver 统一处理
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -14,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:swaply/services/apple_auth_service.dart';
+import 'package:swaply/services/facebook_auth_service.dart'; // ✅ 新增
 
 import 'package:swaply/config/auth_config.dart';
 import 'package:swaply/services/profile_service.dart';
@@ -50,7 +55,7 @@ class AuthService {
         break;
 
       case OAuthProvider.facebook:
-        await _signInWithFacebookOAuth(); // ✅ 修改：使用 Web 中转
+        await _signInWithFacebookNative(); // ✅ 改用原生 SDK
         break;
 
       default:
@@ -93,29 +98,35 @@ class AuthService {
     }
   }
 
-  /// ✅ Facebook OAuth 登录（Web 中转方案）- 已修改
+  /// ✅ Facebook 原生登录（NEW - 可直接拉起 Facebook App）
   ///
   /// 流程：
-  /// 1. Facebook 授权
-  /// 2. 重定向到 https://swaply.cc/auth/callback (Next.js 页面)
-  /// 3. 页面 JavaScript 自动跳转到 cc.swaply.app://login-callback
-  /// 4. iOS 唤醒 App，Supabase 处理 OAuth callback
-  /// 5. AuthFlowObserver 自动导航到 /home
-  Future<void> _signInWithFacebookOAuth() async {
+  /// 1. 使用 flutter_facebook_auth 调起 Facebook App（如已安装）
+  /// 2. 用户在 Facebook App 中授权
+  /// 3. 获取 Facebook Access Token
+  /// 4. 使用 Supabase signInWithIdToken() 创建 session
+  /// 5. AuthFlowObserver 自动处理后续流程
+  ///
+  /// 优势：
+  /// - ✅ 可以直接拉起 Facebook App（无需浏览器）
+  /// - ✅ 用户体验更好（类似 Google 登录）
+  /// - ✅ 不需要配置复杂的 Deep Link 回调
+  /// - ✅ 符合 Swaply 架构原则
+  Future<void> _signInWithFacebookNative() async {
     try {
-      debugPrint('[AuthService] 🔵 Starting Facebook OAuth (Web redirect)...');
-      debugPrint('[AuthService] redirectTo: https://swaply.cc/auth/callback');
+      debugPrint('[AuthService] 🔵 Starting Facebook native login...');
 
-      // 使用 Web URL 中转（Facebook 只接受 HTTPS）
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.facebook,
-        redirectTo: kIsWeb ? null : 'https://swaply.cc/auth/callback',
-      );
+      final success = await FacebookAuthService.instance.signIn();
 
-      debugPrint('[AuthService] ✅ Facebook OAuth initiated');
-      debugPrint('[AuthService] ⏳ Waiting for web redirect → app deep link...');
+      if (!success) {
+        throw AuthException('Facebook sign-in failed or was cancelled');
+      }
+
+      debugPrint('[AuthService] ✅ Facebook native login successful');
+      // AuthFlowObserver 会自动处理后续流程
+
     } catch (e, st) {
-      debugPrint('[AuthService] ❌ Facebook OAuth error: $e\n$st');
+      debugPrint('[AuthService] ❌ Facebook native login error: $e\n$st');
       rethrow;
     }
   }
@@ -225,30 +236,30 @@ class AuthService {
     }
   }
 
-  /// ✅ Facebook 登录（修复了类型错误 + Web 中转）
+  /// ✅ Facebook 登录（NEW - 使用原生 SDK）
+  ///
+  /// 架构说明：
+  /// - 使用 flutter_facebook_auth 原生 SDK
+  /// - 可以直接拉起 Facebook App 授权
+  /// - AuthFlowObserver 会自动处理后续流程（导航、Profile、FCM）
+  /// - 符合 Swaply 架构原则
+  ///
+  /// 返回值：
+  /// - true: 新用户（需要显示欢迎页面）
+  /// - false: 老用户或用户取消
   Future<bool> signInWithFacebook() async {
     try {
+      debugPrint('[AuthService] 🔵 Facebook login starting...');
+
       await signInWithNativeProvider(OAuthProvider.facebook);
 
-      // ✅ 注意：OAuth flow 后，session 由 Supabase 的 deep link 处理自动建立
-      // AuthFlowObserver 会处理导航到 /home
-
-      // 等待 session 建立（最多 10 秒）- 修复了类型错误
-      User? user;
-      try {
-        user = await supabase.auth.onAuthStateChange
-            .map((e) => e.session?.user)
-            .firstWhere((u) => u != null, orElse: () => null)
-            .timeout(const Duration(seconds: 10));
-      } on TimeoutException {
-        debugPrint('[AuthService] ❌ Facebook session timeout');
-        throw Exception('Facebook login timeout - please try again');
-      }
-
+      final user = supabase.auth.currentUser;
       if (user == null) {
-        throw Exception('Facebook login failed - no session');
+        debugPrint('[AuthService] ⚠️ User is null after Facebook login');
+        return false;
       }
 
+      // 检查是否为新用户
       final existing = await supabase
           .from('profiles')
           .select('id')
@@ -256,21 +267,23 @@ class AuthService {
           .maybeSingle();
       final isNew = existing == null;
 
+      // 创建或更新 Profile
       await ProfileService.instance.ensureProfileAndWelcome(
         userId: user.id,
         email: user.email,
-        fullName: user.userMetadata?['name'] ?? user.userMetadata?['full_name'],
+        fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'],
         avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
+      // 初始化 FCM
       await NotificationService.initializeFCM();
+
+      debugPrint('[AuthService] ✅ Facebook login successful, isNew=$isNew');
       return isNew;
-    } on Exception catch (e) {
-      debugPrint('[AuthService] ❌ Facebook login error: $e');
+
+    } catch (e, st) {
+      debugPrint('[AuthService] ❌ Facebook login error: $e\n$st');
       rethrow;
-    } catch (e) {
-      debugPrint('[AuthService] ❌ Unexpected error: $e');
-      throw Exception('Facebook login failed: $e');
     }
   }
 
@@ -341,6 +354,9 @@ class AuthService {
 
     _signingOut = true;
     try {
+      // ✅ 同时登出 Facebook SDK（如果使用了 Facebook 登录）
+      await FacebookAuthService.instance.signOut();
+
       await Supabase.instance.client.auth
           .signOut(scope: global ? SignOutScope.global : SignOutScope.local);
     } catch (e, st) {
