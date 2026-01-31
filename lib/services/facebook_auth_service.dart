@@ -40,13 +40,13 @@ class FacebookAuthService {
       }
 
       final AccessToken? accessToken = result.accessToken;
-      if (accessToken == null || accessToken.tokenString.isEmpty) {
+      if (accessToken == null || accessToken.token.isEmpty) {
         debugPrint('[FacebookAuth] ❌ No access token received');
         return false;
       }
 
       debugPrint('[FacebookAuth] ✅ Got Facebook access token');
-      debugPrint('[FacebookAuth] Token type: ${accessToken.type}');
+      // Token type no longer available in this version
 
       // Step 2: Call Edge Function to get temporary password
       debugPrint('[FacebookAuth] 🔄 Calling Edge Function...');
@@ -59,7 +59,7 @@ class FacebookAuthService {
           'apikey': _anonKey,
         },
         body: json.encode({
-          'accessToken': accessToken.tokenString,
+          'accessToken': accessToken.token,
         }),
       );
 

@@ -24,7 +24,7 @@ dependencies:
   firebase_messaging: ^15.1.6
 
   # 通知 / 深链 / 启动等
-  flutter_local_notifications:
+  flutter_local_notifications: ^17.0.0
   url_launcher:
   app_links:
 
@@ -46,7 +46,7 @@ dependencies:
   supabase: ^2.10.0
   google_sign_in: ^6.2.1
   sign_in_with_apple:
-  flutter_facebook_auth: 6.0.4  # 稳定版本,兼容性更好 # ✅ 新增：Facebook 原生 SDK（可直接拉起 Facebook App）
+  flutter_facebook_auth: ^6.2.0
   crypto:
   flutter_custom_tabs:
   # ✅ 新增：骨架屏动画（HomePage 性能优化）
