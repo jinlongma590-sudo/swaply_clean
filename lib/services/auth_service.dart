@@ -1,16 +1,9 @@
 ﻿// lib/services/auth_service.dart
-// 登录/注册/OAuth 统一：
-// - Apple：iOS 原生；Android 用系统浏览器
-// - Google：原生 SDK（完全应用内）✅
-// - Facebook：原生 SDK（完全应用内）✅ 可直接拉起 Facebook App
-//
-// ⚠️ 架构原则（Swaply 架构铁律）：
-// - AuthFlowObserver 是唯一鉴权仲裁者
-// - 本服务只负责启动认证流程，不处理导航
-// - 所有登录后的导航、Profile创建、FCM初始化由 AuthFlowObserver 统一处理
-
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:swaply/services/apple_auth_service.dart';
-import 'package:swaply/services/facebook_auth_service.dart'; // ✅ 新增
+import 'package:swaply/services/facebook_auth_service.dart';
 
 import 'package:swaply/config/auth_config.dart';
 import 'package:swaply/services/profile_service.dart';
@@ -30,8 +23,20 @@ class AuthService {
 
   User? get currentUser => supabase.auth.currentUser;
   bool get isSignedIn => currentUser != null;
-
   bool get isEmailVerified => false;
+
+  // ====== Nonce 工具函数 ======
+  String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
 
   // ====== 应用内认证统一入口 ======
   Future<void> signInWithNativeProvider(OAuthProvider provider) async {
@@ -40,7 +45,6 @@ class AuthService {
         if (Platform.isIOS) {
           await _signInWithAppleNative();
         } else {
-          // Android：使用系统浏览器（Chrome Custom Tabs）
           await Supabase.instance.client.auth.signInWithOAuth(
             OAuthProvider.apple,
             authScreenLaunchMode: LaunchMode.externalApplication,
@@ -55,7 +59,7 @@ class AuthService {
         break;
 
       case OAuthProvider.facebook:
-        await _signInWithFacebookNative(); // ✅ 改用原生 SDK
+        await _signInWithFacebookNative();
         break;
 
       default:
@@ -71,47 +75,51 @@ class AuthService {
     }
   }
 
-  /// Google 原生登录（iOS/Android）
+  /// ✅ Google 原生登录（完美修复 iOS 报错，Android 兼容）
   Future<void> _signInWithGoogleNative() async {
     try {
-      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
-      // 如需强制账号选择器可先 signOut：await googleSignIn.signOut();
+      debugPrint('[AuthService] 🔵 Starting Google native login...');
 
-      final googleUser = await googleSignIn.signIn();
+      // ✅ 使用 Web Client ID (来自 Google Cloud Console "Swaply OAuth")
+      // 这会让 iOS SDK 生成 Supabase 后端可验证的 OIDC Token，绕过 Nonce 校验死锁
+      const webClientId = '947323234114-g5sd06ljn4n68dsq4o95khogm1tc48pq.apps.googleusercontent.com';
+
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        // 关键点：传入 serverClientId
+        serverClientId: webClientId,
+      );
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        throw AuthException('Google sign-in was cancelled');
+        throw const AuthException('Google sign-in was cancelled');
       }
 
-      final googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 使用 serverClientId 后，idToken 依然存在且有效
       if (googleAuth.idToken == null) {
-        throw AuthException('Google ID token is null');
+        throw const AuthException('Google ID token is null');
       }
 
+      debugPrint('[AuthService] ✅ Got Google ID token');
+
+      // 将 Token 发送给 Supabase 进行验证和登录
       await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: googleAuth.idToken!,
         accessToken: googleAuth.accessToken,
       );
-    } catch (e) {
-      debugPrint('[AuthService] Google native sign-in error: $e');
+
+      debugPrint('[AuthService] ✅ Google login successful');
+
+    } catch (e, st) {
+      debugPrint('[AuthService] ❌ Google native sign-in error: $e\n$st');
       rethrow;
     }
   }
 
-  /// ✅ Facebook 原生登录（NEW - 可直接拉起 Facebook App）
-  ///
-  /// 流程：
-  /// 1. 使用 flutter_facebook_auth 调起 Facebook App（如已安装）
-  /// 2. 用户在 Facebook App 中授权
-  /// 3. 获取 Facebook Access Token
-  /// 4. 使用 Supabase signInWithIdToken() 创建 session
-  /// 5. AuthFlowObserver 自动处理后续流程
-  ///
-  /// 优势：
-  /// - ✅ 可以直接拉起 Facebook App（无需浏览器）
-  /// - ✅ 用户体验更好（类似 Google 登录）
-  /// - ✅ 不需要配置复杂的 Deep Link 回调
-  /// - ✅ 符合 Swaply 架构原则
+  /// ✅ Facebook 原生登录
   Future<void> _signInWithFacebookNative() async {
     try {
       debugPrint('[AuthService] 🔵 Starting Facebook native login...');
@@ -123,7 +131,6 @@ class AuthService {
       }
 
       debugPrint('[AuthService] ✅ Facebook native login successful');
-      // AuthFlowObserver 会自动处理后续流程
 
     } catch (e, st) {
       debugPrint('[AuthService] ❌ Facebook native login error: $e\n$st');
@@ -132,7 +139,6 @@ class AuthService {
   }
 
   // ====== 会话手动刷新（保留接口，但默认不用）======
-  DateTime? _lastRefresh;
   Future<void> refreshSession({Duration minInterval = const Duration(seconds: 30)}) async {
     debugPrint('[AuthService] refreshSession() disabled. Using Supabase auto-refresh.');
     return;
@@ -236,17 +242,6 @@ class AuthService {
     }
   }
 
-  /// ✅ Facebook 登录（NEW - 使用原生 SDK）
-  ///
-  /// 架构说明：
-  /// - 使用 flutter_facebook_auth 原生 SDK
-  /// - 可以直接拉起 Facebook App 授权
-  /// - AuthFlowObserver 会自动处理后续流程（导航、Profile、FCM）
-  /// - 符合 Swaply 架构原则
-  ///
-  /// 返回值：
-  /// - true: 新用户（需要显示欢迎页面）
-  /// - false: 老用户或用户取消
   Future<bool> signInWithFacebook() async {
     try {
       debugPrint('[AuthService] 🔵 Facebook login starting...');
@@ -259,7 +254,6 @@ class AuthService {
         return false;
       }
 
-      // 检查是否为新用户
       final existing = await supabase
           .from('profiles')
           .select('id')
@@ -267,7 +261,6 @@ class AuthService {
           .maybeSingle();
       final isNew = existing == null;
 
-      // 创建或更新 Profile
       await ProfileService.instance.ensureProfileAndWelcome(
         userId: user.id,
         email: user.email,
@@ -275,7 +268,6 @@ class AuthService {
         avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
-      // 初始化 FCM
       await NotificationService.initializeFCM();
 
       debugPrint('[AuthService] ✅ Facebook login successful, isNew=$isNew');
@@ -287,7 +279,7 @@ class AuthService {
     }
   }
 
-  // —— 可复用的 profile 写入工具（保留以备后用） —— //
+  // —— 可复用的 profile 写入工具 —— //
   Future<void> _createOrUpdateUserProfile({
     required String userId,
     String? email,
@@ -354,7 +346,6 @@ class AuthService {
 
     _signingOut = true;
     try {
-      // ✅ 同时登出 Facebook SDK（如果使用了 Facebook 登录）
       await FacebookAuthService.instance.signOut();
 
       await Supabase.instance.client.auth
@@ -387,6 +378,5 @@ class AuthService {
     }
   }
 
-  // 原生事件流
   Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
 }

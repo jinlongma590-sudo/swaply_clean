@@ -29,6 +29,8 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # ✅ 关键：不要在 Podfile 里手动 pin FBSDK 版本
+  # 让 flutter_facebook_auth 自己通过 podspec 解析 FBSDKLoginKit (~> 17.1.0)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
@@ -36,7 +38,7 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
-    # 🔧 关键: 设置所有 pods 的部署目标为 iOS 13.0
+    # ✅ 统一设置所有 Pods 的部署目标，避免出现 “required a higher minimum deployment target”
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end

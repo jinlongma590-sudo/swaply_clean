@@ -29,6 +29,7 @@
        <key>UIMainStoryboardFile</key>
        <string>Main</string>
 
+       <!-- ========== 设备方向设置 ========== -->
        <!-- iPhone 方向 -->
        <key>UISupportedInterfaceOrientations</key>
        <array>
@@ -41,14 +42,17 @@
        <key>UIRequiresFullScreen</key>
        <true/>
 
+       <!-- ========== 性能和UI设置 ========== -->
        <key>CADisableMinimumFrameDurationOnPhone</key>
        <true/>
        <key>UIApplicationSupportsIndirectInputEvents</key>
        <true/>
        <key>UIStatusBarHidden</key>
        <true/>
+       <key>UIViewControllerBasedStatusBarAppearance</key>
+       <false/>
 
-       <!-- 权限描述 -->
+       <!-- ========== 隐私权限描述 ========== -->
        <key>NSPhotoLibraryUsageDescription</key>
        <string>We need access to your photos so you can upload item pictures to your listings.</string>
        <key>NSPhotoLibraryAddUsageDescription</key>
@@ -62,6 +66,10 @@
        <key>NSFaceIDUsageDescription</key>
        <string>We use Face ID to secure your app data</string>
 
+       <!-- ✅ iOS 14+ 跟踪权限（Facebook 经典登录必需） -->
+       <key>NSUserTrackingUsageDescription</key>
+       <string>We use this to provide you with a better experience and to show relevant content.</string>
+
        <!-- ========== Facebook 配置 ========== -->
        <key>FacebookAppID</key>
        <string>1286488642887674</string>
@@ -72,7 +80,25 @@
        <key>FacebookClientToken</key>
        <string>c9abdffdb869f25d95fb42c3824cfdcc</string>
 
-       <!-- Background modes -->
+       <!-- Facebook 自动记录应用事件 -->
+       <key>FacebookAutoLogAppEventsEnabled</key>
+       <true/>
+
+       <!-- Facebook 广告追踪 -->
+       <key>FacebookAdvertiserIDCollectionEnabled</key>
+       <true/>
+
+       <!-- ✅ 禁用 Limited Login，强制使用经典登录 -->
+       <key>FacebookLimitedLoginEnabled</key>
+       <false/>
+
+       <!-- ========== Google Sign-In 配置 ========== -->
+       <!-- ⚠️ 重要：请从您的 GoogleService-Info.plist 文件中获取正确的 CLIENT_ID -->
+       <!-- CLIENT_ID 格式: XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com -->
+       <key>GIDClientID</key>
+       <string>947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e.apps.googleusercontent.com</string>
+
+       <!-- ========== 后台模式 ========== -->
        <key>UIBackgroundModes</key>
        <array>
           <string>remote-notification</string>
@@ -80,21 +106,21 @@
           <string>processing</string>
        </array>
 
-       <!-- BGTask identifiers -->
+       <!-- ========== BGTask 标识符 ========== -->
        <key>BGTaskSchedulerPermittedIdentifiers</key>
        <array>
           <string>cc.swaply.app.bgrefresh</string>
           <string>cc.swaply.app.bgprocessing</string>
        </array>
 
-       <!-- Flutter deep link support -->
+       <!-- ========== Flutter Deep Link 支持 ========== -->
        <key>FlutterDeepLinkingEnabled</key>
        <true/>
 
-       <!-- URL Schemes -->
+       <!-- ========== URL Schemes 配置 ========== -->
        <key>CFBundleURLTypes</key>
        <array>
-          <!-- ✅ 修复：cc.swaply.app scheme -->
+          <!-- App Bundle ID scheme -->
           <dict>
              <key>CFBundleTypeRole</key>
              <string>Editor</string>
@@ -105,7 +131,8 @@
                 <string>cc.swaply.app</string>
              </array>
           </dict>
-          <!-- ✅ 修复：Supabase scheme -->
+
+          <!-- Supabase scheme -->
           <dict>
              <key>CFBundleTypeRole</key>
              <string>Editor</string>
@@ -116,7 +143,8 @@
                 <string>io.supabase.flutter</string>
              </array>
           </dict>
-          <!-- ✅ 修复：swaply scheme -->
+
+          <!-- Swaply custom scheme -->
           <dict>
              <key>CFBundleTypeRole</key>
              <string>Editor</string>
@@ -127,19 +155,25 @@
                 <string>swaply</string>
              </array>
           </dict>
-          <!-- Google REVERSED_CLIENT_ID -->
+
+          <!-- Google REVERSED_CLIENT_ID (从 GoogleService-Info.plist 获取) -->
           <dict>
              <key>CFBundleTypeRole</key>
              <string>Editor</string>
+             <key>CFBundleURLName</key>
+             <string>com.google</string>
              <key>CFBundleURLSchemes</key>
              <array>
                 <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
              </array>
           </dict>
-          <!-- ✅ 修复：Facebook URL Scheme -->
+
+          <!-- Facebook URL Scheme -->
           <dict>
              <key>CFBundleTypeRole</key>
              <string>Editor</string>
+             <key>CFBundleURLName</key>
+             <string>com.facebook</string>
              <key>CFBundleURLSchemes</key>
              <array>
                 <string>fb1286488642887674</string>
@@ -147,21 +181,39 @@
           </dict>
        </array>
 
-       <!-- 外部 app scheme 查询白名单 -->
+       <!-- ========== 外部 App Scheme 查询白名单 ========== -->
        <key>LSApplicationQueriesSchemes</key>
        <array>
+          <!-- Google schemes -->
           <string>google</string>
+          <string>googlechrome</string>
+          <string>googlechromes</string>
+          <string>com.google.gpay</string>
+
+          <!-- Messaging apps -->
           <string>whatsapp</string>
           <string>whatsapp-business</string>
           <string>tg</string>
+
           <!-- Facebook schemes -->
           <string>fbapi</string>
+          <string>fb-messenger-share-api</string>
           <string>fbauth2</string>
           <string>fbshareextension</string>
-          <string>fb-messenger-share-api</string>
        </array>
 
-       <key>UIViewControllerBasedStatusBarAppearance</key>
-       <false/>
+       <!-- ========== SKAdNetwork 标识符（Facebook 广告网络必需） ========== -->
+       <key>SKAdNetworkItems</key>
+       <array>
+          <dict>
+             <key>SKAdNetworkIdentifier</key>
+             <string>v9wttpbfk9.skadnetwork</string>
+          </dict>
+          <dict>
+             <key>SKAdNetworkIdentifier</key>
+             <string>n38lu8286q.skadnetwork</string>
+          </dict>
+       </array>
+
     </dict>
 </plist>
