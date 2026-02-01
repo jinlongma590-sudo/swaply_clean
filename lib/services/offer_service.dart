@@ -1,11 +1,10 @@
 // lib/services/offer_service.dart
 // 报价服务 + 举报/屏蔽支持（对齐 reports/blocks 表结构）
-// ✅ [Offer消息修复] 创建offer时同时创建通知并传递message
+// ✅ [修复] 删除重复的通知创建逻辑，由数据库触发器自动处理
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/models/offer.dart';
-import 'package:swaply/services/notification_service.dart';
 
 /// ===== 顶层声明：屏蔽状态 =====
 class BlockStatus {
@@ -187,7 +186,7 @@ class OfferService {
 
   // ================== 下面维持你原有的报价逻辑 ==================
 
-  /// ✅ [Offer消息修复] 创建新报价并发送通知
+  /// ✅ [修复] 创建新报价，通知由数据库触发器自动创建和发送
   static Future<Map<String, dynamic>?> createOffer({
     required String listingId,
     required String sellerId,
@@ -241,57 +240,9 @@ class OfferService {
 
       _debugPrint('Offer created successfully: ${result['id']}');
 
-      // ✅ [Offer消息修复] 创建通知
-      final offerId = result['id']?.toString();
-      if (offerId != null) {
-        try {
-          // 获取商品标题
-          String listingTitle = 'your item';
-          try {
-            final listing = await _client
-                .from('listings')
-                .select('title')
-                .eq('id', listingId)
-                .maybeSingle();
-            if (listing != null && listing['title'] != null) {
-              listingTitle = listing['title'].toString();
-            }
-          } catch (_) {}
-
-          // 获取买家名称
-          String? buyerNameForNotif = buyerName;
-          if (buyerNameForNotif == null || buyerNameForNotif == 'Anonymous') {
-            try {
-              final profile = await _client
-                  .from('profiles')
-                  .select('full_name')
-                  .eq('id', buyerId)
-                  .maybeSingle();
-              if (profile != null && profile['full_name'] != null) {
-                buyerNameForNotif = profile['full_name'].toString();
-              }
-            } catch (_) {}
-          }
-
-          // 创建通知
-          await NotificationService.createOfferNotification(
-            sellerId: sellerId,
-            buyerId: buyerId,
-            offerId: offerId,
-            listingId: listingId,
-            offerAmount: offerAmount,
-            listingTitle: listingTitle,
-            buyerName: buyerNameForNotif,
-            buyerPhone: buyerPhone,
-            message: message,
-          );
-
-          _debugPrint('Offer notification created successfully');
-        } catch (e) {
-          _debugPrint('Failed to create notification: $e');
-          // 通知创建失败不影响offer创建成功
-        }
-      }
+      // ✅ 通知由数据库触发器 create_offer_notification() 自动创建
+      // ✅ 触发器会调用 notifications_insert_push 自动发送 FCM 推送
+      _debugPrint('Notification and push will be handled by database trigger');
 
       return result;
     } catch (e) {
