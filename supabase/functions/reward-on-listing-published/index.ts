@@ -1,0 +1,681 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+type LotteryPoolItem =
+  | {
+      type: "boost_coupon";
+      coupon_type: "category" | "search" | "trending";
+      pin_days?: number;
+      weight: number;
+    }
+  | { type: "airtime_points"; points: number; weight: number };
+
+function pickWeighted<T extends { weight: number }>(items: T[]): T {
+  const total = items.reduce((s, it) => s + (it.weight || 0), 0);
+  if (total <= 0) throw new Error("Invalid pool weights");
+  const r = Math.floor(Math.random() * total) + 1;
+  let acc = 0;
+  for (const it of items) {
+    acc += it.weight || 0;
+    if (r <= acc) return it;
+  }
+  return items[items.length - 1];
+}
+
+// coupons.type：你现有系统中通常是 category / featured
+// 这里保持兼容：search/trending 都映射为 featured；真正置顶类型用 pin_scope 控制
+function mapScopeToType(scope: "category" | "search" | "trending"): string {
+  if (scope === "category") return "category";
+  return "featured"; // search / trending
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Auth
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header");
+    const token = authHeader.replace("Bearer ", "");
+
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !userData?.user) throw new Error("Authentication failed");
+    const user = userData.user;
+
+    // Body
+    const body = await req.json().catch(() => ({}));
+    const listing_id = body.listing_id as string | undefined;
+    const device_id = body.device_id as string | undefined;
+
+    if (!listing_id) {
+      return new Response(JSON.stringify({ ok: false, error: "listing_id is required" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from("reward_campaigns")
+      .select("id, code, is_enabled, rules")
+      .eq("code", "launch_v1")
+      .eq("is_enabled", true)
+      .maybeSingle();
+
+    if (campaignError || !campaign) {
+      return new Response(JSON.stringify({ ok: false, error: "Campaign not found or disabled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    const rules = campaign.rules || {};
+    const minPrice = Number(rules.min_listing_price || 50);
+    const minImageCount = Number(rules.min_image_count || 2);
+
+    // Listing check
+    const { data: listing, error: listingError } = await supabase
+      .from("listings")
+      .select("id, user_id, images, title, category, city, price, status, is_active")
+      .eq("id", listing_id)
+      .single();
+
+    if (listingError || !listing) {
+      return new Response(JSON.stringify({ ok: false, error: "Listing not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    if (listing.user_id !== user.id) {
+      return new Response(JSON.stringify({ ok: false, error: "Not your listing" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
+
+    const images = Array.isArray(listing.images)
+      ? listing.images
+      : listing.images
+      ? [listing.images]
+      : [];
+
+    const isQualified =
+      images.length >= minImageCount &&
+      !!listing.title?.trim?.() &&
+      !!listing.category?.trim?.() &&
+      !!listing.city?.trim?.() &&
+      listing.price != null &&
+      Number(listing.price) >= minPrice &&
+      listing.status === "active" &&
+      listing.is_active !== false;
+
+    if (!isQualified) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          reason: "not_qualified",
+          detail: {
+            images: images.length,
+            min_images: minImageCount,
+            price: listing.price,
+            min_price: minPrice,
+            status: listing.status,
+            is_active: listing.is_active,
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // ✅ 读取 state（含 spins_balance）
+    const { data: state } = await supabase
+      .from("user_reward_state")
+      .select("qualified_listings_count, airtime_points, spins_balance")
+      .eq("user_id", user.id)
+      .eq("campaign_code", campaign.code)
+      .maybeSingle();
+
+    const isFirstListing = !state || state.qualified_listings_count === 0;
+
+    // Device risk (first listing only)
+    if (device_id && isFirstListing && rules.device_fingerprint_enabled) {
+      const { data: deviceRow } = await supabase
+        .from("reward_device_map")
+        .select("user_id")
+        .eq("device_id", device_id)
+        .maybeSingle();
+
+      if (deviceRow && deviceRow.user_id !== user.id) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            reason: "device_blocked",
+            message: "Device already claimed first-listing reward",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+        );
+      }
+
+      await supabase.from("reward_device_map").upsert(
+        { device_id, user_id: user.id, first_seen_at: new Date().toISOString() },
+        { onConflict: "device_id" }
+      );
+    }
+
+    // Idempotency (listing_id unique)
+    const { error: eventError } = await supabase.from("reward_listing_events").insert({
+      user_id: user.id,
+      listing_id,
+      campaign_code: campaign.code,
+      qualified: true,
+      device_fingerprint: device_id || null,
+    });
+
+    // -------------------- helpers --------------------
+
+    // ✅ CAS 安全加 spin：重试避免并发丢更新
+    async function addSpinsCAS(add: number): Promise<number> {
+      const maxRetry = 6;
+
+      for (let i = 0; i < maxRetry; i++) {
+        const { data: st, error: stErr } = await supabase
+          .from("user_reward_state")
+          .select("spins_balance")
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaign.code)
+          .maybeSingle();
+
+        if (stErr) throw new Error(`Failed to read spins: ${stErr.message}`);
+
+        const oldSpins = Number(st?.spins_balance ?? 0);
+        const nextSpins = oldSpins + add;
+
+        const { data: upd, error: updErr } = await supabase
+          .from("user_reward_state")
+          .update({ spins_balance: nextSpins, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaign.code)
+          .eq("spins_balance", oldSpins)
+          .select("spins_balance")
+          .maybeSingle();
+
+        if (!updErr && upd?.spins_balance != null) return Number(upd.spins_balance);
+      }
+
+      const { data: finalSt } = await supabase
+        .from("user_reward_state")
+        .select("spins_balance")
+        .eq("user_id", user.id)
+        .eq("campaign_code", campaign.code)
+        .maybeSingle();
+
+      return Number(finalSt?.spins_balance ?? 0);
+    }
+
+    async function issueCoupon(scope: "category" | "search" | "trending", pinDays: number, triggerN: number) {
+      const couponType = mapScopeToType(scope);
+      const scopeNames: Record<string, string> = { category: "Category", search: "Search", trending: "Trending" };
+
+      const title = `${pinDays}-Day ${scopeNames[scope]} Boost`;
+      const description = `Reward for publishing #${triggerN} qualified listing`;
+
+      const { data: couponId, error: couponError } = await supabase.rpc("_coupon_insert_v2", {
+        p_user: user.id,
+        p_source: "lottery_reward",
+        p_type: couponType,
+        p_title: title,
+        p_desc: description,
+        p_code_prefix: "RWD",
+        p_valid_days: 30,
+        p_metadata: {
+          source: "lottery_reward",
+          trigger_n: triggerN,
+          listing_id,
+          campaign_code: campaign.code,
+        },
+      });
+
+      if (couponError) throw new Error(`Failed to issue coupon: ${couponError.message}`);
+      if (!couponId || typeof couponId !== "string") throw new Error("Coupon ID not returned");
+
+      const { error: updateError } = await supabase
+        .from("coupons")
+        .update({
+          pin_scope: scope,
+          pin_days: pinDays,
+          duration_days: pinDays,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", couponId);
+
+      if (updateError) console.error(`[Reward] Failed to update coupon scope: ${updateError.message}`);
+
+      await supabase.from("reward_entries").insert({
+        user_id: user.id,
+        campaign_code: campaign.code,
+        trigger_n: triggerN,
+        listing_id,
+        result_type: "boost_coupon",
+        result_payload: { coupon_id: couponId, pin_scope: scope, pin_days: pinDays },
+      });
+
+      try {
+        await supabase.from("reward_logs").insert({
+          user_id: user.id,
+          reward_type: "lottery_reward",
+          reward_reason: `Listing #${triggerN} reward`,
+          coupon_id: couponId,
+          metadata: { pin_scope: scope, pin_days: pinDays, campaign_code: campaign.code },
+        });
+      } catch (_) {}
+
+      return { result_type: "boost_coupon", coupon_id: couponId, pin_scope: scope, pin_days: pinDays };
+    }
+
+    async function addPoints(points: number, triggerN: number, reason?: string) {
+      const { data: newPoints, error: pointsError } = await supabase.rpc("reward_add_points", {
+        p_user: user.id,
+        p_points: points,
+        p_campaign: campaign.code,
+      });
+      if (pointsError) throw new Error(`Failed to add points: ${pointsError.message}`);
+
+      await supabase.from("reward_entries").insert({
+        user_id: user.id,
+        campaign_code: campaign.code,
+        trigger_n: triggerN,
+        listing_id,
+        result_type: "airtime_points",
+        result_payload: { points, reason },
+      });
+
+      return { result_type: "airtime_points", points, new_points: newPoints, reason };
+    }
+
+    // -------------------- already processed branch --------------------
+
+    // 先把 loop 规则读取出来，保证 already_processed 也能返回进度
+    async function readSpinLoopRule() {
+      const { data: ruleLoop } = await supabase
+        .from("reward_rules")
+        .select("trigger_n, payload")
+        .eq("campaign_id", campaign.id)
+        .eq("trigger_type", "spin_grant_loop")
+        .eq("is_enabled", true)
+        .order("trigger_n", { ascending: true })
+        .maybeSingle();
+
+      if (!ruleLoop) return null;
+
+      const startAt = Number(ruleLoop.trigger_n ?? 0);
+      const spinsEach = Number(ruleLoop.payload?.spins ?? 1);
+      const interval = Number(ruleLoop.payload?.loop_interval ?? 10);
+
+      if (!startAt || startAt < 1) return null;
+      if (!interval || interval < 1) return null;
+
+      return { startAt, interval, spinsEach };
+    }
+
+    function calcSpinLoopProgress(currentCount: number, rule: { startAt: number; interval: number }) {
+      const startAt = rule.startAt;
+      const interval = rule.interval;
+
+      if (currentCount < startAt) {
+        const remaining = startAt - currentCount;
+        const nextAt = startAt;
+        return { enabled: true, startAt, interval, nextAt, remaining };
+      }
+
+      const offset = (currentCount - startAt) % interval;
+      if (offset === 0) {
+        // 刚命中发放点：下一个在 interval 之后
+        const nextAt = currentCount + interval;
+        const remaining = interval;
+        return { enabled: true, startAt, interval, nextAt, remaining };
+      } else {
+        const remaining = interval - offset;
+        const nextAt = currentCount + remaining;
+        return { enabled: true, startAt, interval, nextAt, remaining };
+      }
+    }
+
+    const loopRulePre = await readSpinLoopRule();
+
+    if (eventError) {
+      if ((eventError as any).code === "23505") {
+        const currentState = state || {
+          qualified_listings_count: 0,
+          airtime_points: 0,
+          spins_balance: 0,
+        };
+
+        const spinsNow = currentState.spins_balance ?? 0;
+
+        const { data: poolRows } = await supabase
+          .from("reward_pool_items")
+          .select("id, title, item_type, payload, weight, sort_order")
+          .eq("campaign_code", campaign.code)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true });
+
+        const pool = (poolRows || []).map((x: any) => ({
+          id: x.id,
+          title: x.title,
+          result_type: x.item_type,
+          result_payload: x.payload || {},
+          weight: x.weight || 0,
+        }));
+
+        const loop = loopRulePre
+          ? calcSpinLoopProgress(Number(currentState.qualified_listings_count ?? 0), loopRulePre)
+          : { enabled: false };
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            reason: "already_processed",
+            qualified_count: currentState.qualified_listings_count,
+            airtime_points: currentState.airtime_points,
+            spins: spinsNow,
+            pool,
+            reward: null,
+
+            // ✅ loop 进度字段（前端用）
+            spin_loop_enabled: loop.enabled === true,
+            spin_loop_start_at: (loop as any).startAt ?? null,
+            spin_loop_interval: (loop as any).interval ?? null,
+            spin_loop_next_at: (loop as any).nextAt ?? null,
+            spin_loop_remaining: (loop as any).remaining ?? null,
+
+            // ✅ NEW: English progress text
+            spin_loop_progress_text: loop.enabled === true
+              ? (currentState.qualified_listings_count >= (loop as any).startAt
+                  ? `${(loop as any).remaining} more listing${(loop as any).remaining === 1 ? '' : 's'} until next spin (#${(loop as any).nextAt})`
+                  : `${(loop as any).startAt - currentState.qualified_listings_count} more listing${((loop as any).startAt - currentState.qualified_listings_count) === 1 ? '' : 's'} to unlock spin loop (starting at #${(loop as any).startAt})`)
+              : null,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+      throw new Error(`Failed to record event: ${(eventError as any).message}`);
+    }
+
+    // -------------------- main flow --------------------
+
+    // Bump state (RPC)
+    const { data: bumpResult, error: bumpError } = await supabase.rpc("reward_bump_state", {
+      p_user: user.id,
+      p_campaign: campaign.code,
+    });
+    if (bumpError) throw new Error(`Failed to bump state: ${bumpError.message}`);
+
+    const currentCount = bumpResult?.[0]?.qualified_count ?? 1;
+    let currentPoints = bumpResult?.[0]?.airtime_points ?? 0;
+
+    let reward: any = null;
+
+    // Trigger #1: lottery
+    if (currentCount === 1) {
+      const { data: rule1 } = await supabase
+        .from("reward_rules")
+        .select("payload")
+        .eq("campaign_id", campaign.id)
+        .eq("trigger_n", 1)
+        .eq("trigger_type", "lottery")
+        .eq("is_enabled", true)
+        .maybeSingle();
+
+      if (rule1?.payload?.pool?.length) {
+        const { data: existing1 } = await supabase
+          .from("reward_entries")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaign.code)
+          .eq("trigger_n", 1)
+          .maybeSingle();
+
+        if (!existing1) {
+          const pool = rule1.payload.pool as LotteryPoolItem[];
+          const selected = pickWeighted(pool);
+          if (selected.type === "boost_coupon") {
+            reward = await issueCoupon(selected.coupon_type, selected.pin_days ?? 3, 1);
+          } else {
+            reward = await addPoints(selected.points, 1);
+            // 同步 points
+            currentPoints = Number((reward as any)?.new_points ?? currentPoints);
+          }
+        }
+      }
+    }
+
+    // Trigger #10: milestone coupon
+    if (currentCount === 10) {
+      const { data: rule10 } = await supabase
+        .from("reward_rules")
+        .select("payload")
+        .eq("campaign_id", campaign.id)
+        .eq("trigger_n", 10)
+        .eq("trigger_type", "milestone_guarantee")
+        .eq("is_enabled", true)
+        .maybeSingle();
+
+      if (rule10?.payload) {
+        const { data: existing10 } = await supabase
+          .from("reward_entries")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaign.code)
+          .eq("trigger_n", 10)
+          .maybeSingle();
+
+        if (!existing10) {
+          const guaranteeType = (rule10.payload.coupon_type || "category") as "category" | "search" | "trending";
+          const pinDays = Number(rule10.payload.pin_days || 3);
+          reward = await issueCoupon(guaranteeType, pinDays, 10);
+        }
+      }
+    }
+
+    // Trigger #30: guarantee >= 100 points
+    if (currentCount === 30) {
+      const { data: rule30 } = await supabase
+        .from("reward_rules")
+        .select("payload")
+        .eq("campaign_id", campaign.id)
+        .eq("trigger_n", 30)
+        .eq("trigger_type", "guarantee_airtime")
+        .eq("is_enabled", true)
+        .maybeSingle();
+
+      if (rule30?.payload) {
+        const { data: existing30 } = await supabase
+          .from("reward_entries")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaign.code)
+          .eq("trigger_n", 30)
+          .maybeSingle();
+
+        if (!existing30) {
+          const minPoints = Number(rule30.payload.min_points || 100);
+          if (currentPoints < minPoints) {
+            const r30 = await addPoints(minPoints - currentPoints, 30, "guarantee");
+            reward = r30;
+            currentPoints = Number((r30 as any)?.new_points ?? minPoints);
+          }
+        }
+      }
+    }
+
+    // ✅ Trigger #5: grant spins（强幂等 + 防并发丢更新）
+    if (currentCount === 5) {
+      const { data: rule5 } = await supabase
+        .from("reward_rules")
+        .select("payload")
+        .eq("campaign_id", campaign.id)
+        .eq("trigger_n", 5)
+        .eq("trigger_type", "spin_grant")
+        .eq("is_enabled", true)
+        .maybeSingle();
+
+      if (rule5?.payload?.spins) {
+        const add = Number(rule5.payload.spins || 1);
+
+        // 用 reward_entries unique 做 "一次性锁"
+        const { data: entryRow, error: insErr } = await supabase
+          .from("reward_entries")
+          .insert({
+            user_id: user.id,
+            campaign_code: campaign.code,
+            trigger_n: 5,
+            listing_id,
+            result_type: "spin",
+            result_payload: { spins: add, reason: "milestone_5" },
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (insErr) {
+          // 23505 => 已经发过
+          if ((insErr as any).code !== "23505") {
+            throw new Error(`Failed to write spin entry: ${(insErr as any).message}`);
+          }
+        } else if (entryRow?.id) {
+          const newSpins = await addSpinsCAS(add);
+          await supabase
+            .from("reward_entries")
+            .update({ result_payload: { spins: add, new_spins: newSpins, reason: "milestone_5" } })
+            .eq("id", entryRow.id);
+        }
+      }
+    }
+
+    // ✅ Trigger #40/#50/#60... loop spins
+    const loopRule = loopRulePre;
+    if (loopRule && currentCount >= loopRule.startAt) {
+      const offset = (currentCount - loopRule.startAt) % loopRule.interval;
+      const isGrantPoint = offset === 0; // 40,50,60...
+
+      if (isGrantPoint) {
+        const add = Number(loopRule.spinsEach || 1);
+
+        // 用 trigger_n = currentCount 做一次性锁：40/50/60...
+        const { data: lockRow, error: lockErr } = await supabase
+          .from("reward_entries")
+          .insert({
+            user_id: user.id,
+            campaign_code: campaign.code,
+            trigger_n: currentCount,
+            listing_id,
+            result_type: "spin",
+            result_payload: { spins: add, reason: "spin_loop", loop_start_at: loopRule.startAt, loop_interval: loopRule.interval },
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (lockErr) {
+          if ((lockErr as any).code !== "23505") {
+            throw new Error(`Failed to lock loop spin entry: ${(lockErr as any).message}`);
+          }
+          // 已经发过，就不再加 spin
+        } else if (lockRow?.id) {
+          const newSpins = await addSpinsCAS(add);
+          await supabase
+            .from("reward_entries")
+            .update({
+              result_payload: {
+                spins: add,
+                new_spins: newSpins,
+                reason: "spin_loop",
+                loop_start_at: loopRule.startAt,
+                loop_interval: loopRule.interval,
+              },
+            })
+            .eq("id", lockRow.id);
+        }
+      }
+    }
+
+    const nextMilestone = currentCount < 10 ? 10 : currentCount < 30 ? 30 : null;
+
+    // ✅ 最终返回：spins + pool + loop progress
+    const { data: latestState } = await supabase
+      .from("user_reward_state")
+      .select("spins_balance")
+      .eq("user_id", user.id)
+      .eq("campaign_code", campaign.code)
+      .maybeSingle();
+
+    const spins = latestState?.spins_balance ?? 0;
+
+    const { data: poolRows } = await supabase
+      .from("reward_pool_items")
+      .select("id, title, item_type, payload, weight, sort_order")
+      .eq("campaign_code", campaign.code)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+
+    const pool = (poolRows || []).map((x: any) => ({
+      id: x.id,
+      title: x.title,
+      result_type: x.item_type,
+      result_payload: x.payload || {},
+      weight: x.weight || 0,
+    }));
+
+    const loop = loopRule
+      ? calcSpinLoopProgress(Number(currentCount ?? 0), loopRule)
+      : { enabled: false };
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        qualified_count: currentCount,
+        airtime_points: currentPoints,
+        spins,
+        pool,
+        reward,
+        next_milestone: nextMilestone,
+        milestone_progress:
+          nextMilestone === 10
+            ? `${currentCount}/10 listings to unlock milestone reward`
+            : nextMilestone === 30
+            ? `${currentCount}/30 listings to guarantee 100 points`
+            : "All milestones completed!",
+
+        // ✅ 循环 spin 进度字段
+        spin_loop_enabled: loop.enabled === true,
+        spin_loop_start_at: (loop as any).startAt ?? null,
+        spin_loop_interval: (loop as any).interval ?? null,
+        spin_loop_next_at: (loop as any).nextAt ?? null,
+        spin_loop_remaining: (loop as any).remaining ?? null,
+
+        // ✅ NEW: English progress text (frontend can use directly)
+        spin_loop_progress_text: loop.enabled === true
+          ? (currentCount >= (loop as any).startAt
+              ? `${(loop as any).remaining} more listing${(loop as any).remaining === 1 ? '' : 's'} until next spin (#${(loop as any).nextAt})`
+              : `${(loop as any).startAt - currentCount} more listing${((loop as any).startAt - currentCount) === 1 ? '' : 's'} to unlock spin loop (starting at #${(loop as any).startAt})`)
+          : null,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+  } catch (err) {
+    console.error("[Reward] Error:", err);
+    return new Response(JSON.stringify({ ok: false, error: String((err as any)?.message ?? err) }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+});

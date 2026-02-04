@@ -4,10 +4,12 @@
 // ✅ [UI修复] 修复分享弹窗锯齿问题
 // ✅ [收藏优化] 乐观更新策略 - 立即响应用户操作，后台同步数据
 // ✅ [Offer消息修复] 发送offer时同时发送消息到MessageService
-// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿 ⑥ 收藏速度优化 ⑦ Offer消息功能
+// ✅ [发布奖励] 发布后自动弹窗展示奖励
+// 修复：① 图片查看器黑屏 ② 深链接拉起优化 ③ 返回按钮智能处理 ④ 图片加载优化 ⑤ 分享弹窗锯齿 ⑥ 收藏速度优化 ⑦ Offer消息功能 ⑧ 发布奖励弹窗
 // 严格遵守架构：不破坏 AuthFlowObserver/DeepLinkService/AppRouter 三层分离
 
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +36,9 @@ import 'package:swaply/utils/share_utils.dart';
 import 'package:swaply/services/email_verification_service.dart';
 import 'package:swaply/router/root_nav.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swaply/rewards/reward_bottom_sheet.dart';
+import 'package:swaply/services/reward_after_publish.dart';
+
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
   final Map<String, dynamic>? productData;
@@ -85,6 +90,28 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   final Set<int> _precachedIndices = {};
 
+  // ✅ [发布奖励] 防止重复弹窗
+  bool _rewardShownOnce = false;
+
+  // ✅ [发布奖励] 避免"第一次拿不到id导致漏弹"
+  bool _rewardCheckQueued = false;
+
+  void _queueRewardCheck() {
+    if (_rewardShownOnce || _rewardCheckQueued) return;
+
+    final listingId = widget.productId ?? product['id']?.toString();
+    if (listingId == null || listingId.isEmpty) return;
+
+    _rewardCheckQueued = true;
+
+    // 下一帧再检查：不抢首帧、不和 build 抢 context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _rewardCheckQueued = false;
+      if (!mounted) return;
+      unawaited(_maybeShowRewardAfterPublish());
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -110,18 +137,69 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       _incrementViewsWithRPC();
       _animationController.forward();
       _precacheAllImages();
+
+      // ✅ [发布奖励] 页面渲染后再触发，不抢首帧
+      if (mounted) {
+        _maybeShowRewardAfterPublish();
+      }
     });
 
     _hydrateListingFromCloudIfNeeded();
 
+    // ✅ [改动 3] 删掉重复的 hydrate 调用
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _hydrateListingFromCloudIfNeeded();
       Future.delayed(const Duration(milliseconds: 200), () {
         _checkFavoritesStatus();
         _loadSellerInfo();
         _loadSellerVerification();
       });
     });
+  }
+
+  // ✅ [发布奖励] 检查并显示奖励弹窗
+  Future<void> _maybeShowRewardAfterPublish() async {
+    if (_rewardShownOnce) return;
+
+    final listingId = widget.productId ?? product['id']?.toString();
+    if (listingId == null || listingId.isEmpty) return;
+
+    // ✅ 只触发一次：消费 pending
+    final should = RewardAfterPublish.I.consumeIfPending(listingId);
+    if (!should) return;
+
+    _rewardShownOnce = true;
+
+    // ✅ 不 await，别阻塞 UI
+    unawaited(_runRewardFlow(listingId));
+  }
+
+  // ✅ [发布奖励] 执行奖励流程
+  Future<void> _runRewardFlow(String listingId) async {
+    try {
+      final data = await RewardAfterPublish.I.fetchReward(listingId);
+      if (!mounted) return;
+
+      // 你 edge function 返回 {ok:true,...}，这里防御一下
+      if (data['ok'] != true) return;
+
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        useRootNavigator: true,
+        useSafeArea: true,
+        builder: (_) => RewardBottomSheet(
+          data: data,
+          campaignCode: 'launch_v1',
+          listingId: listingId,
+        ),
+      );
+    } catch (e) {
+      // 生产环境建议只 log，不要弹错误奖励
+      if (kDebugMode) {
+        debugPrint('[RewardAfterPublish] error: $e');
+      }
+    }
   }
 
   void _precacheAllImages() {
@@ -250,6 +328,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         }
 
         if (needSet && mounted) setState(() {});
+        // ✅ [改动 2.2] 参数/数据补齐后再试一次
+        _queueRewardCheck();
         _hydrateListingFromCloudIfNeeded();
       }
     } catch (_) {}
@@ -450,6 +530,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
 
     _sellerId = (product['user_id'] ?? product['seller_id'])?.toString();
+
+    // ✅ [改动 2.1] 如果此时已经有id，就排队做一次奖励检查（下一帧触发）
+    _queueRewardCheck();
   }
 
   Future<void> _hydrateListingFromCloudIfNeeded() async {
@@ -538,6 +621,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         if (kDebugMode) {
           print('✅ 商品数据更新完成，user_id: ${product['user_id']}');
         }
+
+        // ✅ [改动 2.3] 云端回填id后，再排队触发奖励检查（避免第一次postFrame没id）
+        _queueRewardCheck();
 
         if (needLoadSeller && !isBlank(row['user_id'])) {
           if (kDebugMode) print('🔄 检测到新的user_id，重新加载卖家信息');

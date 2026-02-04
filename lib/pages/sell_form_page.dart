@@ -20,12 +20,12 @@ import 'package:swaply/services/image_normalizer.dart';
 import 'package:swaply/services/listing_events_bus.dart';
 import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/services/verification_guard.dart';
+import 'package:swaply/services/reward_after_publish.dart'; // ✅ 新增
 import 'package:swaply/router/root_nav.dart';
-
 // 统一主色
 const Color _PRIMARY_BLUE = Color(0xFF2196F3);
 
-// === 底栏留白：略大于真实底栏高度，确保内容不会被遮挡 ===
+// === 底栏留白：略大于真实底栏高度,确保内容不会被遮挡 ===
 double _navGap(BuildContext context) {
   final safe = MediaQuery.of(context).padding.bottom;
   final kb = MediaQuery.of(context).viewInsets.bottom; // 键盘弹出
@@ -650,33 +650,52 @@ class _SellFormPageState extends State<SellFormPage>
 
       if (!mounted) return;
 
-      // Handle coupon usage
-      String? listingId = row['id']?.toString();
-      if (_selectedCoupon != null && listingId != null) {
-        await _useCouponForPinning(listingId);
+      // Handle coupon usage (✅ coupon failure should NOT block posting)
+      final String? listingId = row['id']?.toString();
+      bool couponApplied = false;
+
+      if (_selectedCoupon != null && listingId != null && listingId.isNotEmpty) {
+        try {
+          await _useCouponForPinning(listingId);
+          couponApplied = true;
+        } catch (e, st) {
+          // 这里吞掉异常：发布主链路继续
+          debugPrint('[SellForm] Coupon usage failed (non-blocking): $e');
+          debugPrint('$st');
+        }
       }
 
-      // Handle post-publish rewards
+// Handle post-publish rewards
       await _handlePostPublishRewards(userId);
 
-      _toast('Posted successfully!');
+// ✅ clearer toast
+      if (_selectedCoupon == null) {
+        _toast('Posted successfully!');
+      } else if (couponApplied) {
+        _toast('Posted successfully (Pin applied)!');
+      } else {
+        _toast('Posted successfully (Pin NOT applied — coupon may be used/expired).');
+      }
 
-      final String? newId = (row['id'] as String?);
+      final String? newId = row['id'] as String?;
       ListingEventsBus.instance.emitPublished(newId);
 
-      // ✅ 修复黑屏：严格按顺序执行且不再写 setState
-
-      // ① 关闭 loading（如果当前页被 push，maybePop 会关闭它；如果是 Overlay 模式，此操作确保关闭顶层）
+      // ✅ 1. 先关闭 loading 状态
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).maybePop();
+        setState(() {
+          _submitting = false;
+          _progressMsg = '';
+        });
       }
 
-      // ② 跳详情（使用 navReplaceAll 清除旧页面，防止返回到表单）
-      if (newId != null) {
+      // ✅ 2. 标记pending + 立即跳转（符合架构）
+      if (newId != null && newId.isNotEmpty) {
+        debugPrint('[SellForm] 📝 Marking reward pending for $newId');
+        RewardAfterPublish.I.markPending(newId);
+
+        debugPrint('[SellForm] 🚀 Navigating to detail page');
         await navReplaceAll('/listing', arguments: newId);
       }
-
-      // ③ 成功后不写 setState，也不要 finally 块去重置 _submitting
 
     } catch (e) {
       if (!mounted) return;
@@ -687,7 +706,6 @@ class _SellFormPageState extends State<SellFormPage>
         _progressMsg = '';
       });
     }
-    // ❌ 移除 finally 块，避免成功跳转后触发 setState 导致异常
   }
 
   Future<void> _useCouponForPinning(String listingId) async {
@@ -729,9 +747,11 @@ class _SellFormPageState extends State<SellFormPage>
           duration: const Duration(seconds: 5),
         ),
       );
-    } catch (e) {
-      debugPrint('Failed to use coupon: $e');
-      _toast('Failed to use coupon: $e');
+    } catch (e, st) {
+      debugPrint('[SellForm] Failed to use coupon: $e');
+      debugPrint('$st');
+      // ✅ 让上层决定怎么提示（发布不被阻断）
+      rethrow;
     }
   }
 
