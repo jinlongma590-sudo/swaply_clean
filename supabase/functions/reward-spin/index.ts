@@ -33,16 +33,19 @@ function mapScopeToType(scope: "category" | "search" | "trending"): string {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    // ✅ 强制检查：没有 service role 直接报错（否则 RLS 会把你挡死）
+    if (!url || !serviceKey) {
+      throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Edge Function env");
+    }
+
+    const supabase = createClient(url, serviceKey);
+
     // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
@@ -56,7 +59,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const campaign_code = (body.campaign_code as string) || "launch_v1";
     const request_id = (body.request_id as string) || "";
-    const listing_id = body.listing_id as string | undefined;
+    const listing_id = body.listing_id as string | undefined; // ✅ 可选（Reward Center 场景允许不传）
     const device_id = body.device_id as string | undefined;
 
     if (!request_id.trim()) {
@@ -81,32 +84,86 @@ serve(async (req) => {
       });
     }
 
+    const campaignCode = campaign.code;
+
     // ------------------------------------------------------------
-    // ✅ Step 1: Reservation（先占位幂等记录，避免并发同 request_id 双扣/双发）
-    // 说明：这里假设 reward_spin_requests 的 result_type / result_payload 允许为 null。
-    // 如果你表上设置了 NOT NULL，请把 null 改成 "pending" 并放开 CHECK（如有）。
+    // helpers
+    // ------------------------------------------------------------
+    async function addSpinsCAS(add: number): Promise<number> {
+      const maxRetry = 6;
+
+      for (let i = 0; i < maxRetry; i++) {
+        const { data: st, error: stErr } = await supabase
+          .from("user_reward_state")
+          .select("spins_balance")
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaignCode)
+          .maybeSingle();
+
+        if (stErr) throw new Error(`Failed to read spins for refund: ${stErr.message}`);
+
+        const oldSpins = Number(st?.spins_balance ?? 0);
+        const nextSpins = oldSpins + add;
+
+        const { data: upd, error: updErr } = await supabase
+          .from("user_reward_state")
+          .update({ spins_balance: nextSpins, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .eq("campaign_code", campaignCode)
+          .eq("spins_balance", oldSpins)
+          .select("spins_balance")
+          .maybeSingle();
+
+        if (!updErr && upd?.spins_balance != null) return Number(upd.spins_balance);
+      }
+
+      const { data: finalSt } = await supabase
+        .from("user_reward_state")
+        .select("spins_balance")
+        .eq("user_id", user.id)
+        .eq("campaign_code", campaignCode)
+        .maybeSingle();
+
+      return Number(finalSt?.spins_balance ?? 0);
+    }
+
+    async function finalizeRequest(result_type: string, result_payload: any) {
+      const { error } = await supabase
+        .from("reward_spin_requests")
+        .update({
+          result_type,
+          result_payload,
+        })
+        .eq("user_id", user.id)
+        .eq("campaign_code", campaignCode)
+        .eq("request_id", request_id);
+
+      if (error) console.error(`[Spin] Failed to finalize spin request: ${error.message}`);
+    }
+
+    // ------------------------------------------------------------
+    // ✅ Step 1: Reservation（先占位幂等记录）
     // ------------------------------------------------------------
     const reservation = {
       user_id: user.id,
-      campaign_code: campaign.code,
+      campaign_code: campaignCode,
       request_id,
-      listing_id: listing_id || null,
-      device_id: device_id || null,
+      listing_id: listing_id ?? null, // ✅ 可空
+      device_id: device_id ?? null,
       result_type: null,
       result_payload: null,
-      error: null,
     };
 
     const { error: insReqErr } = await supabase.from("reward_spin_requests").insert(reservation);
 
     if (insReqErr) {
-      // unique violation => 已有同 request_id 记录，直接读返回（幂等）
+      // unique violation => 幂等：读已有结果返回（不会重复扣 spin）
       if ((insReqErr as any).code === "23505") {
         const { data: existed } = await supabase
           .from("reward_spin_requests")
-          .select("result_type, result_payload, error")
+          .select("result_type, result_payload")
           .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
+          .eq("campaign_code", campaignCode)
           .eq("request_id", request_id)
           .maybeSingle();
 
@@ -114,7 +171,7 @@ serve(async (req) => {
           .from("user_reward_state")
           .select("spins_balance, airtime_points, qualified_listings_count")
           .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
+          .eq("campaign_code", campaignCode)
           .maybeSingle();
 
         const reward =
@@ -132,7 +189,7 @@ serve(async (req) => {
             airtime_points: st?.airtime_points ?? 0,
             qualified_count: st?.qualified_listings_count ?? 0,
             reward,
-            error: existed?.error ?? null,
+            pending: existed?.result_type == null,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
@@ -142,26 +199,27 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------
-    // ✅ Step 2: Read state (need spins)
+    // ✅ Step 2: Atomically consume 1 spin (RPC)
+    // 你即将创建的函数：reward_consume_spin(p_user uuid, p_campaign text) -> table(spins_left int)
     // ------------------------------------------------------------
-    const { data: state, error: stErr } = await supabase
-      .from("user_reward_state")
-      .select("spins_balance, qualified_listings_count, airtime_points")
-      .eq("user_id", user.id)
-      .eq("campaign_code", campaign.code)
-      .maybeSingle();
+    const { data: consumed, error: consumeErr } = await supabase.rpc("reward_consume_spin", {
+      p_user: user.id,
+      p_campaign: campaignCode,
+    });
 
-    if (stErr) throw new Error(`Failed to read user state: ${stErr.message}`);
+    if (consumeErr) {
+      // RPC 异常：标记为 none，方便幂等回放
+      await finalizeRequest("none", { result_type: "none", reason: "consume_rpc_error" });
+      throw new Error(`consume spin rpc failed: ${consumeErr.message}`);
+    }
 
-    const spins = Number(state?.spins_balance ?? 0);
-    if (spins <= 0) {
-      // update request as finished(no_spins)
-      await supabase
-        .from("reward_spin_requests")
-        .update({ result_type: "none", result_payload: { result_type: "none", reason: "no_spins" } })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .eq("request_id", request_id);
+    const spinsLeft = Array.isArray(consumed) && consumed.length > 0
+      ? Number(consumed[0]?.spins_left ?? 0)
+      : 0;
+
+    if (spinsLeft < 0 || (Array.isArray(consumed) && consumed.length === 0)) {
+      // 没有可用 spins（RPC 返回空集）
+      await finalizeRequest("none", { result_type: "none", reason: "no_spins" });
 
       return new Response(JSON.stringify({ ok: false, reason: "no_spins", spins_left: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -170,37 +228,26 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------
-    // ✅ Step 3: CAS decrement spins_balance (防并发扣多次)
+    // ✅ Step 3: Read state for response fields (points/qualified_count)
     // ------------------------------------------------------------
-    const { data: st2, error: decErr } = await supabase
+    const { data: st2, error: st2Err } = await supabase
       .from("user_reward_state")
-      .update({ spins_balance: spins - 1 })
+      .select("qualified_listings_count, airtime_points, spins_balance")
       .eq("user_id", user.id)
-      .eq("campaign_code", campaign.code)
-      .eq("spins_balance", spins)
-      .select("spins_balance, qualified_listings_count, airtime_points")
+      .eq("campaign_code", campaignCode)
       .maybeSingle();
 
-    if (decErr || !st2) {
-      const { data: st } = await supabase
-        .from("user_reward_state")
-        .select("spins_balance")
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .maybeSingle();
+    if (st2Err) {
+      // 这里已经扣了 spin，为避免用户“被扣但没结果”，尽量退款 + finalize
+      await addSpinsCAS(1);
+      await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refunded" });
 
-      await supabase
-        .from("reward_spin_requests")
-        .update({ result_type: "none", result_payload: { result_type: "none", reason: "spin_race" }, error: "spin_race" })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .eq("request_id", request_id);
-
-      return new Response(JSON.stringify({ ok: false, reason: "spin_race", spins_left: st?.spins_balance ?? 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 409,
-      });
+      throw new Error(`Failed to read user state after consume: ${st2Err.message}`);
     }
+
+    const qualifiedCount = Number(st2?.qualified_listings_count ?? 0);
+    let latestPoints = Number(st2?.airtime_points ?? 0);
+    let latestSpins = Number(st2?.spins_balance ?? spinsLeft); // 保险
 
     // ------------------------------------------------------------
     // ✅ Step 4: Load pool
@@ -208,42 +255,23 @@ serve(async (req) => {
     const { data: poolRows, error: poolErr } = await supabase
       .from("reward_pool_items")
       .select("id, title, item_type, payload, weight")
-      .eq("campaign_code", campaign.code)
+      .eq("campaign_code", campaignCode)
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
     if (poolErr) {
       // refund spin
-      await supabase
-        .from("user_reward_state")
-        .update({ spins_balance: Number(st2.spins_balance ?? 0) + 1 })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code);
-
-      await supabase
-        .from("reward_spin_requests")
-        .update({ result_type: "none", result_payload: { result_type: "none", reason: "pool_error" }, error: poolErr.message })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .eq("request_id", request_id);
+      latestSpins = await addSpinsCAS(1);
+      await finalizeRequest("none", { result_type: "none", reason: "pool_error_refunded" });
 
       throw new Error(`Failed to load pool: ${poolErr.message}`);
     }
 
     const pool = (poolRows || []) as PoolRow[];
     if (!pool.length) {
-      await supabase
-        .from("user_reward_state")
-        .update({ spins_balance: Number(st2.spins_balance ?? 0) + 1 })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code);
-
-      await supabase
-        .from("reward_spin_requests")
-        .update({ result_type: "none", result_payload: { result_type: "none", reason: "no_pool" }, error: "No pool configured" })
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .eq("request_id", request_id);
+      // refund spin
+      latestSpins = await addSpinsCAS(1);
+      await finalizeRequest("none", { result_type: "none", reason: "no_pool_refunded" });
 
       throw new Error("No pool configured");
     }
@@ -251,14 +279,10 @@ serve(async (req) => {
     const selected = pickWeighted(pool);
 
     // ------------------------------------------------------------
-    // ✅ Step 5: Issue reward
-    // 注意：这里不再写 reward_entries（会撞 UNIQUE trigger_n）
-    // spin 的审计记录全部落在 reward_spin_requests 即可
+    // ✅ Step 5: Issue reward (仍然只写 reward_spin_requests，不写 reward_entries)
     // ------------------------------------------------------------
     let rewardType: string = selected.item_type;
     let rewardPayload: any = null;
-
-    let latestPoints = Number(st2.airtime_points ?? 0);
 
     if (selected.item_type === "airtime_points") {
       const pts = Number(selected.payload?.points ?? 0);
@@ -267,27 +291,13 @@ serve(async (req) => {
         const { data: newPoints, error: ptsErr } = await supabase.rpc("reward_add_points", {
           p_user: user.id,
           p_points: pts,
-          p_campaign: campaign.code,
+          p_campaign: campaignCode,
         });
 
         if (ptsErr) {
           // refund spin
-          await supabase
-            .from("user_reward_state")
-            .update({ spins_balance: Number(st2.spins_balance ?? 0) + 1 })
-            .eq("user_id", user.id)
-            .eq("campaign_code", campaign.code);
-
-          await supabase
-            .from("reward_spin_requests")
-            .update({
-              result_type: "none",
-              result_payload: { result_type: "none", reason: "points_error" },
-              error: ptsErr.message,
-            })
-            .eq("user_id", user.id)
-            .eq("campaign_code", campaign.code)
-            .eq("request_id", request_id);
+          latestSpins = await addSpinsCAS(1);
+          await finalizeRequest("none", { result_type: "none", reason: "points_error_refunded" });
 
           throw new Error(`Failed to add points: ${ptsErr.message}`);
         }
@@ -319,56 +329,21 @@ serve(async (req) => {
         p_metadata: {
           source: "spin_reward",
           request_id,
-          listing_id,
-          device_id,
-          campaign_code: campaign.code,
+          listing_id: listing_id ?? null, // ✅ 可空
+          device_id: device_id ?? null,
+          campaign_code: campaignCode,
           pool_item_id: selected.id,
           pin_scope: scope,
           pin_days: pinDays,
         },
       });
 
-      if (cErr) {
+      if (cErr || !couponId || typeof couponId !== "string") {
         // refund spin
-        await supabase
-          .from("user_reward_state")
-          .update({ spins_balance: Number(st2.spins_balance ?? 0) + 1 })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code);
+        latestSpins = await addSpinsCAS(1);
+        await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refunded" });
 
-        await supabase
-          .from("reward_spin_requests")
-          .update({
-            result_type: "none",
-            result_payload: { result_type: "none", reason: "coupon_error" },
-            error: cErr.message,
-          })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
-          .eq("request_id", request_id);
-
-        throw new Error(`Failed to issue coupon: ${cErr.message}`);
-      }
-
-      if (!couponId || typeof couponId !== "string") {
-        await supabase
-          .from("user_reward_state")
-          .update({ spins_balance: Number(st2.spins_balance ?? 0) + 1 })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code);
-
-        await supabase
-          .from("reward_spin_requests")
-          .update({
-            result_type: "none",
-            result_payload: { result_type: "none", reason: "coupon_missing" },
-            error: "Coupon ID not returned",
-          })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
-          .eq("request_id", request_id);
-
-        throw new Error("Coupon ID not returned");
+        throw new Error(`Failed to issue coupon: ${cErr?.message ?? "coupon id missing"}`);
       }
 
       // 兼容 publish 的 coupons 更新逻辑
@@ -391,31 +366,21 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------
-    // ✅ Step 6: Finalize request record (幂等落库)
+    // ✅ Step 6: Finalize request record (幂等回放关键)
     // ------------------------------------------------------------
-    const { error: finalizeErr } = await supabase
-      .from("reward_spin_requests")
-      .update({
-        result_type: rewardType,
-        result_payload: rewardPayload,
-        error: null,
-      })
-      .eq("user_id", user.id)
-      .eq("campaign_code", campaign.code)
-      .eq("request_id", request_id);
+    await finalizeRequest(rewardType, rewardPayload);
 
-    if (finalizeErr) {
-      // 这里不能 refund，因为奖励已经发出（points/coupon）。只记录错误。
-      console.error(`[Spin] Failed to finalize spin request: ${finalizeErr.message}`);
-    }
-
+    // ------------------------------------------------------------
+    // ✅ Response
+    // 注意：前端 RewardBottomSheet 需要 reward 里有 result_type 字段
+    // ------------------------------------------------------------
     return new Response(
       JSON.stringify({
         ok: true,
-        spins_left: st2.spins_balance ?? 0,
+        spins_left: latestSpins, // ✅ 以 state 为准（如果中途退款也正确）
         airtime_points: latestPoints,
-        qualified_count: st2.qualified_listings_count ?? 0,
-        reward: rewardPayload,
+        qualified_count: qualifiedCount,
+        reward: rewardPayload, // ✅ 包含 result_type
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

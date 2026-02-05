@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/services/reward_service.dart';
-import 'package:swaply/pages/task_management_page.dart';
+import 'package:swaply/pages/reward_center_page.dart';
 // import 'package:swaply/router/root_nav.dart'; // 不再需要
 import 'package:swaply/router/safe_navigator.dart';
 

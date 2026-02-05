@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:swaply/services/reward_after_publish.dart';
 import 'package:uuid/uuid.dart';
 
+// ✅ 新增：用你项目现有的安全导航 & 奖励中心页（Profile 里也是跳这个）
+import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/pages/reward_center_page.dart';
+
 class RewardBottomSheet extends StatefulWidget {
   const RewardBottomSheet({
     super.key,
@@ -34,6 +38,10 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   double _turnsFrom = 0; // 上一次结束时的位置（起点）
   double _turnsNow = 0; // 动画中间态
 
+  // ✅ 方案A：后端直接发了 reward 但 spins==0 时，补一段“开盒动画”
+  bool _autoRevealArmed = false;
+  bool _autoRevealing = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +64,14 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
         _turnsFrom = _turnsTarget;
       }
     });
+
+    // ✅ 只在首次进入 bottomSheet 时判定一次：是否需要“补动画揭晓”
+    _autoRevealArmed = _shouldAutoReveal();
+    if (_autoRevealArmed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoRevealIfNeeded();
+      });
+    }
   }
 
   @override
@@ -82,7 +98,33 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   int get points => _toInt(_data['airtime_points']);
   int get spins => _toInt(_data['spins']);
 
-  String get milestoneProgress => (_data['milestone_progress'] ?? '').toString();
+  /// ✅ 里程碑提示文案：优先使用后端返回（milestone_progress_text），再 fallback 旧字段（milestone_progress）
+  String get milestoneProgress {
+    final v = (_data['milestone_progress_text'] ?? '').toString().trim();
+    if (v.isNotEmpty) return v;
+    return (_data['milestone_progress'] ?? '').toString();
+  }
+
+  /// ✅ milestone steps：后端可返回 [1,5,10,20,30]，若没有则 fallback 固定集合
+  List<int> get milestoneSteps {
+    final raw = _data['milestone_steps'];
+    if (raw is List) {
+      final out = <int>[];
+      for (final e in raw) {
+        final n = _toInt(e);
+        if (n > 0) out.add(n);
+      }
+      out.sort();
+      return out;
+    }
+    // fallback（与你当前配置一致）
+    return const [1, 5, 10, 20, 30];
+  }
+
+  /// ✅ 当前是否刚刚发了 spin（用于 UI 提示）
+  bool get spinGrantedNow => _toBool(_data['spin_granted_now']);
+  int get spinsAddedNow => _toInt(_data['spins_added_now']);
+  int get spinGrantTriggerN => _toInt(_data['spin_grant_trigger_n']);
 
   Map<String, dynamic>? get reward =>
       _data['reward'] is Map ? Map<String, dynamic>.from(_data['reward'] as Map) : null;
@@ -90,10 +132,13 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   List<Map<String, dynamic>> get pool {
     final raw = _data['pool'];
     if (raw is List) {
-      return raw.map((e) {
+      return raw
+          .map((e) {
         if (e is Map) return Map<String, dynamic>.from(e);
         return <String, dynamic>{};
-      }).where((e) => e.isNotEmpty).toList();
+      })
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
     return [];
   }
@@ -106,16 +151,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   int get loopStartAt => _toInt(_data['spin_loop_start_at']);
 
   bool get hasLoopInfo =>
-      loopEnabled &&
-          loopNextAt > 0 &&
-          loopRemaining > 0 &&
-          loopInterval > 0 &&
-          loopStartAt > 0;
+      loopEnabled && loopNextAt > 0 && loopRemaining > 0 && loopInterval > 0 && loopStartAt > 0;
 
   String get loopHintText {
     // ✅ 优先使用后端返回的文案（便于后端统一口径/国际化）
-    final backendText =
-    (_data['spin_loop_progress_text'] ?? '').toString().trim();
+    final backendText = (_data['spin_loop_progress_text'] ?? '').toString().trim();
     if (backendText.isNotEmpty) return backendText;
 
     // Fallback：沿用你现在的前端计算逻辑
@@ -123,8 +163,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     return 'Next loop spin in $loopRemaining listings (at #$loopNextAt)';
   }
 
-  bool get canSpin =>
-      ok && spins > 0 && !_spinning && (widget.listingId?.isNotEmpty ?? false);
+  bool get canSpin => ok && spins > 0 && !_spinning && (widget.listingId?.isNotEmpty ?? false);
 
   String _formatScope(String scope) {
     const names = {'category': 'Category', 'search': 'Search', 'trending': 'Trending'};
@@ -143,6 +182,114 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     if (v is Map<String, dynamic>) return v;
     if (v is Map) return Map<String, dynamic>.from(v);
     return <String, dynamic>{};
+  }
+
+  // -------------------- ✅ 新增：打开奖励中心 --------------------
+
+  void _openRewardCenter() {
+    // 先关掉 bottom sheet
+    Navigator.of(context).pop();
+
+    // 下一帧再导航，避免使用已经被 pop 的 context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SafeNavigator.push(
+        MaterialPageRoute(builder: (_) => const TaskManagementPage()),
+      );
+    });
+  }
+
+  Widget _goRewardsButton({String label = 'Go to Reward Center'}) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _openRewardCenter,
+        icon: const Icon(Icons.emoji_events_rounded, size: 18),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  // -------------------- Scheme A: Auto reveal --------------------
+
+  bool _shouldAutoReveal() {
+    // 条件：后端已给出 reward（发布后自动开奖），但 spins==0，
+    // 这种情况下原逻辑会直接进入 _buildRewardMode，从而“跳过转盘”。
+    // 方案A：补一个转盘动画后，再展示结果页（_buildSpinResult）。
+    if (!ok) return false;
+    if (_spinResp != null) return false;
+    if (spins > 0) return false; // 真有 spin 次数，就走正常 spin 模式
+    final r = reward;
+    if (r == null) return false;
+    return true;
+  }
+
+  Future<void> _autoRevealIfNeeded() async {
+    if (!mounted) return;
+    if (!_autoRevealArmed) return;
+    if (_autoRevealing) return;
+
+    // 若此时 state 已变化（比如被 setState 触发重建），再校验一次
+    if (!_shouldAutoReveal()) return;
+
+    setState(() {
+      _autoRevealing = true;
+      _spinning = true; // 禁用按钮/交互并显示“正在揭晓”的状态
+    });
+
+    // 先转起来（视觉丝滑）
+    final extra = 4 + Random().nextInt(4) + Random().nextDouble();
+    _turnsTarget = _turnsFrom + extra;
+    _ctl
+      ..reset()
+      ..forward();
+
+    // 等动画完成
+    try {
+      if (_ctl.status != AnimationStatus.completed) {
+        await _ctl.forward().catchError((_) {});
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    // ✅ 构造一个“等价于 spin 返回”的结果，复用 _buildSpinResult
+    final r = reward ?? <String, dynamic>{};
+    final resp = <String, dynamic>{
+      'ok': true,
+      'spins_left': 0, // 这是“自动开奖”，没有可用 spin 次数
+      'reward': r,
+      'airtime_points': points,
+      'qualified_count': qualifiedCount,
+
+      // 把 loop 字段也一起透传，避免结果页丢信息
+      'spin_loop_enabled': _data['spin_loop_enabled'],
+      'spin_loop_next_at': _data['spin_loop_next_at'],
+      'spin_loop_remaining': _data['spin_loop_remaining'],
+      'spin_loop_interval': _data['spin_loop_interval'],
+      'spin_loop_start_at': _data['spin_loop_start_at'],
+      'spin_loop_progress_text': _data['spin_loop_progress_text'],
+
+      // milestone 文案透传
+      'milestone_progress_text': _data['milestone_progress_text'],
+      'milestone_steps': _data['milestone_steps'],
+      'spin_granted_now': _data['spin_granted_now'],
+      'spins_added_now': _data['spins_added_now'],
+      'spin_grant_trigger_n': _data['spin_grant_trigger_n'],
+    };
+
+    setState(() {
+      _spinResp = resp; // 进入结果页
+      _spinning = false;
+      _autoRevealing = false;
+      _autoRevealArmed = false; // 只做一次
+    });
   }
 
   // -------------------- Actions --------------------
@@ -214,6 +361,18 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
           'spin_loop_progress_text',
         ];
         for (final k in loopKeys) {
+          if (map.containsKey(k)) _data[k] = map[k];
+        }
+
+        // ✅ milestone 文案 / steps 同步
+        const milestoneKeys = [
+          'milestone_progress_text',
+          'milestone_steps',
+          'spin_granted_now',
+          'spins_added_now',
+          'spin_grant_trigger_n',
+        ];
+        for (final k in milestoneKeys) {
           if (map.containsKey(k)) _data[k] = map[k];
         }
       }
@@ -348,13 +507,89 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     );
   }
 
+  /// ✅ 新增：里程碑节点展示（1/5/10/20/30），并在“刚发 spin”时提示
+  Widget _milestoneStrip() {
+    final steps = milestoneSteps;
+    if (steps.isEmpty) return const SizedBox.shrink();
+
+    final c = qualifiedCount;
+
+    Color chipColor(bool done) => done ? Colors.green : Colors.grey;
+    Color bgColor(bool done) => done ? Colors.green.withOpacity(0.10) : Colors.grey.withOpacity(0.10);
+    Color borderColor(bool done) => done ? Colors.green.withOpacity(0.25) : Colors.grey.withOpacity(0.25);
+
+    Widget chip(int n) {
+      final done = c >= n;
+      final justGranted = spinGrantedNow && spinGrantTriggerN == n && spinsAddedNow > 0;
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: bgColor(done),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: borderColor(done)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
+                size: 14, color: chipColor(done)),
+            const SizedBox(width: 6),
+            Text(
+              '#$n',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: done ? Colors.green[700] : Colors.grey[700],
+              ),
+            ),
+            if (justGranted) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.orange.withOpacity(0.28)),
+                ),
+                child: Text(
+                  '+$spinsAddedNow',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.orange[800],
+                  ),
+                ),
+              ),
+            ]
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Milestone spins',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: steps.map(chip).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _stat(String label, String value, IconData icon) {
     return Column(
       children: [
         Icon(icon, size: 22, color: Colors.grey[600]),
         const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
@@ -365,6 +600,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   @override
   Widget build(BuildContext context) {
     if (!ok) return _buildError(context);
+
+    // ✅ 正在补动画揭晓时：展示转盘 UI（自动转），不要直接掉到 reward mode
+    if (_autoRevealing) return _buildAutoRevealMode(context);
 
     if (_spinResp != null) return _buildSpinResult(context, _spinResp!);
 
@@ -378,8 +616,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   // -------------------- Modes --------------------
 
   Widget _buildError(BuildContext context) {
-    final subtitle =
-        _data['error']?.toString() ?? _data['reason']?.toString() ?? 'Unknown error';
+    final subtitle = _data['error']?.toString() ?? _data['reason']?.toString() ?? 'Unknown error';
 
     return _wrap(
       Column(
@@ -399,6 +636,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 16),
+
+          // ✅ 新增：去奖励中心
+          _goRewardsButton(),
+
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -415,6 +657,85 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ 方案A：自动揭晓时的 UI（视觉上像转盘，但没有按钮）
+  Widget _buildAutoRevealMode(BuildContext context) {
+    return _wrap(
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _handle(),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '🎰 Reward Center',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              _pill('Revealing...'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 190,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.rotate(
+                  angle: _turnsNow * 2 * pi,
+                  child: _wheelFace(),
+                ),
+                Positioned(
+                  top: 8,
+                  child: Icon(
+                    Icons.arrow_drop_down,
+                    size: 44,
+                    color: Colors.red[600],
+                  ),
+                ),
+                // 中间加一个 loading
+                const Positioned(
+                  bottom: 10,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Revealing reward...',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Qualified: $qualifiedCount • Points: $points',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          _milestoneStrip(),
+          if (milestoneProgress.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _infoBox(milestoneProgress),
+          ],
+          if (loopHintText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _loopBox(loopHintText),
+          ],
+          const SizedBox(height: 12),
+          _poolPanel(),
         ],
       ),
     );
@@ -465,6 +786,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             'Qualified: $qualifiedCount • Points: $points',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
+          const SizedBox(height: 12),
+          _milestoneStrip(),
           if (milestoneProgress.isNotEmpty) ...[
             const SizedBox(height: 10),
             _infoBox(milestoneProgress),
@@ -526,6 +849,10 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
               ),
             ),
           ),
+
+          // ✅ 新增：弹窗内直接去 Reward Center
+          const SizedBox(height: 10),
+          _goRewardsButton(),
         ],
       ),
     );
@@ -609,8 +936,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
 
   Widget _buildSpinResult(BuildContext context, Map<String, dynamic> resp) {
     if (resp['ok'] != true) {
-      final reason =
-          resp['reason']?.toString() ?? resp['error']?.toString() ?? 'Spin failed';
+      final reason = resp['reason']?.toString() ?? resp['error']?.toString() ?? 'Spin failed';
 
       return _wrap(
         Column(
@@ -630,6 +956,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
+
+            // ✅ 新增：去奖励中心
+            _goRewardsButton(),
+
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -653,7 +984,10 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
 
     final spinsLeft = _toInt(resp['spins_left']);
     final r = resp['reward'] is Map ? Map<String, dynamic>.from(resp['reward'] as Map) : <String, dynamic>{};
-    final type = r['result_type']?.toString();
+
+    // ✅ 兼容 featured / boost_coupon 两种类型
+    final typeRaw = (r['result_type'] ?? '').toString();
+    final type = typeRaw == 'featured' ? 'boost_coupon' : typeRaw;
 
     String title;
     String subtitle;
@@ -698,9 +1032,15 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 12),
+          _milestoneStrip(),
+          if (milestoneProgress.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _infoBox(milestoneProgress),
+          ],
           // ✅ 结果页也显示 loop 进度（更清楚）
           if (loopHintText.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _loopBox(loopHintText),
           ],
           const SizedBox(height: 16),
@@ -713,6 +1053,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             ],
           ),
           const SizedBox(height: 16),
+
+          // ✅ 新增：去 Reward Center（放在主按钮上方，更明显）
+          _goRewardsButton(),
+
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -744,7 +1089,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   }
 
   Widget _buildRewardMode(BuildContext context, Map<String, dynamic> reward) {
-    final type = reward['result_type']?.toString();
+    // ✅ 兼容 featured / boost_coupon 两种类型
+    final typeRaw = (reward['result_type'] ?? '').toString();
+    final type = typeRaw == 'featured' ? 'boost_coupon' : typeRaw;
 
     String title;
     String subtitle;
@@ -788,8 +1135,10 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 12),
+          _milestoneStrip(),
           if (milestoneProgress.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _infoBox(milestoneProgress),
           ],
           // ✅ Reward 模式也显示 loop 进度
@@ -798,6 +1147,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             _loopBox(loopHintText),
           ],
           const SizedBox(height: 16),
+
+          // ✅ 新增：去 Reward Center
+          _goRewardsButton(),
+
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -833,12 +1187,12 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
           ),
           const SizedBox(height: 6),
           Text(
-            milestoneProgress.isNotEmpty
-                ? milestoneProgress
-                : "No reward this time, but you're making progress!",
+            milestoneProgress.isNotEmpty ? milestoneProgress : "No reward this time, but you're making progress!",
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
+          const SizedBox(height: 12),
+          _milestoneStrip(),
           // ✅ Progress 模式也显示 loop 进度
           if (loopHintText.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -854,6 +1208,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             ],
           ),
           const SizedBox(height: 16),
+
+          // ✅ 新增：去 Reward Center
+          _goRewardsButton(),
+
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

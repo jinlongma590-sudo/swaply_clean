@@ -9,6 +9,7 @@
 // 7) ✅ getTrendingQuotaStatus 改为 DB 精确计数；healthCheck 更严谨。
 // 8) ✅ useCouponForPinning 添加完整的响应日志和错误处理
 // 9) ✅ 修复响应字段检查：同时兼容 'ok' 和 'success' 字段
+// 10) ✅【本次修复】兼容 RPC 返回 bool=true：redeem_search_popular_coupon 返回 true 时也算成功（修复你日志里的“RPC true 但失败”）
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -61,6 +62,31 @@ class CouponService {
       // ignore: avoid_print
       print('[CouponService] $message');
     }
+  }
+
+  /// ✅【关键】统一判断 RPC 是否成功：兼容 null / bool / Map(ok|success) / String(true)
+  static bool _rpcOk(dynamic res) {
+    if (res == null) return true;
+    if (res is bool) return res == true;
+    if (res is String) {
+      final s = res.trim().toLowerCase();
+      if (s == 'true') return true;
+      if (s == 'false') return false;
+    }
+    if (res is Map) {
+      return res['ok'] == true || res['success'] == true;
+    }
+    return false;
+  }
+
+  /// ✅ 从 RPC 返回里提取错误信息（用于日志/Exception）
+  static String _rpcMsg(dynamic res, {String fallback = 'RPC failed'}) {
+    if (res is Map) {
+      return (res['message'] ?? res['error'] ?? fallback).toString();
+    }
+    if (res is String && res.trim().isNotEmpty) return res;
+    if (res is bool) return res ? 'OK' : fallback;
+    return fallback;
   }
 
   /// Generate coupon code
@@ -295,17 +321,17 @@ class CouponService {
         'in_coupon_id': couponId,
         'in_listing_id': listingId,
       });
-      // ✅ void -> null 也算成功；兼容 ok 和 success 字段
-      if (res == null) return true;
-      if (res is Map && (res['ok'] == true || res['success'] == true)) return true;
-      return false;
+
+      // ✅【关键修复】兼容 bool=true
+      final ok = _rpcOk(res);
+      return ok;
     } catch (e) {
       _debugPrint('RPC redeem_search_popular_coupon failed: $e');
       return false;
     }
   }
 
-  /// ✅ 统一：use_coupon_for_pinning 使用 in_* 参数名；null 视为成功；兼容 ok 和 success 字段
+  /// ✅ 统一：use_coupon_for_pinning 使用 in_* 参数名；null/bool/map 视为成功；兼容 ok 和 success 字段
   static Future<bool> useCouponUnified({
     required String couponId,
     required String listingId,
@@ -324,12 +350,11 @@ class CouponService {
       });
       _debugPrint('use_coupon_for_pinning -> $res');
 
-      // ✅ 修复：兼容 ok 和 success 字段
-      final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+      final ok = _rpcOk(res);
       if (!ok) {
-        final msg = (res is Map ? (res['error'] ?? 'RPC failed') : 'RPC failed');
-        throw Exception(msg);
+        throw Exception(_rpcMsg(res));
       }
+
       clearCache();
       return true;
     } catch (e) {
@@ -606,28 +631,24 @@ class CouponService {
 
       bool ok = false;
       if (isSearchPopular) {
-        // ✅ featured/search：参数名是 in_*
         final res = await _client.rpc('redeem_search_popular_coupon', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
         });
-        // 该函数一般返回 VOID，postgrest 会给 null；视 null 为成功；兼容 ok 和 success 字段
-        ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+        ok = _rpcOk(res);
         _debugPrint('redeem_search_popular_coupon => $res');
       } else {
-        // ✅ 其它置顶：参数名是 in_*（与后端签名一致）；兼容 ok 和 success 字段
         final res = await _client.rpc('use_coupon_for_pinning', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
-          'in_note': 'app', // 可留空
+          'in_note': 'app',
         });
-        ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+        ok = _rpcOk(res);
         _debugPrint('use_coupon_for_pinning => $res');
       }
 
       if (!ok) throw Exception('RPC redeem/use failed');
 
-      // 成功后清理本地 30s 缓存，避免 UI 继续认为券可用/Trending 未更新
       clearCache();
       _debugPrint('Coupon used via RPC successfully.');
       return;
@@ -704,19 +725,18 @@ class CouponService {
         _debugPrint('📥 RPC Response: $res');
         _debugPrint('📥 Response type: ${res.runtimeType}');
 
-        // ✅ 修复：兼容 ok 和 success 字段
-        final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+        // ✅【关键修复】bool true 也算成功
+        final ok = _rpcOk(res);
 
         if (ok) {
           _debugPrint('✅ Search/Popular pinning successful!');
           clearCache();
           return true;
         } else {
-          final msg = res is Map ? (res['message'] ?? res['error'] ?? 'Unknown error') : 'RPC failed';
+          final msg = _rpcMsg(res);
           _debugPrint('❌ Search/Popular pinning failed: $msg');
           return false;
         }
-
       } else {
         _debugPrint('🚀 Step 4: Calling use_coupon_for_pinning RPC...');
 
@@ -729,20 +749,18 @@ class CouponService {
         _debugPrint('📥 RPC Response: $res');
         _debugPrint('📥 Response type: ${res.runtimeType}');
 
-        // ✅ 修复：兼容 ok 和 success 字段
-        final ok = (res == null) || (res is Map && (res['ok'] == true || res['success'] == true));
+        final ok = _rpcOk(res);
 
         if (ok) {
           _debugPrint('✅ Pinning successful!');
           clearCache();
           return true;
         } else {
-          final msg = res is Map ? (res['message'] ?? res['error'] ?? 'Unknown error') : 'RPC failed';
+          final msg = _rpcMsg(res);
           _debugPrint('❌ Pinning failed: $msg');
           return false;
         }
       }
-
     } catch (e, stack) {
       _debugPrint('❌ Exception in useCouponForPinning: $e');
       _debugPrint('Stack trace: $stack');
@@ -1259,10 +1277,7 @@ class CouponService {
       }
 
       if (!coupon.isUsable) {
-        return {
-          'valid': false,
-          'error': 'Coupon is not usable: ${coupon.statusDescription}'
-        };
+        return {'valid': false, 'error': 'Coupon is not usable: ${coupon.statusDescription}'};
       }
 
       // ★ 对 featured/search 的特殊处理：不经过 pinned_ads 限额校验，直接允许
@@ -1283,10 +1298,7 @@ class CouponService {
       );
 
       if (!(eligibility['eligible'] as bool? ?? false)) {
-        return {
-          'valid': false,
-          'error': eligibility['reason'] ?? 'Pinning not eligible'
-        };
+        return {'valid': false, 'error': eligibility['reason'] ?? 'Pinning not eligible'};
       }
 
       return {
@@ -1503,7 +1515,11 @@ class CouponService {
       final response = await queryBuilder;
       final responseList = response;
 
-      return responseList.map((data) => _safeParseCoupon(data)).where((c) => c != null).cast<CouponModel>().toList();
+      return responseList
+          .map((data) => _safeParseCoupon(data))
+          .where((c) => c != null)
+          .cast<CouponModel>()
+          .toList();
     } catch (e) {
       _debugPrint('Failed to search coupons: $e');
       return [];
@@ -1515,8 +1531,11 @@ class CouponService {
     try {
       _debugPrint('Getting coupon stats for user: $userId');
 
-      final response =
-      await _client.from('coupons').select('*').eq('user_id', userId).order('created_at', ascending: false);
+      final response = await _client
+          .from('coupons')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
 
       final responseList = response;
       final coupons = <CouponModel>[];

@@ -32,7 +32,7 @@ import 'package:swaply/pages/invite_friends_page.dart';
 import 'package:swaply/pages/coupon_management_page.dart';
 import 'package:swaply/pages/account_settings_page.dart';
 import 'package:swaply/pages/verification_page.dart';
-import 'package:swaply/pages/task_management_page.dart';
+import 'package:swaply/pages/reward_center_page.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
