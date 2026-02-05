@@ -243,24 +243,24 @@ class MessageService {
 
     final channel = _client
         .channel(
-        'offer_messages:$offerId:${DateTime.now().millisecondsSinceEpoch}')
+            'offer_messages:$offerId:${DateTime.now().millisecondsSinceEpoch}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: _tableName,
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'offer_id',
-        value: offerIdInt,
-      ),
-      callback: (payload) async {
-        final record = payload.newRecord;
-        final messageData = Map<String, dynamic>.from(record);
-        _debugPrint('通过实时连接收到新消息: ${messageData['message']}');
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: _tableName,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'offer_id',
+            value: offerIdInt,
+          ),
+          callback: (payload) async {
+            final record = payload.newRecord;
+            final messageData = Map<String, dynamic>.from(record);
+            _debugPrint('通过实时连接收到新消息: ${messageData['message']}');
 
-        onMessageReceived(messageData);
-      },
-    )
+            onMessageReceived(messageData);
+          },
+        )
         .subscribe();
 
     _debugPrint('实时订阅创建成功: $offerId');
@@ -287,9 +287,9 @@ class MessageService {
       await _client
           .from(_tableName)
           .update({
-        'is_read': true,
-        'read_at': DateTime.now().toIso8601String(),
-      })
+            'is_read': true,
+            'read_at': DateTime.now().toIso8601String(),
+          })
           .eq('offer_id', offerIdInt)
           .eq('receiver_id', userId)
           .eq('is_read', false);
@@ -456,9 +456,9 @@ class MessageService {
       await _client
           .from(_tableName)
           .update({
-        'is_read': true,
-        'read_at': DateTime.now().toIso8601String(),
-      })
+            'is_read': true,
+            'read_at': DateTime.now().toIso8601String(),
+          })
           .filter('id', 'in', '(${messageIds.join(',')})')
           .eq('receiver_id', userId);
 

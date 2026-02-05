@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'root_nav.dart';
 
 class SafeNavigator {
-  static Future<T?> pushNamed<T extends Object?>(
-      String route, {Object? args}
-      ) async {
+  static Future<T?> pushNamed<T extends Object?>(String route,
+      {Object? args}) async {
     await Future.delayed(Duration.zero);
     final nav = rootNavKey.currentState;
     if (nav == null) return null;
@@ -12,9 +11,8 @@ class SafeNavigator {
   }
 
   static Future<T?> pushNamedAndRemoveUntil<T extends Object?>(
-      String route,
-      bool Function(Route<dynamic>) predicate, {Object? args}
-      ) async {
+      String route, bool Function(Route<dynamic>) predicate,
+      {Object? args}) async {
     await Future.microtask(() {});
     final nav = rootNavKey.currentState;
     if (nav == null) return null;

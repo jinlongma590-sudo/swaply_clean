@@ -61,7 +61,8 @@ class _NotificationPageState extends State<NotificationPage> {
 
     // 清空角标（如果底栏需要）
     if (widget.onClearBadge != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onClearBadge!());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => widget.onClearBadge!());
     }
   }
 
@@ -74,7 +75,8 @@ class _NotificationPageState extends State<NotificationPage> {
     super.dispose();
   }
 
-  Future<void> _markAsRead(int index, List<Map<String, dynamic>> notifications) async {
+  Future<void> _markAsRead(
+      int index, List<Map<String, dynamic>> notifications) async {
     final notification = notifications[index];
     if (notification['is_read'] == true) return;
 
@@ -90,7 +92,8 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-  Future<void> _deleteNotification(int index, List<Map<String, dynamic>> notifications) async {
+  Future<void> _deleteNotification(
+      int index, List<Map<String, dynamic>> notifications) async {
     final l10n = AppLocalizations.of(context)!;
     final notification = notifications[index];
 
@@ -105,14 +108,17 @@ class _NotificationPageState extends State<NotificationPage> {
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 14.sp),
+                Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 14.sp),
                 SizedBox(width: 6.w),
-                Text(l10n.notificationDeleted, style: TextStyle(fontSize: 12.sp)),
+                Text(l10n.notificationDeleted,
+                    style: TextStyle(fontSize: 12.sp)),
               ],
             ),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6.r)),
             margin: EdgeInsets.all(8.w),
             duration: const Duration(seconds: 2),
           ),
@@ -127,14 +133,16 @@ class _NotificationPageState extends State<NotificationPage> {
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.error_outline_rounded, color: Colors.white, size: 14.sp),
+              Icon(Icons.error_outline_rounded,
+                  color: Colors.white, size: 14.sp),
               SizedBox(width: 6.w),
               const Expanded(child: Text('Failed to delete notification')),
             ],
           ),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
           margin: EdgeInsets.all(8.w),
           duration: const Duration(seconds: 2),
         ),
@@ -206,7 +214,8 @@ class _NotificationPageState extends State<NotificationPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: TextStyle(fontSize: 12.sp)),
-        backgroundColor: isError ? Colors.red.shade600 : const Color(0xFF4CAF50),
+        backgroundColor:
+            isError ? Colors.red.shade600 : const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
         margin: EdgeInsets.all(8.w),
@@ -256,7 +265,8 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   // 🚀 优化后的点击处理：添加预取功能
-  void _handleNotificationTap(Map<String, dynamic> notification, List<Map<String, dynamic>> notifications) async {
+  void _handleNotificationTap(Map<String, dynamic> notification,
+      List<Map<String, dynamic>> notifications) async {
     final index = notifications.indexOf(notification);
     if (index >= 0) {
       _markAsRead(index, notifications);
@@ -266,7 +276,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     // 统一解析 ID
     String? listingId = _getId(notification, 'listing_id');
-    String? offerId   = _getId(notification, 'offer_id');
+    String? offerId = _getId(notification, 'offer_id');
 
     if (type.isEmpty) {
       _showSnack('Notification data is incomplete', isError: true);
@@ -312,7 +322,8 @@ class _NotificationPageState extends State<NotificationPage> {
         if (listingId != null && listingId.isNotEmpty) {
           await navPush('/listing', arguments: listingId);
         } else {
-          _showSnack('Cannot open notification: missing listing ID', isError: true);
+          _showSnack('Cannot open notification: missing listing ID',
+              isError: true);
         }
         break;
 
@@ -322,7 +333,8 @@ class _NotificationPageState extends State<NotificationPage> {
         if (listingId != null && listingId.isNotEmpty) {
           await navPush('/listing', arguments: listingId);
         } else {
-          _showSnack('Cannot open notification: missing listing ID', isError: true);
+          _showSnack('Cannot open notification: missing listing ID',
+              isError: true);
         }
         break;
     }
@@ -413,12 +425,14 @@ class _NotificationPageState extends State<NotificationPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                   ),
-                  icon: Icon(Icons.login_rounded, size: 14.r, color: Colors.white),
+                  icon: Icon(Icons.login_rounded,
+                      size: 14.r, color: Colors.white),
                   label: Text(
                     l10n.loginNow,
                     style: TextStyle(
@@ -439,7 +453,8 @@ class _NotificationPageState extends State<NotificationPage> {
     return ValueListenableBuilder<int>(
       valueListenable: NotificationService.unreadCountNotifier,
       builder: (context, unreadCount, _) {
-        final displayTitle = '${l10n.notifications}${unreadCount > 0 ? ' ($unreadCount)' : ''}';
+        final displayTitle =
+            '${l10n.notifications}${unreadCount > 0 ? ' ($unreadCount)' : ''}';
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
@@ -468,7 +483,8 @@ class _NotificationPageState extends State<NotificationPage> {
                     padding: EdgeInsets.only(right: 6.w),
                     child: PopupMenuButton<String>(
                       tooltip: 'More',
-                      icon: Icon(Icons.more_horiz_rounded, color: Colors.white, size: 20.r),
+                      icon: Icon(Icons.more_horiz_rounded,
+                          color: Colors.white, size: 20.r),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.r),
                       ),
@@ -489,7 +505,8 @@ class _NotificationPageState extends State<NotificationPage> {
                               Icon(Icons.done_all_rounded,
                                   size: 16.r, color: Colors.grey.shade700),
                               SizedBox(width: 8.w),
-                              Text(l10n.markAllAsRead, style: TextStyle(fontSize: 12.sp)),
+                              Text(l10n.markAllAsRead,
+                                  style: TextStyle(fontSize: 12.sp)),
                             ],
                           ),
                         ),
@@ -503,7 +520,8 @@ class _NotificationPageState extends State<NotificationPage> {
                               SizedBox(width: 8.w),
                               Text(
                                 l10n.clearAll,
-                                style: TextStyle(fontSize: 12.sp, color: Colors.red),
+                                style: TextStyle(
+                                    fontSize: 12.sp, color: Colors.red),
                               ),
                             ],
                           ),
@@ -554,7 +572,8 @@ class _NotificationPageState extends State<NotificationPage> {
                               width: 20.w,
                               height: 20.w,
                               child: const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(kPrimaryBlue),
                                 strokeWidth: 2.5,
                               ),
                             ),
@@ -637,7 +656,8 @@ class _NotificationPageState extends State<NotificationPage> {
 
                   // ✅ 渲染通知列表
                   return RefreshIndicator(
-                    onRefresh: () => NotificationService.refresh(limit: 100, includeRead: true),
+                    onRefresh: () => NotificationService.refresh(
+                        limit: 100, includeRead: true),
                     color: kPrimaryBlue,
                     backgroundColor: Colors.white,
                     strokeWidth: 2.w,
@@ -648,7 +668,8 @@ class _NotificationPageState extends State<NotificationPage> {
                         final notification = notifications[index];
                         final isRead = notification['is_read'] == true;
                         final type = notification['type']?.toString() ?? '';
-                        final createdAt = notification['created_at']?.toString() ?? '';
+                        final createdAt =
+                            notification['created_at']?.toString() ?? '';
 
                         return Dismissible(
                           key: Key('${notification['id']}'),
@@ -656,29 +677,37 @@ class _NotificationPageState extends State<NotificationPage> {
                             color: Colors.red.shade600,
                             alignment: Alignment.centerRight,
                             padding: EdgeInsets.only(right: 12.w),
-                            child: Icon(Icons.delete_rounded, color: Colors.white, size: 20.r),
+                            child: Icon(Icons.delete_rounded,
+                                color: Colors.white, size: 20.r),
                           ),
                           direction: DismissDirection.endToStart,
-                          onDismissed: (direction) => _deleteNotification(index, notifications),
+                          onDismissed: (direction) =>
+                              _deleteNotification(index, notifications),
                           child: Container(
-                            color: isRead ? Colors.white : kPrimaryBlue.withOpacity(0.03),
+                            color: isRead
+                                ? Colors.white
+                                : kPrimaryBlue.withOpacity(0.03),
                             margin: EdgeInsets.only(bottom: 0.5.h),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () => _handleNotificationTap(notification, notifications),
+                                onTap: () => _handleNotificationTap(
+                                    notification, notifications),
                                 splashColor: kPrimaryBlue.withOpacity(0.1),
                                 highlightColor: kPrimaryBlue.withOpacity(0.05),
                                 child: Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 12.w, vertical: 8.h),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       _getNotificationIcon(type),
                                       SizedBox(width: 10.w),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Row(
                                               children: [
@@ -686,21 +715,26 @@ class _NotificationPageState extends State<NotificationPage> {
                                                   child: Text(
                                                     '${notification['title'] ?? ''}',
                                                     style: TextStyle(
-                                                      fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                                                      fontWeight: isRead
+                                                          ? FontWeight.w500
+                                                          : FontWeight.w600,
                                                       fontSize: 13.sp,
                                                       color: Colors.black87,
                                                       height: 1.3,
                                                     ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 if (!isRead)
                                                   Container(
                                                     width: 6.w,
                                                     height: 6.w,
-                                                    margin: EdgeInsets.only(left: 6.w),
-                                                    decoration: const BoxDecoration(
+                                                    margin: EdgeInsets.only(
+                                                        left: 6.w),
+                                                    decoration:
+                                                        const BoxDecoration(
                                                       color: kPrimaryBlue,
                                                       shape: BoxShape.circle,
                                                     ),
@@ -722,10 +756,14 @@ class _NotificationPageState extends State<NotificationPage> {
                                             Row(
                                               children: [
                                                 Icon(Icons.access_time_rounded,
-                                                    size: 10.r, color: Colors.grey.shade400),
+                                                    size: 10.r,
+                                                    color:
+                                                        Colors.grey.shade400),
                                                 SizedBox(width: 2.w),
                                                 Text(
-                                                  NotificationService.formatNotificationTime(createdAt),
+                                                  NotificationService
+                                                      .formatNotificationTime(
+                                                          createdAt),
                                                   style: TextStyle(
                                                     fontSize: 10.sp,
                                                     color: Colors.grey.shade400,
@@ -759,12 +797,13 @@ class _NotificationPageState extends State<NotificationPage> {
 class NoGlowScrollBehavior extends ScrollBehavior {
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context,
-      Widget child,
-      ScrollableDetails details,
-      ) {
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return child;
   }
 }
+
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
 const _kDeleteUrl = 'https://www.swaply.cc/delete-account';

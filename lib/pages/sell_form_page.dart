@@ -22,6 +22,7 @@ import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/services/verification_guard.dart';
 import 'package:swaply/services/reward_after_publish.dart'; // ✅ 新增
 import 'package:swaply/router/root_nav.dart';
+
 // 统一主色
 const Color _PRIMARY_BLUE = Color(0xFF2196F3);
 
@@ -59,7 +60,7 @@ class SellFormPage extends StatefulWidget {
  * 相册选图：返回内存字节而不是路径
  * ========================= */
 Future<({Uint8List bytes, String? name, String? ext, String? mime})?>
-pickImageBytes() async {
+    pickImageBytes() async {
   final res = await FilePicker.platform.pickFiles(
     type: FileType.image,
     withData: true, // 关键：要 bytes
@@ -105,7 +106,7 @@ class _SellFormPageState extends State<SellFormPage>
 
   // 用 record 存每张图的 bytes + 元信息
   final List<({Uint8List bytes, String? name, String? ext, String? mime})>
-  _images = [];
+      _images = [];
 
   String _category = '';
   String _city = 'Harare';
@@ -254,16 +255,20 @@ class _SellFormPageState extends State<SellFormPage>
     switch (_category) {
       case 'Vehicles':
         return [
-          _buildCompactDropdown('Vehicle Type *', 'vehicleType', [
-            'Car',
-            'Motorcycle',
-            'Truck',
-            'Bus',
-            'Van',
-            'Tractor',
-            'Boat',
-            'Other'
-          ], isRequired: true),
+          _buildCompactDropdown(
+              'Vehicle Type *',
+              'vehicleType',
+              [
+                'Car',
+                'Motorcycle',
+                'Truck',
+                'Bus',
+                'Van',
+                'Tractor',
+                'Boat',
+                'Other'
+              ],
+              isRequired: true),
           SizedBox(height: 12.h),
           _buildCompactTextField('make', 'Make/Brand *', 'e.g. Toyota, Honda',
               isRequired: true),
@@ -286,15 +291,19 @@ class _SellFormPageState extends State<SellFormPage>
 
       case 'Property':
         return [
-          _buildCompactDropdown('Property Type *', 'propertyType', [
-            'House',
-            'Apartment',
-            'Land',
-            'Commercial',
-            'Office Space',
-            'Warehouse',
-            'Farm'
-          ], isRequired: true),
+          _buildCompactDropdown(
+              'Property Type *',
+              'propertyType',
+              [
+                'House',
+                'Apartment',
+                'Land',
+                'Commercial',
+                'Office Space',
+                'Warehouse',
+                'Farm'
+              ],
+              isRequired: true),
           SizedBox(height: 12.h),
           _buildCompactDropdown('Listing Type *', 'listingType',
               ['For Sale', 'For Rent', 'Lease'],
@@ -312,14 +321,18 @@ class _SellFormPageState extends State<SellFormPage>
 
       case 'Beauty and Personal Care':
         return [
-          _buildCompactDropdown('Product Type *', 'beautyType', [
-            'Skincare',
-            'Makeup',
-            'Hair Care',
-            'Perfume',
-            'Tools & Accessories',
-            'Other'
-          ], isRequired: true),
+          _buildCompactDropdown(
+              'Product Type *',
+              'beautyType',
+              [
+                'Skincare',
+                'Makeup',
+                'Hair Care',
+                'Perfume',
+                'Tools & Accessories',
+                'Other'
+              ],
+              isRequired: true),
           SizedBox(height: 12.h),
           _buildCompactTextField('brand', 'Brand', ''),
           SizedBox(height: 12.h),
@@ -329,14 +342,18 @@ class _SellFormPageState extends State<SellFormPage>
 
       case 'Electronics':
         return [
-          _buildCompactDropdown('Product Type *', 'electronicsType', [
-            'TV & Audio',
-            'Computer & Laptop',
-            'Camera & Photo',
-            'Gaming',
-            'Home Appliances',
-            'Other'
-          ], isRequired: true),
+          _buildCompactDropdown(
+              'Product Type *',
+              'electronicsType',
+              [
+                'TV & Audio',
+                'Computer & Laptop',
+                'Camera & Photo',
+                'Gaming',
+                'Home Appliances',
+                'Other'
+              ],
+              isRequired: true),
           SizedBox(height: 12.h),
           _buildCompactTextField('brand', 'Brand', 'e.g. Samsung, Apple, Sony'),
           SizedBox(height: 12.h),
@@ -348,15 +365,19 @@ class _SellFormPageState extends State<SellFormPage>
 
       case 'Fashion':
         return [
-          _buildCompactDropdown('Category *', 'fashionCategory', [
-            'Men\'s Clothing',
-            'Women\'s Clothing',
-            'Shoes',
-            'Accessories',
-            'Bags',
-            'Watches',
-            'Jewelry'
-          ], isRequired: true),
+          _buildCompactDropdown(
+              'Category *',
+              'fashionCategory',
+              [
+                'Men\'s Clothing',
+                'Women\'s Clothing',
+                'Shoes',
+                'Accessories',
+                'Bags',
+                'Watches',
+                'Jewelry'
+              ],
+              isRequired: true),
           SizedBox(height: 12.h),
           _buildCompactTextField('brand', 'Brand', ''),
           SizedBox(height: 12.h),
@@ -377,12 +398,12 @@ class _SellFormPageState extends State<SellFormPage>
   }
 
   Widget _buildCompactTextField(
-      String key,
-      String label,
-      String hint, {
-        bool isRequired = false,
-        TextInputType? keyboardType,
-      }) {
+    String key,
+    String label,
+    String hint, {
+    bool isRequired = false,
+    TextInputType? keyboardType,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -403,7 +424,7 @@ class _SellFormPageState extends State<SellFormPage>
           labelText: label,
           hintText: hint,
           contentPadding:
-          EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.r),
             borderSide: BorderSide.none,
@@ -415,9 +436,9 @@ class _SellFormPageState extends State<SellFormPage>
         ),
         validator: isRequired
             ? (v) {
-          if (v == null || v.trim().isEmpty) return 'Required';
-          return null;
-        }
+                if (v == null || v.trim().isEmpty) return 'Required';
+                return null;
+              }
             : null,
       ),
     );
@@ -441,7 +462,7 @@ class _SellFormPageState extends State<SellFormPage>
         decoration: InputDecoration(
           labelText: label,
           contentPadding:
-          EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.r),
             borderSide: BorderSide.none,
@@ -455,12 +476,12 @@ class _SellFormPageState extends State<SellFormPage>
             : _dynamicValues[key]),
         items: items
             .map((c) => DropdownMenuItem(
-            value: c, child: Text(c, style: TextStyle(fontSize: 13.sp))))
+                value: c, child: Text(c, style: TextStyle(fontSize: 13.sp))))
             .toList(),
         onChanged: (v) => setState(() => _dynamicValues[key] = v ?? ''),
         validator: isRequired
             ? (v) =>
-        (v == null || v.trim().isEmpty) ? 'Please select $label' : null
+                (v == null || v.trim().isEmpty) ? 'Please select $label' : null
             : null,
         style: TextStyle(fontSize: 13.sp, color: Colors.black87),
         dropdownColor: Colors.white,
@@ -581,35 +602,35 @@ class _SellFormPageState extends State<SellFormPage>
 
         // 2) 上传 JPG
         await Supabase.instance.client.storage.from('listings').uploadBinary(
-          pathJpg,
-          jpgBytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
-        );
+              pathJpg,
+              jpgBytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/jpeg',
+                upsert: true,
+              ),
+            );
 
         final jpgUrl =
-        Supabase.instance.client.storage.from('listings').getPublicUrl(
-          pathJpg,
-        );
+            Supabase.instance.client.storage.from('listings').getPublicUrl(
+                  pathJpg,
+                );
         jpgUrls.add(jpgUrl);
 
         // 3) （可选）保留原图
         final origExt = (img.ext?.isNotEmpty == true) ? '.${img.ext}' : '';
         final origPath = '$userId/${ts}_raw_$i$origExt';
         await Supabase.instance.client.storage.from('listings').uploadBinary(
-          origPath,
-          img.bytes,
-          fileOptions: FileOptions(
-            contentType: img.mime ?? 'image/*',
-            upsert: true,
-          ),
-        );
+              origPath,
+              img.bytes,
+              fileOptions: FileOptions(
+                contentType: img.mime ?? 'image/*',
+                upsert: true,
+              ),
+            );
         final origUrl =
-        Supabase.instance.client.storage.from('listings').getPublicUrl(
-          origPath,
-        );
+            Supabase.instance.client.storage.from('listings').getPublicUrl(
+                  origPath,
+                );
         origUrls.add(origUrl);
       }
       // ===== 结束 =====
@@ -643,9 +664,9 @@ class _SellFormPageState extends State<SellFormPage>
         imageUrls: jpgUrls, // 一律 JPG, 用于展示
         userId: userId,
         sellerName:
-        _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
+            _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
         contactPhone:
-        _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+            _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       );
 
       if (!mounted) return;
@@ -654,7 +675,9 @@ class _SellFormPageState extends State<SellFormPage>
       final String? listingId = row['id']?.toString();
       bool couponApplied = false;
 
-      if (_selectedCoupon != null && listingId != null && listingId.isNotEmpty) {
+      if (_selectedCoupon != null &&
+          listingId != null &&
+          listingId.isNotEmpty) {
         try {
           await _useCouponForPinning(listingId);
           couponApplied = true;
@@ -674,7 +697,8 @@ class _SellFormPageState extends State<SellFormPage>
       } else if (couponApplied) {
         _toast('Posted successfully (Pin applied)!');
       } else {
-        _toast('Posted successfully (Pin NOT applied — coupon may be used/expired).');
+        _toast(
+            'Posted successfully (Pin NOT applied — coupon may be used/expired).');
       }
 
       final String? newId = row['id'] as String?;
@@ -696,7 +720,6 @@ class _SellFormPageState extends State<SellFormPage>
         debugPrint('[SellForm] 🚀 Navigating to detail page');
         await navReplaceAll('/listing', arguments: newId);
       }
-
     } catch (e) {
       if (!mounted) return;
       _toast('Post failed: $e');
@@ -742,7 +765,7 @@ class _SellFormPageState extends State<SellFormPage>
           backgroundColor: Colors.orange[600],
           behavior: SnackBarBehavior.floating,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
           margin: EdgeInsets.all(16.w),
           duration: const Duration(seconds: 5),
         ),
@@ -891,7 +914,8 @@ class _SellFormPageState extends State<SellFormPage>
                 SizedBox(height: 20.h),
                 Text(
                   'Add Photo',
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
+                  style:
+                      TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 20.h),
                 Row(
@@ -900,7 +924,7 @@ class _SellFormPageState extends State<SellFormPage>
                       child: _buildImageOption(
                         Icons.photo_camera_rounded,
                         'Camera',
-                            () async {
+                        () async {
                           Navigator.pop(ctx);
                           final file = await _cameraPicker.pickImage(
                             source: ImageSource.camera,
@@ -908,17 +932,18 @@ class _SellFormPageState extends State<SellFormPage>
                           );
                           if (file != null && mounted) {
                             if (_images.length >= _maxPhotos) {
-                              _toast('You can upload up to $_maxPhotos photos.');
+                              _toast(
+                                  'You can upload up to $_maxPhotos photos.');
                               return;
                             }
                             final bytes = await file.readAsBytes();
                             setState(() => _images.add((
-                            bytes: bytes,
-                            name:
-                            'camera_${DateTime.now().millisecondsSinceEpoch}.jpg',
-                            ext: 'jpg',
-                            mime: 'image/jpeg',
-                            )));
+                                  bytes: bytes,
+                                  name:
+                                      'camera_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                  ext: 'jpg',
+                                  mime: 'image/jpeg',
+                                )));
                           }
                         },
                       ),
@@ -928,7 +953,7 @@ class _SellFormPageState extends State<SellFormPage>
                       child: _buildImageOption(
                         Icons.photo_library_rounded,
                         'Gallery',
-                            () async {
+                        () async {
                           Navigator.pop(ctx);
                           final picked = await pickImageBytes();
                           if (picked == null) {
@@ -1071,7 +1096,6 @@ class _SellFormPageState extends State<SellFormPage>
               ),
             ),
           ),
-
           if (_submitting)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -1183,9 +1207,8 @@ class _SellFormPageState extends State<SellFormPage>
           height: 60.w,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10.r),
-            border: index == 0
-                ? Border.all(color: _PRIMARY_BLUE, width: 2)
-                : null,
+            border:
+                index == 0 ? Border.all(color: _PRIMARY_BLUE, width: 2) : null,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10.r),
@@ -1264,14 +1287,12 @@ class _SellFormPageState extends State<SellFormPage>
         decoration: BoxDecoration(
           color: _PRIMARY_BLUE.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10.r),
-          border:
-          Border.all(color: _PRIMARY_BLUE.withOpacity(0.3), width: 2),
+          border: Border.all(color: _PRIMARY_BLUE.withOpacity(0.3), width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_a_photo_rounded,
-                color: _PRIMARY_BLUE, size: 20.r),
+            Icon(Icons.add_a_photo_rounded, color: _PRIMARY_BLUE, size: 20.r),
             SizedBox(height: 2.h),
             Text(
               'Add Photo',
@@ -1317,13 +1338,11 @@ class _SellFormPageState extends State<SellFormPage>
               SizedBox(width: 8.w),
               Text(
                 'Select Category *',
-                style:
-                TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),
               ),
             ],
           ),
           SizedBox(height: 10.h),
-
           GestureDetector(
             onTap: _showCategoryPicker,
             child: Container(
@@ -1382,7 +1401,6 @@ class _SellFormPageState extends State<SellFormPage>
               ),
             ),
           ),
-
           if (_category.isEmpty && _formKey.currentState?.validate() == false)
             Padding(
               padding: EdgeInsets.only(top: 4.h, left: 12.w),
@@ -1394,7 +1412,6 @@ class _SellFormPageState extends State<SellFormPage>
                 ),
               ),
             ),
-
           if (_category.isNotEmpty) ...[
             SizedBox(height: 8.h),
             Container(
@@ -1424,7 +1441,7 @@ class _SellFormPageState extends State<SellFormPage>
                           style: TextStyle(
                             fontSize: 9.sp,
                             color:
-                            _getCategoryColor(_category).withOpacity(0.8),
+                                _getCategoryColor(_category).withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1687,7 +1704,7 @@ class _SellFormPageState extends State<SellFormPage>
             decoration: InputDecoration(
               labelText: 'Title *',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1708,7 +1725,7 @@ class _SellFormPageState extends State<SellFormPage>
               labelText: 'Price (USD) *',
               prefixText: '\$ ',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1725,7 +1742,7 @@ class _SellFormPageState extends State<SellFormPage>
             decoration: InputDecoration(
               labelText: 'Region *',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1735,7 +1752,8 @@ class _SellFormPageState extends State<SellFormPage>
             initialValue: _city,
             items: _cities
                 .map((c) => DropdownMenuItem(
-                value: c, child: Text(c, style: TextStyle(fontSize: 13.sp))))
+                    value: c,
+                    child: Text(c, style: TextStyle(fontSize: 13.sp))))
                 .toList(),
             onChanged: (v) => setState(() => _city = v!),
             style: TextStyle(fontSize: 13.sp, color: Colors.black87),
@@ -1748,7 +1766,7 @@ class _SellFormPageState extends State<SellFormPage>
             decoration: InputDecoration(
               labelText: 'Description',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1793,8 +1811,7 @@ class _SellFormPageState extends State<SellFormPage>
               SizedBox(width: 8.w),
               Text(
                 'Seller Information',
-                style:
-                TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),
               ),
             ],
           ),
@@ -1805,7 +1822,7 @@ class _SellFormPageState extends State<SellFormPage>
             decoration: InputDecoration(
               labelText: 'Your Name *',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1826,14 +1843,14 @@ class _SellFormPageState extends State<SellFormPage>
               labelText: 'Phone Number *',
               hintText: '+263 77 123 4567',
               contentPadding:
-              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               labelStyle: TextStyle(fontSize: 12.sp),
               hintStyle:
-              TextStyle(fontSize: 11.sp, color: Colors.grey.shade400),
+                  TextStyle(fontSize: 11.sp, color: Colors.grey.shade400),
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Required';
@@ -1874,7 +1891,7 @@ class _SellFormPageState extends State<SellFormPage>
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child:
-                Icon(Icons.card_giftcard, color: Colors.white, size: 16.r),
+                    Icon(Icons.card_giftcard, color: Colors.white, size: 16.r),
               ),
               SizedBox(width: 8.w),
               Expanded(
@@ -1929,29 +1946,29 @@ class _SellFormPageState extends State<SellFormPage>
               ),
             )
           else ...[
-              Text(
-                'Select a coupon to use:',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                ),
+            Text(
+              'Select a coupon to use:',
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
               ),
-              SizedBox(height: 10.h),
-              Wrap(
-                spacing: 6.w,
-                runSpacing: 6.h,
-                children: [
-                  _buildCouponOption(null, 'No Coupon', 'Post without pinning'),
-                  ..._availableCoupons.map(
-                        (coupon) => _buildCouponOption(
-                      coupon,
-                      coupon.title,
-                      '${_getCouponTypeDescription(coupon.type)} – ${coupon.expiryStatusText}',
-                    ),
+            ),
+            SizedBox(height: 10.h),
+            Wrap(
+              spacing: 6.w,
+              runSpacing: 6.h,
+              children: [
+                _buildCouponOption(null, 'No Coupon', 'Post without pinning'),
+                ..._availableCoupons.map(
+                  (coupon) => _buildCouponOption(
+                    coupon,
+                    coupon.title,
+                    '${_getCouponTypeDescription(coupon.type)} – ${coupon.expiryStatusText}',
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1988,8 +2005,7 @@ class _SellFormPageState extends State<SellFormPage>
                     shape: BoxShape.circle,
                     color: isSelected ? Colors.orange : Colors.transparent,
                     border: Border.all(
-                      color:
-                      isSelected ? Colors.orange : Colors.grey.shade400,
+                      color: isSelected ? Colors.orange : Colors.grey.shade400,
                       width: 2,
                     ),
                   ),
@@ -2005,7 +2021,7 @@ class _SellFormPageState extends State<SellFormPage>
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                       color:
-                      isSelected ? Colors.orange.shade800 : Colors.black87,
+                          isSelected ? Colors.orange.shade800 : Colors.black87,
                     ),
                   ),
                 ),
@@ -2078,23 +2094,23 @@ class _SellFormPageState extends State<SellFormPage>
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
         ),
         child: _submitting
             ? SizedBox(
-          height: 18.h,
-          width: 18.w,
-          child: const CircularProgressIndicator(
-              strokeWidth: 2, color: Colors.white),
-        )
+                height: 18.h,
+                width: 18.w,
+                child: const CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
             : Text(
-          'Post Advertisement',
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
+                'Post Advertisement',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }

@@ -29,8 +29,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _sendResetLink() async {
     final email = _emailController.text.trim();
-    final emailOk =
-    RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    final emailOk = RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
     if (!_isEmailSent) {
       if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -297,22 +296,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Center(
                   child: _isLoading
                       ? SizedBox(
-                    width: 24.r,
-                    height: 24.r,
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
+                          width: 24.r,
+                          height: 24.r,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
                       : Text(
-                    'Send Reset Link',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                          'Send Reset Link',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                 ),
               ),
             ),

@@ -120,13 +120,15 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     if (s.isEmpty) return s;
 
     // 只含 ASCII + 常见分隔符 等"安全字符"——直接返回,避免误修
-    final safe = RegExp(
-        r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
+    final safe =
+        RegExp(r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
     if (safe.hasMatch(s)) return s;
 
     // 只有出现这些"明显乱码痕迹"时才尝试修复
-    final looksBroken =
-        s.contains('Ã') || s.contains('Â') || s.contains('â') || s.contains('ð');
+    final looksBroken = s.contains('Ã') ||
+        s.contains('Â') ||
+        s.contains('â') ||
+        s.contains('ð');
     if (!looksBroken) return s;
 
     try {
@@ -217,96 +219,96 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     _couponChannel = client
         .channel('rewards-coupons-${user.id}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'coupons',
-      filter: PostgresChangeFilter(
-        column: 'user_id',
-        type: PostgresChangeFilterType.eq,
-        value: user.id,
-      ),
-      callback: (_) {
-        _loadRewardCoupons();
-        _loadRewardStats();
-      },
-    )
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coupons',
+          filter: PostgresChangeFilter(
+            column: 'user_id',
+            type: PostgresChangeFilterType.eq,
+            value: user.id,
+          ),
+          callback: (_) {
+            _loadRewardCoupons();
+            _loadRewardStats();
+          },
+        )
         .subscribe();
 
     // ✅ coupon_usages(历史/统计变化 -> 立即刷新)
     _logsChannel = client
         .channel('rewards-logs-${user.id}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'coupon_usages',
-      filter: PostgresChangeFilter(
-        column: 'user_id',
-        type: PostgresChangeFilterType.eq,
-        value: user.id,
-      ),
-      callback: (_) {
-        _loadRewardHistory();
-        _loadRewardStats();
-      },
-    )
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coupon_usages',
+          filter: PostgresChangeFilter(
+            column: 'user_id',
+            type: PostgresChangeFilterType.eq,
+            value: user.id,
+          ),
+          callback: (_) {
+            _loadRewardHistory();
+            _loadRewardStats();
+          },
+        )
         .subscribe();
 
     // user_tasks(任务进度)
     _taskChannel = client
         .channel('rewards-tasks-${user.id}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'user_tasks',
-      filter: PostgresChangeFilter(
-        column: 'user_id',
-        type: PostgresChangeFilterType.eq,
-        value: user.id,
-      ),
-      callback: (_) async {
-        await _loadTasks();
-        await _loadRewardStats();
-      },
-    )
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_tasks',
+          filter: PostgresChangeFilter(
+            column: 'user_id',
+            type: PostgresChangeFilterType.eq,
+            value: user.id,
+          ),
+          callback: (_) async {
+            await _loadTasks();
+            await _loadRewardStats();
+          },
+        )
         .subscribe();
 
     // referrals(邀请关系状态变化 -> 刷新统计/奖励券/历史)
     _referralChannel = client
         .channel('rewards-referrals-${user.id}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'referrals',
-      filter: PostgresChangeFilter(
-        column: 'inviter_id',
-        type: PostgresChangeFilterType.eq,
-        value: user.id,
-      ),
-      callback: (_) async {
-        await _loadRewardStats();
-        await _loadRewardCoupons();
-        await _loadRewardHistory();
-        await _loadRewardState(); // ✅ 新增
-      },
-    )
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'referrals',
+          filter: PostgresChangeFilter(
+            column: 'inviter_id',
+            type: PostgresChangeFilterType.eq,
+            value: user.id,
+          ),
+          callback: (_) async {
+            await _loadRewardStats();
+            await _loadRewardCoupons();
+            await _loadRewardHistory();
+            await _loadRewardState(); // ✅ 新增
+          },
+        )
         .subscribe();
 
     // ✅ Reward State(Points / Spins)
     _rewardStateChannel = client
         .channel('reward-state-${user.id}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'user_reward_state',
-      filter: PostgresChangeFilter(
-        column: 'user_id',
-        type: PostgresChangeFilterType.eq,
-        value: user.id,
-      ),
-      callback: (_) {
-        _loadRewardState();
-      },
-    )
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_reward_state',
+          filter: PostgresChangeFilter(
+            column: 'user_id',
+            type: PostgresChangeFilterType.eq,
+            value: user.id,
+          ),
+          callback: (_) {
+            _loadRewardState();
+          },
+        )
         .subscribe();
   }
 
@@ -315,7 +317,9 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     if (_loading) return;
 
     final now = DateTime.now();
-    if (!force && _lastFetchAt != null && now.difference(_lastFetchAt!) < _ttl) {
+    if (!force &&
+        _lastFetchAt != null &&
+        now.difference(_lastFetchAt!) < _ttl) {
       if (mounted && _animationController.value == 0.0) {
         _animationController.forward();
       }
@@ -394,7 +398,8 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       // 1) 优先 used_at（如果字段存在）
       usages = await supabase
           .from('coupon_usages')
-          .select('id,coupon_id,user_id,listing_id,used_at,created_at,note,context')
+          .select(
+              'id,coupon_id,user_id,listing_id,used_at,created_at,note,context')
           .eq('user_id', user.id)
           .order('used_at', ascending: false);
     } catch (_) {
@@ -634,15 +639,15 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                   child: IconButton(
                     icon: _isRefreshing
                         ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Icon(Icons.refresh,
-                        color: Colors.white, size: 24),
+                            color: Colors.white, size: 24),
                     onPressed: _isRefreshing ? null : _refreshData,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -701,13 +706,13 @@ class _RewardCenterPageState extends State<RewardCenterPage>
           alignment: Alignment.center,
           child: _isRefreshing
               ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          )
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
               : const Icon(Icons.refresh, color: Colors.white, size: 18),
         ),
       ),
@@ -794,16 +799,16 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             child: isInitialLoading
                 ? _buildLoadingState()
                 : FadeTransition(
-              opacity: _fadeAnimation,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildActiveTasksTab(),
-                  _buildRewardCouponsTab(),
-                  _buildHistoryTab(),
-                ],
-              ),
-            ),
+                    opacity: _fadeAnimation,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildActiveTasksTab(),
+                        _buildRewardCouponsTab(),
+                        _buildHistoryTab(),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -959,7 +964,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                     value: progress,
                     backgroundColor: Colors.white.withOpacity(0.3),
                     valueColor:
-                    const AlwaysStoppedAnimation<Color>(Colors.white),
+                        const AlwaysStoppedAnimation<Color>(Colors.white),
                     minHeight: 4.h,
                   ),
                 ),
@@ -979,23 +984,23 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             ),
             child: _isRedeeming
                 ? SizedBox(
-              width: 16.r,
-              height: 16.r,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Color(0xFF4CAF50),
-              ),
-            )
+                    width: 16.r,
+                    height: 16.r,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF4CAF50),
+                    ),
+                  )
                 : Text(
-              'Redeem',
-              style: TextStyle(
-                fontSize: 13.sp,
-                color: canRedeem
-                    ? const Color(0xFF4CAF50)
-                    : Colors.white.withOpacity(0.7),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+                    'Redeem',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: canRedeem
+                          ? const Color(0xFF4CAF50)
+                          : Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -1088,21 +1093,21 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             ),
             child: _isSpinning
                 ? SizedBox(
-              width: 16.r,
-              height: 16.r,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Color(0xFF1976D2),
-              ),
-            )
+                    width: 16.r,
+                    height: 16.r,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF1976D2),
+                    ),
+                  )
                 : Text(
-              'Spin Now',
-              style: TextStyle(
-                fontSize: 13.sp,
-                color: const Color(0xFF2196F3),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+                    'Spin Now',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: const Color(0xFF2196F3),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -1205,7 +1210,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                   child: const CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor:
-                    AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+                        AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
                   ),
                 ),
                 SizedBox(height: 16.h),
@@ -1233,22 +1238,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: activeTasks.isEmpty
           ? ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(20.r),
-        children: [
-          _buildEmptyState(
-            icon: Icons.assignment_outlined,
-            title: 'No Active Tasks',
-            subtitle: 'Complete daily activities to earn rewards',
-          ),
-        ],
-      )
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(20.r),
+              children: [
+                _buildEmptyState(
+                  icon: Icons.assignment_outlined,
+                  title: 'No Active Tasks',
+                  subtitle: 'Complete daily activities to earn rewards',
+                ),
+              ],
+            )
           : ListView.builder(
-        padding: EdgeInsets.all(20.r),
-        itemCount: activeTasks.length,
-        itemBuilder: (context, index) =>
-            _buildTaskCard(activeTasks[index], index),
-      ),
+              padding: EdgeInsets.all(20.r),
+              itemCount: activeTasks.length,
+              itemBuilder: (context, index) =>
+                  _buildTaskCard(activeTasks[index], index),
+            ),
     );
   }
 
@@ -1258,22 +1263,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: _rewardCoupons.isEmpty
           ? ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(20.r),
-        children: [
-          _buildEmptyState(
-            icon: Icons.card_giftcard_outlined,
-            title: 'No Reward Coupons',
-            subtitle: 'Complete tasks to earn reward coupons',
-          ),
-        ],
-      )
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(20.r),
+              children: [
+                _buildEmptyState(
+                  icon: Icons.card_giftcard_outlined,
+                  title: 'No Reward Coupons',
+                  subtitle: 'Complete tasks to earn reward coupons',
+                ),
+              ],
+            )
           : ListView.builder(
-        padding: EdgeInsets.all(20.r),
-        itemCount: _rewardCoupons.length,
-        itemBuilder: (context, index) =>
-            _buildRewardCouponCard(_rewardCoupons[index], index),
-      ),
+              padding: EdgeInsets.all(20.r),
+              itemCount: _rewardCoupons.length,
+              itemBuilder: (context, index) =>
+                  _buildRewardCouponCard(_rewardCoupons[index], index),
+            ),
     );
   }
 
@@ -1283,22 +1288,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: _rewardHistory.isEmpty
           ? ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(20.r),
-        children: [
-          _buildEmptyState(
-            icon: Icons.history_outlined,
-            title: 'No History Records',
-            subtitle: 'Your reward history will appear here',
-          ),
-        ],
-      )
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(20.r),
+              children: [
+                _buildEmptyState(
+                  icon: Icons.history_outlined,
+                  title: 'No History Records',
+                  subtitle: 'Your reward history will appear here',
+                ),
+              ],
+            )
           : ListView.builder(
-        padding: EdgeInsets.all(20.r),
-        itemCount: _rewardHistory.length,
-        itemBuilder: (context, index) =>
-            _buildHistoryCard(_rewardHistory[index], index),
-      ),
+              padding: EdgeInsets.all(20.r),
+              itemCount: _rewardHistory.length,
+              itemBuilder: (context, index) =>
+                  _buildHistoryCard(_rewardHistory[index], index),
+            ),
     );
   }
 
@@ -1422,7 +1427,8 @@ class _RewardCenterPageState extends State<RewardCenterPage>
 
   Widget _buildRewardCouponCard(CouponModel coupon, int index) {
     final fixedTitle = _normalizeSeparators(_fixUtf8Mojibake(coupon.title));
-    final fixedDesc = _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
+    final fixedDesc =
+        _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -1489,8 +1495,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                 ),
                 SizedBox(height: 8.h),
                 Container(
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(6.r),
@@ -1513,8 +1518,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
               onPressed: () => _onUseNowPressed(coupon),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _getCouponColor(coupon.type),
-                padding:
-                EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.r),
                 ),
@@ -1551,7 +1555,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     );
 
     final rawReason =
-    (reward['reward_reason'] ?? '').toString().trim().toLowerCase();
+        (reward['reward_reason'] ?? '').toString().trim().toLowerCase();
 
     String prettyReason(String raw, String? type) {
       if (raw.isEmpty || raw == 'app' || raw == 'system' || raw == 'auto') {
@@ -1751,7 +1755,8 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('✅ Redemption submitted! We will contact you soon.'),
+          content:
+              const Text('✅ Redemption submitted! We will contact you soon.'),
           backgroundColor: Colors.green[700],
         ),
       );
@@ -2082,21 +2087,21 @@ class _SpinSheetState extends State<_SpinSheet> {
                   ),
                   child: _busy
                       ? SizedBox(
-                    width: 20.r,
-                    height: 20.r,
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 20.r,
+                          height: 20.r,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : Text(
-                    'Spin Now',
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                          'Spin Now',
+                          style: TextStyle(
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
 
@@ -2141,7 +2146,8 @@ class _SpinSheetState extends State<_SpinSheet> {
       // 后端在 no_spins 时会返回 ok:false reason:no_spins status=200
       final ok = data['ok'] == true;
       if (!ok) {
-        final reason = (data['reason'] ?? data['error'] ?? 'spin failed').toString();
+        final reason =
+            (data['reason'] ?? data['error'] ?? 'spin failed').toString();
         throw Exception(reason);
       }
 

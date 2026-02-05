@@ -82,7 +82,7 @@ class AppleAuthService {
       final given = (credential.givenName ?? '').trim();
       final family = (credential.familyName ?? '').trim();
       final fullName =
-      ([given, family]..removeWhere((e) => e.isEmpty)).join(' ');
+          ([given, family]..removeWhere((e) => e.isEmpty)).join(' ');
       final email = (credential.email ?? '').trim();
 
       if (fullName.isNotEmpty || email.isNotEmpty) {

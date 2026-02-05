@@ -67,7 +67,8 @@ class RewardService {
           .limit(1);
 
       if (exist.isNotEmpty) {
-        _debugPrint('Welcome coupon already exists for $uid (client-side check). Forcing shouldPopup=false.');
+        _debugPrint(
+            'Welcome coupon already exists for $uid (client-side check). Forcing shouldPopup=false.');
         // 如果已存在，直接返回 "不需要弹窗"，阻止后续 RPC
         return EnsureWelcomeResult(
           created: false, // 本次未创建
@@ -78,16 +79,16 @@ class RewardService {
       }
     } catch (e) {
       // 如果检查出错（比如 RLS 权限问题），打印日志但继续执行 RPC（保持原有逻辑）
-      _debugPrint('Client-side pre-check for welcome coupon failed: $e. Proceeding with RPC.');
+      _debugPrint(
+          'Client-side pre-check for welcome coupon failed: $e. Proceeding with RPC.');
     }
     // ✅ [新增逻辑结束]
 
     // [原有逻辑]：仅在客户端检查不存在 'welcome' 券时才执行
     final res =
-    await _client.rpc('ensure_welcome_coupon', params: {'p_user': uid});
-    final map = (res is Map)
-        ? Map<String, dynamic>.from(res)
-        : <String, dynamic>{};
+        await _client.rpc('ensure_welcome_coupon', params: {'p_user': uid});
+    final map =
+        (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
 
     return EnsureWelcomeResult(
       created: map['created'] == true,
@@ -106,9 +107,8 @@ class RewardService {
       // 1) 调服务端幂等 RPC（内部已保障并发/唯一性/置位 profiles）
       final res = await _client
           .rpc('ensure_welcome_coupon', params: {'p_user': userId});
-      final map = (res is Map)
-          ? Map<String, dynamic>.from(res)
-          : <String, dynamic>{};
+      final map =
+          (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
       final couponId = map['coupon_id'] as String?;
 
       // 2) 优先用 coupon_id 精准取券，否则回落到“取该用户最近的 welcome 券”
@@ -166,9 +166,8 @@ class RewardService {
     try {
       final res = await _client
           .rpc('ensure_welcome_coupon', params: {'p_user': userId});
-      final map = (res is Map)
-          ? Map<String, dynamic>.from(res)
-          : <String, dynamic>{};
+      final map =
+          (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
       final granted = map['welcome_reward_granted'] == true;
       _welcomeChecked = true; // 仅防抖
       return granted;
@@ -231,8 +230,7 @@ class RewardService {
           .eq('status', 'active')
           .or('source.eq.rewards,source.eq.reward,source.eq.task,source.eq.signup,type.eq.welcome');
 
-      final activeCouponCount =
-      (activeCoupons.length);
+      final activeCouponCount = (activeCoupons.length);
 
       final summary = {
         'points': stats['total_rewards'] ?? 0,
@@ -281,13 +279,13 @@ class RewardService {
   }
 
   static Map<String, dynamic> _getEmptySummary() => {
-    'points': 0,
-    'coupons': 0,
-    'tasks': 0,
-    'completed_tasks': 0,
-    'total_tasks': 0,
-    'stats': {},
-  };
+        'points': 0,
+        'coupons': 0,
+        'tasks': 0,
+        'completed_tasks': 0,
+        'total_tasks': 0,
+        'stats': {},
+      };
 
   static String _generateInvitationCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -322,7 +320,7 @@ class RewardService {
         type: CouponType.category,
         title: 'New User Category Pinning Coupon',
         description:
-        'Welcome to Swaply! Use this coupon to pin your item in category page for 3 days to increase exposure',
+            'Welcome to Swaply! Use this coupon to pin your item in category page for 3 days to increase exposure',
         durationDays: 3,
         maxUses: 1,
         metadata: {
@@ -384,7 +382,7 @@ class RewardService {
           'task_type': 'publish_items',
           'task_name': 'Publish Your First Items',
           'description':
-          'Publish 3 items with images to unlock hot pinning coupon',
+              'Publish 3 items with images to unlock hot pinning coupon',
           'target_count': 3,
           'current_count': 0,
           'status': 'active',
@@ -394,7 +392,7 @@ class RewardService {
             'actual_type': 'trending',
             'title': 'Active User Hot Pinning Coupon',
             'description':
-            'Congratulations on completing the publishing task! Use this coupon to pin on homepage trending for 3 days'
+                'Congratulations on completing the publishing task! Use this coupon to pin on homepage trending for 3 days'
           },
           'created_at': now,
         },
@@ -429,8 +427,7 @@ class RewardService {
           .eq('task_type', taskType)
           .eq('status', 'active');
 
-      final List<dynamic> tasks =
-          response;
+      final List<dynamic> tasks = response;
 
       if (tasks.isEmpty) {
         _debugPrint('No matching active tasks found');
@@ -479,14 +476,13 @@ class RewardService {
       final response = await _client
           .from('user_tasks')
           .update({
-        'status': 'completed',
-        'completed_at': DateTime.now().toIso8601String()
-      })
+            'status': 'completed',
+            'completed_at': DateTime.now().toIso8601String()
+          })
           .eq('id', taskId)
           .select();
 
-      final List<dynamic> taskList =
-          response;
+      final List<dynamic> taskList = response;
       if (taskList.isNotEmpty) {
         final taskData = Map<String, dynamic>.from(taskList.first);
         _debugPrint('Task completed: ${taskData['task_name']}');
@@ -686,7 +682,7 @@ class RewardService {
     }
     try {
       final res =
-      await _client.rpc('complete_referral', params: {'p_invitee': uid});
+          await _client.rpc('complete_referral', params: {'p_invitee': uid});
 
       if (res is String && res.isNotEmpty) {
         final inviterId = res;
@@ -695,7 +691,7 @@ class RewardService {
         // 优先使用后端 RPC（单张里程碑券：1/5/10）
         try {
           final r =
-          await _client.rpc('issue_referral_milestone_reward', params: {
+              await _client.rpc('issue_referral_milestone_reward', params: {
             'p_inviter': inviterId,
           });
           _debugPrint('issue_referral_milestone_reward: $r');
@@ -724,8 +720,7 @@ class RewardService {
           .eq('inviter_id', inviterId)
           .eq('status', 'completed');
 
-      final List<dynamic> completed =
-          response;
+      final List<dynamic> completed = response;
       final count = completed.length;
       _debugPrint('Completed referrals count: $count');
 
@@ -800,7 +795,7 @@ class RewardService {
           durationDays: 3,
           title: 'Referral Reward · Search/Popular Pin (3d)',
           description:
-          'Invite 5 friends completed — search top & appear in Popular for 3 days',
+              'Invite 5 friends completed — search top & appear in Popular for 3 days',
         );
 
         if (coupon != null) {
@@ -843,7 +838,7 @@ class RewardService {
           type: CouponType.trending,
           title: 'Referral Reward · Home Trending (7d)',
           description:
-          'Invite 10 friends completed — homepage trending for 7 days',
+              'Invite 10 friends completed — homepage trending for 7 days',
           durationDays: 7,
           maxUses: 1,
           metadata: {
@@ -903,12 +898,12 @@ class RewardService {
           final resp = await _client
               .from('daily_quotas')
               .insert({
-            'date': today,
-            'quota_type': quotaType,
-            'max_count': maxDaily,
-            'used_count': 0,
-            'created_at': DateTime.now().toIso8601String(),
-          })
+                'date': today,
+                'quota_type': quotaType,
+                'max_count': maxDaily,
+                'used_count': 0,
+                'created_at': DateTime.now().toIso8601String(),
+              })
               .select()
               .single();
           quota = resp;
@@ -985,7 +980,7 @@ class RewardService {
         'remaining': remaining,
         'available': remaining > 0,
         'usage_percentage':
-        max > 0 ? (used / max * 100).clamp(0.0, 100.0) : 0.0,
+            max > 0 ? (used / max * 100).clamp(0.0, 100.0) : 0.0,
       };
     } catch (e) {
       _debugPrint('getQuotaStatus error: $e');
@@ -1120,20 +1115,20 @@ class RewardService {
   }
 
   static Map<String, dynamic> _getEmptyStats() => {
-    'total_rewards': 0,
-    'register_rewards': 0,
-    'activity_rewards': 0,
-    'referral_rewards': 0,
-    'total_tasks': 0,
-    'completed_tasks': 0,
-    'pending_tasks': 0,
-    'task_completion_rate': 0.0,
-    'total_invitations': 0,
-    'successful_invitations': 0,
-    'pending_invitations': 0,
-    'accepted_invitations': 0,
-    'invitation_success_rate': 0.0,
-  };
+        'total_rewards': 0,
+        'register_rewards': 0,
+        'activity_rewards': 0,
+        'referral_rewards': 0,
+        'total_tasks': 0,
+        'completed_tasks': 0,
+        'pending_tasks': 0,
+        'task_completion_rate': 0.0,
+        'total_invitations': 0,
+        'successful_invitations': 0,
+        'pending_invitations': 0,
+        'accepted_invitations': 0,
+        'invitation_success_rate': 0.0,
+      };
 
   static Future<List<Map<String, dynamic>>> getUserInvitations(
       String userId) async {
@@ -1146,16 +1141,15 @@ class RewardService {
           .eq('inviter_id', userId)
           .order('created_at', ascending: false);
 
-      final List<dynamic> list =
-          response;
+      final List<dynamic> list = response;
       return list
           .map<Map<String, dynamic>>((item) {
-        try {
-          return Map<String, dynamic>.from(item);
-        } catch (_) {
-          return <String, dynamic>{};
-        }
-      })
+            try {
+              return Map<String, dynamic>.from(item);
+            } catch (_) {
+              return <String, dynamic>{};
+            }
+          })
           .where((e) => e.isNotEmpty)
           .toList();
     } on PostgrestException catch (e) {
@@ -1198,27 +1192,26 @@ class RewardService {
             coupons:coupon_id (code, type, title, status)
           ''').eq('user_id', userId).order('created_at', ascending: false);
 
-      final List<dynamic> rewards =
-          response;
+      final List<dynamic> rewards = response;
 
       final result = rewards
           .map<Map<String, dynamic>>((item) {
-        try {
-          final rewardData = Map<String, dynamic>.from(item);
-          if (rewardData['coupons'] != null &&
-              rewardData['coupons'] is Map) {
-            final couponData =
-            Map<String, dynamic>.from(rewardData['coupons']);
-            rewardData['coupon_code'] = couponData['code'];
-            rewardData['coupon_title'] = couponData['title'];
-            rewardData['coupon_status'] = couponData['status'];
-            rewardData['coupon_type'] = couponData['type'];
-          }
-          return rewardData;
-        } catch (_) {
-          return <String, dynamic>{};
-        }
-      })
+            try {
+              final rewardData = Map<String, dynamic>.from(item);
+              if (rewardData['coupons'] != null &&
+                  rewardData['coupons'] is Map) {
+                final couponData =
+                    Map<String, dynamic>.from(rewardData['coupons']);
+                rewardData['coupon_code'] = couponData['code'];
+                rewardData['coupon_title'] = couponData['title'];
+                rewardData['coupon_status'] = couponData['status'];
+                rewardData['coupon_type'] = couponData['type'];
+              }
+              return rewardData;
+            } catch (_) {
+              return <String, dynamic>{};
+            }
+          })
           .where((e) => e.isNotEmpty)
           .toList();
 
@@ -1276,7 +1269,7 @@ class RewardService {
           return {
             'success': false,
             'message':
-            'Daily trending quota exhausted, please try again tomorrow',
+                'Daily trending quota exhausted, please try again tomorrow',
             'error_code': 'QUOTA_EXHAUSTED',
           };
         }
@@ -1290,7 +1283,7 @@ class RewardService {
         return {
           'success': true,
           'message':
-          'Coupon used successfully for ${coupon.type.displayLocation}',
+              'Coupon used successfully for ${coupon.type.displayLocation}',
           'coupon_type': coupon.type.value,
           'display_location': coupon.type.displayLocation,
           'function_description': coupon.type.functionDescription,
@@ -1333,7 +1326,7 @@ class RewardService {
       }
 
       final actualType =
-      couponType.isActualCouponType ? couponType : CouponType.category;
+          couponType.isActualCouponType ? couponType : CouponType.category;
 
       _debugPrint(
           'Batch granting ${actualType.value} coupons to ${userIds.length} users');
@@ -1403,7 +1396,7 @@ class RewardService {
       return {
         'success': grantedCount > 0,
         'message':
-        'Batch reward completed: $grantedCount granted, $failedCount failed',
+            'Batch reward completed: $grantedCount granted, $failedCount failed',
         'granted_count': grantedCount,
         'failed_count': failedCount,
         'total_count': userIds.length,
@@ -1429,7 +1422,7 @@ class RewardService {
 
       final now = DateTime.now();
       final thirtyDaysAgo =
-      now.subtract(const Duration(days: 30)).toIso8601String();
+          now.subtract(const Duration(days: 30)).toIso8601String();
 
       final expiredTasksResponse = await _client
           .from('user_tasks')

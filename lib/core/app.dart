@@ -1,4 +1,4 @@
-﻿// lib/core/app.dart
+// lib/core/app.dart
 //
 // ✅ [性能优化] 关键改动：
 // 1. 减少 splash 等待超时时间（3秒 → 1.5秒）
@@ -59,7 +59,8 @@ class _SwaplyAppState extends State<SwaplyApp> {
       }
       if (DateTime.now().difference(start) >= timeout) {
         if (kDebugMode) {
-          debugPrint('[App] ⏱️ Wait initial navigation timeout (1.5s), removing splash anyway');
+          debugPrint(
+              '[App] ⏱️ Wait initial navigation timeout (1.5s), removing splash anyway');
         }
         return;
       }
@@ -93,8 +94,10 @@ class _SwaplyAppState extends State<SwaplyApp> {
 
         try {
           await DeepLinkService.instance.bootstrap();
-          final bootstrapTime = DateTime.now().difference(startTime).inMilliseconds;
-          debugPrint('[App] ✅ DeepLinkService bootstrap completed (${bootstrapTime}ms)');
+          final bootstrapTime =
+              DateTime.now().difference(startTime).inMilliseconds;
+          debugPrint(
+              '[App] ✅ DeepLinkService bootstrap completed (${bootstrapTime}ms)');
         } catch (e) {
           debugPrint('[App] ⚠️ DeepLinkService bootstrap failed: $e');
         }
@@ -158,8 +161,8 @@ class _SwaplyAppState extends State<SwaplyApp> {
 
             // 路由配置 (保持原有逻辑)
             onGenerateRoute: AppRouter.onGenerateRoute,
-            onUnknownRoute: (settings) =>
-                MaterialPageRoute(builder: (_) => const MainNavigationPage()), // ✅ 兜底，防黑屏
+            onUnknownRoute: (settings) => MaterialPageRoute(
+                builder: (_) => const MainNavigationPage()), // ✅ 兜底，防黑屏
             initialRoute: '/', // 由 AuthFlowObserver 接管跳转
 
             theme: ThemeData(

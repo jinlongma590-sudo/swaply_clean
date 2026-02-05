@@ -95,15 +95,14 @@ class ShareUtils {
 
     final hasUrl = (url != null && url.isNotEmpty);
     final u = hasUrl ? Uri.encodeComponent(url) : null;
-    final t = (text != null && text.isNotEmpty)
-        ? Uri.encodeComponent(text)
-        : null;
+    final t =
+        (text != null && text.isNotEmpty) ? Uri.encodeComponent(text) : null;
 
     // ① 先用 share?url=...&text=...
     // ✅ 关键：Telegram 的 share 协议格式
     if (hasUrl) {
-      final tgShare = Uri.parse(
-          'tg://share?url=$u${t != null ? '&text=$t' : ''}');
+      final tgShare =
+          Uri.parse('tg://share?url=$u${t != null ? '&text=$t' : ''}');
       if (await _tryLaunch(tgShare)) return;
     }
 
@@ -169,8 +168,8 @@ class ShareUtils {
     if (await _tryLaunch(fbApp)) return;
 
     // ② 退到网页分享（兼容未安装）
-    final web = Uri.parse(
-        'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl');
+    final web =
+        Uri.parse('https://www.facebook.com/sharer/sharer.php?u=$encodedUrl');
     if (await _tryLaunch(web)) return;
 
     // ③ 兜底：复制链接

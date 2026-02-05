@@ -9,9 +9,9 @@ import 'package:flutter/foundation.dart';
 /// ✅ 深链导航保护器
 /// 防止其他代码在深链处理时干扰导航
 class DeepLinkNavigationGuard {
-
   // 单例模式
-  static final DeepLinkNavigationGuard _instance = DeepLinkNavigationGuard._internal();
+  static final DeepLinkNavigationGuard _instance =
+      DeepLinkNavigationGuard._internal();
   factory DeepLinkNavigationGuard() => _instance;
   DeepLinkNavigationGuard._internal();
 

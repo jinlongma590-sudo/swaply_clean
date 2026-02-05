@@ -21,7 +21,8 @@ class FacebookAuthService {
 
   Future<bool> signIn() async {
     debugPrint('[FacebookAuth] 🔵 Starting Facebook native login...');
-    debugPrint('[FacebookAuth] 📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+    debugPrint(
+        '[FacebookAuth] 📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
 
     try {
       // 1. 发起登录
@@ -62,7 +63,8 @@ class FacebookAuthService {
       }
 
       debugPrint('[FacebookAuth] 🔑 Token length: ${tokenToSend.length}');
-      debugPrint('[FacebookAuth] 🔑 Token preview: ${tokenToSend.substring(0, min(30, tokenToSend.length))}...');
+      debugPrint(
+          '[FacebookAuth] 🔑 Token preview: ${tokenToSend.substring(0, min(30, tokenToSend.length))}...');
 
       debugPrint('[FacebookAuth] 🔄 Calling Edge Function...');
 
@@ -78,15 +80,18 @@ class FacebookAuthService {
         }),
       );
 
-      debugPrint('[FacebookAuth] Edge Function response: ${response.statusCode}');
+      debugPrint(
+          '[FacebookAuth] Edge Function response: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         // 尝试解析错误信息
         try {
           final error = json.decode(response.body);
-          debugPrint('[FacebookAuth] ❌ Edge Function error (${response.statusCode}): $error');
+          debugPrint(
+              '[FacebookAuth] ❌ Edge Function error (${response.statusCode}): $error');
         } catch (_) {
-          debugPrint('[FacebookAuth] ❌ Edge Function error raw: ${response.body}');
+          debugPrint(
+              '[FacebookAuth] ❌ Edge Function error raw: ${response.body}');
         }
         return false;
       }
@@ -98,7 +103,8 @@ class FacebookAuthService {
       final password = data['password'] as String?;
 
       if (email == null || password == null) {
-        debugPrint('[FacebookAuth] ❌ Critical: Email or Password missing in response');
+        debugPrint(
+            '[FacebookAuth] ❌ Critical: Email or Password missing in response');
         return false;
       }
 
@@ -119,7 +125,6 @@ class FacebookAuthService {
       debugPrint('[FacebookAuth] User: ${authResponse.user?.id}');
 
       return true;
-
     } catch (e, stackTrace) {
       debugPrint('[FacebookAuth] ❌ Error: $e');
       debugPrint('[FacebookAuth] Stack trace: $stackTrace');

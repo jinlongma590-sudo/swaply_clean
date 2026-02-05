@@ -71,7 +71,8 @@ class AuthFlowObserver {
       final navigator = rootNavKey.currentState;
       if (navigator == null) {
         if (kDebugMode) {
-          debugPrint('[AuthFlowObserver] _getCurrentRoute: navigator is null, returning cached: $_lastRoute');
+          debugPrint(
+              '[AuthFlowObserver] _getCurrentRoute: navigator is null, returning cached: $_lastRoute');
         }
         return _lastRoute;
       }
@@ -90,13 +91,15 @@ class AuthFlowObserver {
 
       if (navigator.context.mounted && _lastRoute == null) {
         if (kDebugMode) {
-          debugPrint('[AuthFlowObserver] _getCurrentRoute: likely on initialRoute, returning "/"');
+          debugPrint(
+              '[AuthFlowObserver] _getCurrentRoute: likely on initialRoute, returning "/"');
         }
         return '/';
       }
 
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] _getCurrentRoute: returning cached: $_lastRoute');
+        debugPrint(
+            '[AuthFlowObserver] _getCurrentRoute: returning cached: $_lastRoute');
       }
       return _lastRoute;
     } catch (e) {
@@ -107,15 +110,20 @@ class AuthFlowObserver {
     }
   }
 
-  Future<String?> _getCurrentRouteWithRetry({int maxRetries = 5, int delayMs = 100}) async {
+  Future<String?> _getCurrentRouteWithRetry(
+      {int maxRetries = 5, int delayMs = 100}) async {
     for (int i = 0; i < maxRetries; i++) {
       final route = _getCurrentRoute();
 
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] 🔍 Route check attempt ${i + 1}/$maxRetries: $route');
+        debugPrint(
+            '[AuthFlowObserver] 🔍 Route check attempt ${i + 1}/$maxRetries: $route');
       }
 
-      if (route != null && route != '/' && route != '/welcome' && route != '/home') {
+      if (route != null &&
+          route != '/' &&
+          route != '/welcome' &&
+          route != '/home') {
         if (kDebugMode) {
           debugPrint('[AuthFlowObserver] ✅ Found business route: $route');
         }
@@ -129,7 +137,8 @@ class AuthFlowObserver {
 
     final finalRoute = _getCurrentRoute();
     if (kDebugMode) {
-      debugPrint('[AuthFlowObserver] 📍 Final route after $maxRetries attempts: $finalRoute');
+      debugPrint(
+          '[AuthFlowObserver] 📍 Final route after $maxRetries attempts: $finalRoute');
     }
     return finalRoute;
   }
@@ -139,27 +148,31 @@ class AuthFlowObserver {
     if (!_everNavigated) {
       _everNavigated = true;
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] 🏁 First navigation initiated to: $route');
+        debugPrint(
+            '[AuthFlowObserver] 🏁 First navigation initiated to: $route');
       }
     }
 
     if (_navigating) {
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] ⏭️ Navigation already in progress, skipping');
+        debugPrint(
+            '[AuthFlowObserver] ⏭️ Navigation already in progress, skipping');
       }
       return;
     }
 
     if (_throttle(route)) {
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] ⏭️ Throttled navigation to $route (too soon)');
+        debugPrint(
+            '[AuthFlowObserver] ⏭️ Throttled navigation to $route (too soon)');
       }
       return;
     }
 
     if (_guard.shouldBlockNavigation(route)) {
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] 🚫 Navigation to $route blocked by Guard');
+        debugPrint(
+            '[AuthFlowObserver] 🚫 Navigation to $route blocked by Guard');
         debugPrint('[AuthFlowObserver] 📊 Guard status: ${_guard.getStatus()}');
       }
       return;
@@ -169,7 +182,8 @@ class AuthFlowObserver {
     if (currentRoute == route && !force) {
       if (kDebugMode) {
         debugPrint('[AuthFlowObserver] ⏭️ Already on $route, skip navigation');
-        debugPrint('[AuthFlowObserver] 📌 Preserving scroll position and page state');
+        debugPrint(
+            '[AuthFlowObserver] 📌 Preserving scroll position and page state');
       }
       _initialNavigationDone = true;
       return;
@@ -178,8 +192,10 @@ class AuthFlowObserver {
     // ✅ [ProfilePage修复] 强制导航时打印说明
     if (currentRoute == route && force) {
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] 🔄 Force navigation to $route (rebuilding page tree)');
-        debugPrint('[AuthFlowObserver] 💡 Reason: OAuth login requires fresh widget tree');
+        debugPrint(
+            '[AuthFlowObserver] 🔄 Force navigation to $route (rebuilding page tree)');
+        debugPrint(
+            '[AuthFlowObserver] 💡 Reason: OAuth login requires fresh widget tree');
       }
     }
 
@@ -193,20 +209,23 @@ class AuthFlowObserver {
       await Future.delayed(const Duration(milliseconds: 50));
       waited += 50;
       if (kDebugMode && waited % 500 == 0) {
-        debugPrint('[AuthFlowObserver] ⏳ Waiting for navigation ready... (${waited}ms)');
+        debugPrint(
+            '[AuthFlowObserver] ⏳ Waiting for navigation ready... (${waited}ms)');
       }
     }
 
     if (rootNavKey.currentState == null) {
       if (kDebugMode) {
-        debugPrint('[AuthFlowObserver] ❌ Navigation timeout! rootNavKey.currentState is null');
+        debugPrint(
+            '[AuthFlowObserver] ❌ Navigation timeout! rootNavKey.currentState is null');
       }
       _navigating = false;
       return;
     }
 
     if (kDebugMode) {
-      debugPrint('[AuthFlowObserver] ✅ Navigation ready (waited ${waited}ms), executing navReplaceAll');
+      debugPrint(
+          '[AuthFlowObserver] ✅ Navigation ready (waited ${waited}ms), executing navReplaceAll');
     }
 
     try {
@@ -276,11 +295,13 @@ class AuthFlowObserver {
     _sub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final sinceStart = DateTime.now().difference(_appStart);
 
-      final isGraceWindowSignOut = sinceStart < const Duration(milliseconds: 1200) &&
-          data.event == AuthChangeEvent.signedOut;
+      final isGraceWindowSignOut =
+          sinceStart < const Duration(milliseconds: 1200) &&
+              data.event == AuthChangeEvent.signedOut;
 
       if (isGraceWindowSignOut) {
-        debugPrint('[AuthFlowObserver] grace-window signedOut detected (will skip navigation but allow cleanup)');
+        debugPrint(
+            '[AuthFlowObserver] grace-window signedOut detected (will skip navigation but allow cleanup)');
       }
 
       final eventName = data.event.name;
@@ -288,7 +309,8 @@ class AuthFlowObserver {
       // ✅ [竞态修复] 增强事件过滤
       if (_lastEvent == 'signedIn' && eventName == 'initialSession') {
         if (kDebugMode) {
-          debugPrint('[AuthFlowObserver] ⏭️ Skipping initialSession (just handled signedIn)');
+          debugPrint(
+              '[AuthFlowObserver] ⏭️ Skipping initialSession (just handled signedIn)');
         }
         return;
       }
@@ -303,10 +325,12 @@ class AuthFlowObserver {
           _signOutDebounce?.cancel();
 
           // ✅ [ProfilePage修复] 判断是否需要force（在执行异步操作前）
-          final needsForceNav = _lastRoute == '/home' || _lastRoute == '/welcome';
+          final needsForceNav =
+              _lastRoute == '/home' || _lastRoute == '/welcome';
 
           if (kDebugMode && needsForceNav) {
-            debugPrint('[AuthFlowObserver] 🔄 OAuth login detected, will force navigation');
+            debugPrint(
+                '[AuthFlowObserver] 🔄 OAuth login detected, will force navigation');
           }
 
           // ✅ 立即开始导航（不等待Profile预热）
@@ -328,7 +352,8 @@ class AuthFlowObserver {
                 try {
                   final code = RegisterScreen.pendingInvitationCode;
                   if (code != null && code.isNotEmpty) {
-                    await RewardService.submitInviteCode(code.trim().toUpperCase());
+                    await RewardService.submitInviteCode(
+                        code.trim().toUpperCase());
                     RegisterScreen.clearPendingCode();
                   }
                 } catch (_) {}
@@ -339,21 +364,25 @@ class AuthFlowObserver {
           }
 
           if (kDebugMode) {
-            debugPrint('[AuthFlowObserver] ✅ Navigation and initialization completed');
+            debugPrint(
+                '[AuthFlowObserver] ✅ Navigation and initialization completed');
           }
           break;
 
         case AuthChangeEvent.initialSession:
           _manualSignOutOnce = false;
 
-          final hasSession = Supabase.instance.client.auth.currentSession != null;
+          final hasSession =
+              Supabase.instance.client.auth.currentSession != null;
 
           if (hasSession) {
             // ✅ [竞态修复] 优先检查 _everNavigated
             if (_everNavigated) {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🔥 Already navigated (_everNavigated=true)');
-                debugPrint('[AuthFlowObserver] ✅ Skipping all navigation (preventing duplicate)');
+                debugPrint(
+                    '[AuthFlowObserver] 🔥 Already navigated (_everNavigated=true)');
+                debugPrint(
+                    '[AuthFlowObserver] ✅ Skipping all navigation (preventing duplicate)');
               }
 
               final user = Supabase.instance.client.auth.currentUser;
@@ -365,7 +394,8 @@ class AuthFlowObserver {
                   await NotificationService.subscribeUser(user.id);
                 } catch (e) {
                   if (kDebugMode) {
-                    debugPrint('[AuthFlowObserver] subscribeUser (skip nav) error: $e');
+                    debugPrint(
+                        '[AuthFlowObserver] subscribeUser (skip nav) error: $e');
                   }
                 }
               }
@@ -383,7 +413,8 @@ class AuthFlowObserver {
                 await NotificationService.subscribeUser(user.id);
               } catch (e) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] subscribeUser (initialSession) error: $e');
+                  debugPrint(
+                      '[AuthFlowObserver] subscribeUser (initialSession) error: $e');
                 }
               }
             }
@@ -402,7 +433,8 @@ class AuthFlowObserver {
             if (kDebugMode) {
               debugPrint('[AuthFlowObserver] ⏳ 等待深链服务（iOS 已登录场景）...');
             }
-            await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1500 : 500));
+            await Future.delayed(
+                Duration(milliseconds: Platform.isIOS ? 1500 : 500));
 
             final currentRoute = await _getCurrentRouteWithRetry(
               maxRetries: 5,
@@ -410,10 +442,12 @@ class AuthFlowObserver {
             );
 
             if (kDebugMode) {
-              debugPrint('[AuthFlowObserver] initialSession check (logged in):');
+              debugPrint(
+                  '[AuthFlowObserver] initialSession check (logged in):');
               debugPrint('  currentRoute: $currentRoute');
               debugPrint('  _everNavigated: $_everNavigated');
-              debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
+              debugPrint(
+                  '  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
             }
 
             if (_guard.wasRecentDeepLink) {
@@ -439,8 +473,10 @@ class AuthFlowObserver {
                 currentRoute != '/welcome' &&
                 currentRoute != '/home') {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🎯 Already on business page: $currentRoute');
-                debugPrint('[AuthFlowObserver] ✅ Skipping navigation (respecting business state)');
+                debugPrint(
+                    '[AuthFlowObserver] 🎯 Already on business page: $currentRoute');
+                debugPrint(
+                    '[AuthFlowObserver] ✅ Skipping navigation (respecting business state)');
               }
 
               _everNavigated = true;
@@ -450,9 +486,12 @@ class AuthFlowObserver {
 
             if (currentRoute == '/' || currentRoute == '/home') {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] ✅ Already on home page: $currentRoute');
-                debugPrint('[AuthFlowObserver] ✅ Skipping navigation (preserving page state)');
-                debugPrint('[AuthFlowObserver] 📌 User interactions during skeleton screen will be preserved');
+                debugPrint(
+                    '[AuthFlowObserver] ✅ Already on home page: $currentRoute');
+                debugPrint(
+                    '[AuthFlowObserver] ✅ Skipping navigation (preserving page state)');
+                debugPrint(
+                    '[AuthFlowObserver] 📌 User interactions during skeleton screen will be preserved');
               }
 
               _everNavigated = true;
@@ -461,17 +500,19 @@ class AuthFlowObserver {
             }
 
             if (kDebugMode) {
-              debugPrint('[AuthFlowObserver] 🚀 Navigating from $currentRoute to /home');
+              debugPrint(
+                  '[AuthFlowObserver] 🚀 Navigating from $currentRoute to /home');
             }
 
             await _goOnce('/home');
-
           } else {
             // ✅ [竞态修复] 未登录场景也检查 _everNavigated
             if (_everNavigated) {
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] 🔥 Already navigated (no session, _everNavigated=true)');
-                debugPrint('[AuthFlowObserver] ✅ Skipping all navigation (preserving current page)');
+                debugPrint(
+                    '[AuthFlowObserver] 🔥 Already navigated (no session, _everNavigated=true)');
+                debugPrint(
+                    '[AuthFlowObserver] ✅ Skipping all navigation (preserving current page)');
               }
               return;
             }
@@ -512,7 +553,8 @@ class AuthFlowObserver {
 
               if (Supabase.instance.client.auth.currentSession != null) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] Session appeared during wait (${spins * 300}ms), breaking');
+                  debugPrint(
+                      '[AuthFlowObserver] Session appeared during wait (${spins * 300}ms), breaking');
                 }
                 break;
               }
@@ -539,7 +581,8 @@ class AuthFlowObserver {
 
               if (_guard.isHandlingDeepLink) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] 🔒 Guard 保护激活中（未登录场景），等待深链完成...');
+                  debugPrint(
+                      '[AuthFlowObserver] 🔒 Guard 保护激活中（未登录场景），等待深链完成...');
                 }
 
                 for (int i = 0; i < 30; i++) {
@@ -552,7 +595,8 @@ class AuthFlowObserver {
                 debugPrint('[AuthFlowObserver] ⏳ 等待深链服务初始化（iOS 安全等待）...');
               }
 
-              await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1500 : 600));
+              await Future.delayed(
+                  Duration(milliseconds: Platform.isIOS ? 1500 : 600));
 
               if (deepLinkService.isHandlingInitialLink) {
                 if (kDebugMode) {
@@ -578,18 +622,21 @@ class AuthFlowObserver {
               if (kDebugMode) {
                 debugPrint('[AuthFlowObserver] ⏳ 等待路由切换完成...');
               }
-              await Future.delayed(Duration(milliseconds: Platform.isIOS ? 1000 : 400));
+              await Future.delayed(
+                  Duration(milliseconds: Platform.isIOS ? 1000 : 400));
 
               if (_guard.isHandlingDeepLink) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] 🔒 等待后发现 Guard 仍在处理（未登录），继续等待...');
+                  debugPrint(
+                      '[AuthFlowObserver] 🔒 等待后发现 Guard 仍在处理（未登录），继续等待...');
                 }
 
                 for (int i = 0; i < 30; i++) {
                   await Future.delayed(const Duration(milliseconds: 100));
                   if (!_guard.isHandlingDeepLink) {
                     if (kDebugMode) {
-                      debugPrint('[AuthFlowObserver] ✅ Guard 完成（未登录），用时 ${i * 100}ms');
+                      debugPrint(
+                          '[AuthFlowObserver] ✅ Guard 完成（未登录），用时 ${i * 100}ms');
                     }
                     break;
                   }
@@ -604,11 +651,15 @@ class AuthFlowObserver {
               );
 
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] initialSession check (not logged in):');
-                debugPrint('  hasNavigatedViaDeepLink: ${deepLinkService.hasNavigatedViaDeepLink}');
+                debugPrint(
+                    '[AuthFlowObserver] initialSession check (not logged in):');
+                debugPrint(
+                    '  hasNavigatedViaDeepLink: ${deepLinkService.hasNavigatedViaDeepLink}');
                 debugPrint('  currentRoute: $currentRoute');
-                debugPrint('  Guard.isHandlingDeepLink: ${_guard.isHandlingDeepLink}');
-                debugPrint('  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
+                debugPrint(
+                    '  Guard.isHandlingDeepLink: ${_guard.isHandlingDeepLink}');
+                debugPrint(
+                    '  Guard.wasRecentDeepLink: ${_guard.wasRecentDeepLink}');
               }
 
               if (_guard.wasRecentDeepLink) {
@@ -652,7 +703,8 @@ class AuthFlowObserver {
                   currentRoute != '/' &&
                   currentRoute != '/welcome') {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] 🎯 发现已在业务页面（未登录）: $currentRoute');
+                  debugPrint(
+                      '[AuthFlowObserver] 🎯 发现已在业务页面（未登录）: $currentRoute');
                   debugPrint('[AuthFlowObserver] ✅ 保留业务页面（最后防线）');
                 }
 
@@ -662,7 +714,8 @@ class AuthFlowObserver {
               }
 
               if (kDebugMode) {
-                debugPrint('[AuthFlowObserver] No deep link navigation detected');
+                debugPrint(
+                    '[AuthFlowObserver] No deep link navigation detected');
                 debugPrint('[AuthFlowObserver] 🚀 Going to welcome page');
               }
 
@@ -670,7 +723,8 @@ class AuthFlowObserver {
                 OAuthEntry.finish();
               } catch (e) {
                 if (kDebugMode) {
-                  debugPrint('[AuthFlowObserver] OAuthEntry.finish() error: $e');
+                  debugPrint(
+                      '[AuthFlowObserver] OAuthEntry.finish() error: $e');
                 }
               }
 
@@ -701,7 +755,8 @@ class AuthFlowObserver {
           }
 
           if (_manualSignOutOnce) {
-            debugPrint('[AuthFlowObserver] signedOut fast-path (manual). swallow nav once.');
+            debugPrint(
+                '[AuthFlowObserver] signedOut fast-path (manual). swallow nav once.');
             _manualSignOutOnce = false;
             break;
           }
@@ -715,13 +770,15 @@ class AuthFlowObserver {
             if (!isGraceWindowSignOut) {
               await _goOnce('/login');
             } else {
-              debugPrint('[AuthFlowObserver] grace-window: skip fast-path navigation');
+              debugPrint(
+                  '[AuthFlowObserver] grace-window: skip fast-path navigation');
             }
             break;
           }
 
           if (isGraceWindowSignOut) {
-            debugPrint('[AuthFlowObserver] grace-window: cleanup done, skip debounced navigation');
+            debugPrint(
+                '[AuthFlowObserver] grace-window: cleanup done, skip debounced navigation');
             break;
           }
 

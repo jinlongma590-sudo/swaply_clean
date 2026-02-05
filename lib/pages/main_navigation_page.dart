@@ -1,4 +1,4 @@
-﻿// lib/pages/main_navigation_page.dart
+// lib/pages/main_navigation_page.dart
 // ✅ [OAuth闪屏修复] 移除独立Loading页面，避免OAuth期间的页面切换
 // ✅ [底部导航优化] 调整为微信标准高度（49dp），修复文字显示问题
 // ✅ [文字显示修复] 优化间距和字号，确保所有标签完整显示
@@ -130,7 +130,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         // ✅ [修复] 监听未读数量变化
         _unreadListener = () {
           if (mounted) {
-            setState(() => _notificationCount = NotificationService.unreadCountNotifier.value);
+            setState(() => _notificationCount =
+                NotificationService.unreadCountNotifier.value);
           }
         };
         NotificationService.unreadCountNotifier.addListener(_unreadListener!);
@@ -164,40 +165,40 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   Future<bool> _confirmExit(BuildContext context) async {
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.w),
-          ),
-          title: Text(
-            'Exit Swaply?',
-            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700),
-          ),
-          content: Text(
-            'Press Exit to close the app.',
-            style: TextStyle(fontSize: 13.sp, height: 1.35),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).maybePop(false),
-              child: Text('Stay',
-                  style:
-                  TextStyle(fontSize: 13.sp, color: Colors.grey[700])),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogCtx).maybePop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _PRIMARY_BLUE,
-                foregroundColor: Colors.white,
+          context: context,
+          barrierDismissible: true,
+          builder: (dialogCtx) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.w),
               ),
-              child: Text('Exit', style: TextStyle(fontSize: 13.sp)),
-            ),
-          ],
-        );
-      },
-    ) ??
+              title: Text(
+                'Exit Swaply?',
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700),
+              ),
+              content: Text(
+                'Press Exit to close the app.',
+                style: TextStyle(fontSize: 13.sp, height: 1.35),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).maybePop(false),
+                  child: Text('Stay',
+                      style:
+                          TextStyle(fontSize: 13.sp, color: Colors.grey[700])),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(dialogCtx).maybePop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _PRIMARY_BLUE,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('Exit', style: TextStyle(fontSize: 13.sp)),
+                ),
+              ],
+            );
+          },
+        ) ??
         false;
   }
 
@@ -207,7 +208,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     // ❌ 删除硬编码：setState(() => _notificationCount = 0);
     // ✅ 角标会由 NotificationService.unreadCountNotifier 的监听器自动更新
     if (kDebugMode) {
-      debugPrint('[MainNavigationPage] 通知 Tab 已打开，角标将由 NotificationService 自动管理');
+      debugPrint(
+          '[MainNavigationPage] 通知 Tab 已打开，角标将由 NotificationService 自动管理');
     }
   }
 
@@ -218,8 +220,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.w)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
           title: Text(
             l10n.loginRequired,
             style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
@@ -264,9 +266,9 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   }
 
   Widget _buildTabNavigator(
-      Widget root,
-      LanguageProvider languageProvider,
-      ) {
+    Widget root,
+    LanguageProvider languageProvider,
+  ) {
     return ChangeNotifierProvider<LanguageProvider>.value(
       value: languageProvider,
       child: root,
@@ -409,15 +411,16 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             // ✅ [底部导航优化] 参考微信标准，进一步降低高度
             padding: EdgeInsets.fromLTRB(
               8.w,
-              4.h,  // ✅ 改小：6.h → 4.h（顶部间距最小化）
+              4.h, // ✅ 改小：6.h → 4.h（顶部间距最小化）
               8.w,
               math.max(
-                MediaQuery.of(context).padding.bottom + 2.h,  // ✅ 改小：4.h → 2.h（底部间距最小化）
-                8.h,  // ✅ 改小：12.h → 8.h（最小兜底值）
+                MediaQuery.of(context).padding.bottom +
+                    2.h, // ✅ 改小：4.h → 2.h（底部间距最小化）
+                8.h, // ✅ 改小：12.h → 8.h（最小兜底值）
               ),
             ),
             child: SizedBox(
-              height: 49.h,  // ✅ 改小：50.h → 49.h（微信/iOS标准高度）
+              height: 49.h, // ✅ 改小：50.h → 49.h（微信/iOS标准高度）
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -460,7 +463,6 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     );
   }
 
-
   Widget _buildCompactNavItem({
     required IconData icon,
     required IconData activeIcon,
@@ -480,12 +482,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 49.h,  // ✅ 改小：50.h → 49.h（匹配父容器）
+        height: 49.h, // ✅ 改小：50.h → 49.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),  // ✅ 改小：3.h → 2.h（垂直内边距最小化）
+          padding: EdgeInsets.symmetric(
+              horizontal: 4.w, vertical: 2.h), // ✅ 改小：3.h → 2.h（垂直内边距最小化）
           decoration: BoxDecoration(
-            color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
+            color: isSelected
+                ? _PRIMARY_BLUE.withOpacity(0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
           ),
           child: Column(
@@ -500,14 +505,14 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   size: 22.w,
                 ),
               ),
-              SizedBox(height: 1.h),  // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
+              SizedBox(height: 1.h), // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
                   color: isSelected ? _PRIMARY_BLUE : Colors.grey[600],
-                  fontSize: 8.sp,  // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
+                  fontSize: 8.sp, // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  height: 1.0,  // ✅ 新增：行高设为1.0，去除额外垂直空间
+                  height: 1.0, // ✅ 新增：行高设为1.0，去除额外垂直空间
                 ),
                 child: Text(
                   label,
@@ -547,12 +552,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       },
       child: SizedBox(
         width: 60.w,
-        height: 49.h,  // ✅ 改小：50.h → 49.h（匹配父容器）
+        height: 49.h, // ✅ 改小：50.h → 49.h（匹配父容器）
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),  // ✅ 改小：3.h → 2.h（垂直内边距最小化）
+          padding: EdgeInsets.symmetric(
+              horizontal: 4.w, vertical: 2.h), // ✅ 改小：3.h → 2.h（垂直内边距最小化）
           decoration: BoxDecoration(
-            color: isSelected ? _PRIMARY_BLUE.withOpacity(0.1) : Colors.transparent,
+            color: isSelected
+                ? _PRIMARY_BLUE.withOpacity(0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(14.w),
           ),
           child: Column(
@@ -613,14 +621,14 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                     ),
                 ],
               ),
-              SizedBox(height: 1.h),  // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
+              SizedBox(height: 1.h), // ✅ 改小：1.5.h → 1.h（图标与文字间距最小化）
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: TextStyle(
                   color: isSelected ? _PRIMARY_BLUE : Colors.grey[600],
-                  fontSize: 8.sp,  // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
+                  fontSize: 8.sp, // ✅ 改小：8.5.sp → 8.sp（确保长文本完整显示）
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  height: 1.0,  // ✅ 新增：行高设为1.0，去除额外垂直空间
+                  height: 1.0, // ✅ 新增：行高设为1.0，去除额外垂直空间
                 ),
                 child: Text(
                   label,
@@ -658,14 +666,22 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             scale: _sellButtonAnimation.value,
             child: Container(
               width: 56.w,
-              height: 43.h,  // ✅ 改小：44.h → 43.h（保持比例，稍微降低）
+              height: 43.h, // ✅ 改小：44.h → 43.h（保持比例，稍微降低）
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: isSelected
-                      ? [const Color(0xFF1565C0), _PRIMARY_BLUE, const Color(0xFF42A5F5)]
-                      : [_PRIMARY_BLUE, const Color(0xFF1E88E5), const Color(0xFF1976D2)],
+                      ? [
+                          const Color(0xFF1565C0),
+                          _PRIMARY_BLUE,
+                          const Color(0xFF42A5F5)
+                        ]
+                      : [
+                          _PRIMARY_BLUE,
+                          const Color(0xFF1E88E5),
+                          const Color(0xFF1976D2)
+                        ],
                 ),
                 borderRadius: BorderRadius.circular(28.w),
                 boxShadow: [
@@ -690,7 +706,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   AnimatedRotation(
                     turns: isSelected ? 0.125 : 0.0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.add_rounded, color: Colors.white, size: 21.h),  // ✅ 改小：22.h → 21.h
+                    child: Icon(Icons.add_rounded,
+                        color: Colors.white, size: 21.h), // ✅ 改小：22.h → 21.h
                   ),
                   SizedBox(height: 0.5.h),
                   Text(
@@ -742,9 +759,9 @@ class _SavedRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => real_saved.SavedPage(
-    isGuest: isGuest,
-    onNavigateToHome: onNavigateToHome,
-  );
+        isGuest: isGuest,
+        onNavigateToHome: onNavigateToHome,
+      );
 }
 
 class _SellRoot extends StatelessWidget {
@@ -768,10 +785,10 @@ class _NotifRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => real_notif.NotificationPage(
-    onClearBadge: onClearBadge,
-    isGuest: isGuest,
-    onNotificationCountChanged: onNotificationCountChanged,
-  );
+        onClearBadge: onClearBadge,
+        isGuest: isGuest,
+        onNotificationCountChanged: onNotificationCountChanged,
+      );
 }
 
 class _ProfileRoot extends StatelessWidget {

@@ -23,7 +23,7 @@ class VerificationGuard {
 
   // ===== 全局认证变化广播 =====
   static final StreamController<bool> _verifiedCtrl =
-  StreamController<bool>.broadcast();
+      StreamController<bool>.broadcast();
   static Stream<bool> get stream => _verifiedCtrl.stream;
 
   static void notifyVerifiedChanged([bool ok = true]) {
@@ -33,8 +33,7 @@ class VerificationGuard {
   }
 
   static final _sb = Supabase.instance.client;
-  static final EmailVerificationService _verifySvc =
-  EmailVerificationService();
+  static final EmailVerificationService _verifySvc = EmailVerificationService();
 
   static bool _isPrompting = false;
 
@@ -87,8 +86,7 @@ class VerificationGuard {
 
   static bool _isZh(BuildContext context) {
     try {
-      final code =
-      Localizations.localeOf(context).languageCode.toLowerCase();
+      final code = Localizations.localeOf(context).languageCode.toLowerCase();
       return code.startsWith('zh');
     } catch (_) {
       return false;
@@ -129,9 +127,9 @@ class VerificationGuard {
 
   /// ✅ 符合架构：根据登录状态跳转不同页面
   static Future<bool> ensureVerifiedOrPrompt(
-      BuildContext context, {
-        Object? feature,
-      }) async {
+    BuildContext context, {
+    Object? feature,
+  }) async {
     final loggedIn = _isLoggedIn();
     final verified = await isVerified();
 
@@ -149,15 +147,15 @@ class VerificationGuard {
 
       final content = loggedIn
           ? _t(
-        context,
-        'For account security, please complete email verification before you can $actionName.',
-        '为了账号安全，需要先完成邮箱验证后才能$actionName。',
-      )
+              context,
+              'For account security, please complete email verification before you can $actionName.',
+              '为了账号安全，需要先完成邮箱验证后才能$actionName。',
+            )
           : _t(
-        context,
-        'For account security, please sign in and complete email verification before you can $actionName.',
-        '为了账号安全，需要先登录并完成邮箱验证后才能$actionName。',
-      );
+              context,
+              'For account security, please sign in and complete email verification before you can $actionName.',
+              '为了账号安全，需要先登录并完成邮箱验证后才能$actionName。',
+            );
 
       final laterText = _t(context, 'Later', '稍后');
       final goText = loggedIn
@@ -193,12 +191,12 @@ class VerificationGuard {
                     }
 
                     final changed = await SafeNavigator.push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => const VerificationPage(),
-                        settings:
-                        const RouteSettings(name: '/verification'),
-                      ),
-                    ) ??
+                          MaterialPageRoute(
+                            builder: (_) => const VerificationPage(),
+                            settings:
+                                const RouteSettings(name: '/verification'),
+                          ),
+                        ) ??
                         false;
 
                     invalidateCache();

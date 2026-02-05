@@ -1,4 +1,4 @@
-﻿// lib/services/auth_service.dart
+// lib/services/auth_service.dart
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math';
@@ -27,9 +27,11 @@ class AuthService {
 
   // ====== Nonce 工具函数 ======
   String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
     final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
   }
 
   String _sha256ofString(String input) {
@@ -82,7 +84,8 @@ class AuthService {
 
       // ✅ 使用 Web Client ID (来自 Google Cloud Console "Swaply OAuth")
       // 这会让 iOS SDK 生成 Supabase 后端可验证的 OIDC Token，绕过 Nonce 校验死锁
-      const webClientId = '947323234114-g5sd06ljn4n68dsq4o95khogm1tc48pq.apps.googleusercontent.com';
+      const webClientId =
+          '947323234114-g5sd06ljn4n68dsq4o95khogm1tc48pq.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         scopes: ['email', 'profile'],
@@ -95,7 +98,8 @@ class AuthService {
         throw const AuthException('Google sign-in was cancelled');
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       // 使用 serverClientId 后，idToken 依然存在且有效
       if (googleAuth.idToken == null) {
@@ -112,7 +116,6 @@ class AuthService {
       );
 
       debugPrint('[AuthService] ✅ Google login successful');
-
     } catch (e, st) {
       debugPrint('[AuthService] ❌ Google native sign-in error: $e\n$st');
       rethrow;
@@ -131,7 +134,6 @@ class AuthService {
       }
 
       debugPrint('[AuthService] ✅ Facebook native login successful');
-
     } catch (e, st) {
       debugPrint('[AuthService] ❌ Facebook native login error: $e\n$st');
       rethrow;
@@ -139,8 +141,10 @@ class AuthService {
   }
 
   // ====== 会话手动刷新（保留接口，但默认不用）======
-  Future<void> refreshSession({Duration minInterval = const Duration(seconds: 30)}) async {
-    debugPrint('[AuthService] refreshSession() disabled. Using Supabase auto-refresh.');
+  Future<void> refreshSession(
+      {Duration minInterval = const Duration(seconds: 30)}) async {
+    debugPrint(
+        '[AuthService] refreshSession() disabled. Using Supabase auto-refresh.');
     return;
   }
 
@@ -232,7 +236,8 @@ class AuthService {
         userId: user.id,
         email: user.email,
         fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'],
-        avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
+        avatarUrl:
+            user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
       await NotificationService.initializeFCM();
@@ -265,14 +270,14 @@ class AuthService {
         userId: user.id,
         email: user.email,
         fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'],
-        avatarUrl: user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
+        avatarUrl:
+            user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
       await NotificationService.initializeFCM();
 
       debugPrint('[AuthService] ✅ Facebook login successful, isNew=$isNew');
       return isNew;
-
     } catch (e, st) {
       debugPrint('[AuthService] ❌ Facebook login error: $e\n$st');
       rethrow;
@@ -292,7 +297,8 @@ class AuthService {
         'id': userId,
         'updated_at': DateTime.now().toIso8601String(),
       };
-      if (email?.isNotEmpty == true) data['email'] = email!.trim().toLowerCase();
+      if (email?.isNotEmpty == true)
+        data['email'] = email!.trim().toLowerCase();
       if (fullName?.isNotEmpty == true) data['full_name'] = fullName;
       if (phone?.isNotEmpty == true) data['phone'] = phone;
       if (avatarUrl?.isNotEmpty == true) data['avatar_url'] = avatarUrl;
@@ -341,7 +347,8 @@ class AuthService {
       return;
     }
 
-    debugPrint('[[SIGNOUT-TRACE]] scope=${global ? 'global' : 'local'} reason=$reason');
+    debugPrint(
+        '[[SIGNOUT-TRACE]] scope=${global ? 'global' : 'local'} reason=$reason');
     debugPrint(StackTrace.current.toString());
 
     _signingOut = true;
@@ -366,10 +373,26 @@ class AuthService {
       await Future.wait<void>([
         supabase.from('profiles').delete().eq('id', user.id).then((_) {}),
         supabase.from('coupons').delete().eq('user_id', user.id).then((_) {}),
-        supabase.from('user_tasks').delete().eq('user_id', user.id).then((_) {}),
-        supabase.from('reward_logs').delete().eq('user_id', user.id).then((_) {}),
-        supabase.from('user_invitations').delete().eq('inviter_id', user.id).then((_) {}),
-        supabase.from('pinned_ads').delete().eq('user_id', user.id).then((_) {}),
+        supabase
+            .from('user_tasks')
+            .delete()
+            .eq('user_id', user.id)
+            .then((_) {}),
+        supabase
+            .from('reward_logs')
+            .delete()
+            .eq('user_id', user.id)
+            .then((_) {}),
+        supabase
+            .from('user_invitations')
+            .delete()
+            .eq('inviter_id', user.id)
+            .then((_) {}),
+        supabase
+            .from('pinned_ads')
+            .delete()
+            .eq('user_id', user.id)
+            .then((_) {}),
       ]);
 
       await signOut();

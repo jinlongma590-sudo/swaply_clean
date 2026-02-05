@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:swaply/router/root_nav.dart';
+
 class WelcomeCouponDialog extends StatefulWidget {
   final Map<String, dynamic> couponData;
 
@@ -18,22 +19,43 @@ class WelcomeCouponDialog extends StatefulWidget {
 
 class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _ac =
-  AnimationController(vsync: this, duration: const Duration(milliseconds: 360))
+  late final AnimationController _ac = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 360))
     ..forward();
   late final Animation<double> _fade =
-  CurvedAnimation(parent: _ac, curve: Curves.easeIn);
+      CurvedAnimation(parent: _ac, curve: Curves.easeIn);
   late final Animation<double> _scale =
-  CurvedAnimation(parent: _ac, curve: Curves.decelerate);
+      CurvedAnimation(parent: _ac, curve: Curves.decelerate);
 
   // CP1252 → 原字节反向映射（修乱码）
   static const Map<int, int> _cp1252Reverse = {
-    0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85,
-    0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A,
-    0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92,
-    0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
-    0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C,
-    0x017E: 0x9E, 0x0178: 0x9F,
+    0x20AC: 0x80,
+    0x201A: 0x82,
+    0x0192: 0x83,
+    0x201E: 0x84,
+    0x2026: 0x85,
+    0x2020: 0x86,
+    0x2021: 0x87,
+    0x02C6: 0x88,
+    0x2030: 0x89,
+    0x0160: 0x8A,
+    0x2039: 0x8B,
+    0x0152: 0x8C,
+    0x017D: 0x8E,
+    0x2018: 0x91,
+    0x2019: 0x92,
+    0x201C: 0x93,
+    0x201D: 0x94,
+    0x2022: 0x95,
+    0x2013: 0x96,
+    0x2014: 0x97,
+    0x02DC: 0x98,
+    0x2122: 0x99,
+    0x0161: 0x9A,
+    0x203A: 0x9B,
+    0x0153: 0x9C,
+    0x017E: 0x9E,
+    0x0178: 0x9F,
   };
 
   String _fixUtf8Mojibake(dynamic v) {
@@ -84,10 +106,11 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
 
     // —— 更紧凑的尺寸策略 —— //
     final double maxWidth =
-    (isTablet ? 360.0 : 320.0).w.clamp(260.0, sz.width - 32.0);
+        (isTablet ? 360.0 : 320.0).w.clamp(260.0, sz.width - 32.0);
     final double maxHeight = sz.height * 0.52; // 总高 ≤ 52% 屏高（明显更小）
 
-    final String code = (widget.couponData['code']?.toString() ?? '').toUpperCase();
+    final String code =
+        (widget.couponData['code']?.toString() ?? '').toUpperCase();
     final String title = _fixUtf8Mojibake(
       widget.couponData['title'] ?? 'Welcome gift 🎉',
     );
@@ -115,7 +138,8 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
         child: ScaleTransition(
           scale: _scale,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
+            constraints:
+                BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
             child: Material(
               color: Colors.white,
               elevation: 0,
@@ -150,7 +174,10 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
-                                  colors: [Color(0xFF5D9CFF), Color(0xFFB46BFF)],
+                                  colors: [
+                                    Color(0xFF5D9CFF),
+                                    Color(0xFFB46BFF)
+                                  ],
                                 ),
                               ),
                               child: Icon(Icons.card_giftcard,
@@ -188,9 +215,13 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10.r),
                                 gradient: LinearGradient(
-                                  colors: [Colors.blue.shade50, Colors.purple.shade50],
+                                  colors: [
+                                    Colors.blue.shade50,
+                                    Colors.purple.shade50
+                                  ],
                                 ),
-                                border: Border.all(color: const Color(0x141877F2)),
+                                border:
+                                    Border.all(color: const Color(0x141877F2)),
                               ),
                               child: Row(
                                 children: [
@@ -208,16 +239,21 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                                   ),
                                   InkWell(
                                     onTap: () async {
-                                      await Clipboard.setData(ClipboardData(text: code));
+                                      await Clipboard.setData(
+                                          ClipboardData(text: code));
                                       if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: const Text('Copied coupon code'),
-                                          duration: const Duration(milliseconds: 1000),
+                                          content:
+                                              const Text('Copied coupon code'),
+                                          duration: const Duration(
+                                              milliseconds: 1000),
                                           behavior: SnackBarBehavior.floating,
                                           margin: EdgeInsets.all(10.w),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10.r),
+                                            borderRadius:
+                                                BorderRadius.circular(10.r),
                                           ),
                                         ),
                                       );
@@ -266,7 +302,8 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(8.r),
-                                border: Border.all(color: Colors.green.shade100),
+                                border:
+                                    Border.all(color: Colors.green.shade100),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -302,12 +339,16 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF1877F2), Color(0xFF7B61FF)],
+                                  colors: [
+                                    Color(0xFF1877F2),
+                                    Color(0xFF7B61FF)
+                                  ],
                                 ),
                                 borderRadius: BorderRadius.circular(10.r),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF1877F2).withOpacity(0.22),
+                                    color: const Color(0xFF1877F2)
+                                        .withOpacity(0.22),
                                     blurRadius: 8.r,
                                     offset: Offset(0, 3.h),
                                   ),

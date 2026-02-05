@@ -14,6 +14,7 @@ import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/pages/sell_form_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/router/safe_navigator.dart';
+
 class MyListingsPage extends StatefulWidget {
   const MyListingsPage({super.key});
   @override
@@ -79,7 +80,7 @@ class _MyListingsPageState extends State<MyListingsPage>
       final response = await Supabase.instance.client
           .from('listings')
           .select(
-          'id, title, images, image_urls, price, city, created_at, views_count')
+              'id, title, images, image_urls, price, city, created_at, views_count')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .order('created_at', ascending: false)
@@ -263,7 +264,6 @@ class _MyListingsPageState extends State<MyListingsPage>
       if (imagePaths.isNotEmpty) {
         _deleteImagesInBackground(imagePaths);
       }
-
     } catch (e) {
       if (kDebugMode) {
         print('Error deleting listing: $e');
@@ -296,8 +296,7 @@ class _MyListingsPageState extends State<MyListingsPage>
   void _deleteImagesInBackground(List<String> imagePaths) {
     Future.microtask(() async {
       try {
-        await Supabase.instance.client
-            .storage
+        await Supabase.instance.client.storage
             .from('listings')
             .remove(imagePaths);
         if (kDebugMode) {
@@ -318,7 +317,7 @@ class _MyListingsPageState extends State<MyListingsPage>
       builder: (BuildContext context) {
         return AlertDialog(
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
           title: Row(
             children: [
               Container(
@@ -327,12 +326,13 @@ class _MyListingsPageState extends State<MyListingsPage>
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6.r),
                 ),
-                child: Icon(Icons.delete_outline, color: Colors.red, size: 18.r),
+                child:
+                    Icon(Icons.delete_outline, color: Colors.red, size: 18.r),
               ),
               SizedBox(width: 10.w),
               Text('Delete Listing',
                   style:
-                  TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                      TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
             ],
           ),
           content: Text(
@@ -386,7 +386,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                 recipientId: offer.buyerId,
                 title: 'Offer Accepted!',
                 message:
-                'Your offer of ${offer.formattedOfferAmount} for ${offer.listingTitle ?? 'the item'} has been accepted!',
+                    'Your offer of ${offer.formattedOfferAmount} for ${offer.listingTitle ?? 'the item'} has been accepted!',
                 metadata: {
                   'offer_amount': offer.offerAmount,
                   'listing_title': offer.listingTitle,
@@ -409,7 +409,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                 recipientId: offer.buyerId,
                 title: 'Offer Declined',
                 message:
-                'Your offer of ${offer.formattedOfferAmount} for ${offer.listingTitle ?? 'the item'} has been declined${message != null && message.isNotEmpty ? ': $message' : '.'}',
+                    'Your offer of ${offer.formattedOfferAmount} for ${offer.listingTitle ?? 'the item'} has been declined${message != null && message.isNotEmpty ? ': $message' : '.'}',
                 metadata: {
                   'offer_amount': offer.offerAmount,
                   'listing_title': offer.listingTitle,
@@ -521,7 +521,7 @@ class _MyListingsPageState extends State<MyListingsPage>
         ),
         labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
         unselectedLabelStyle:
-        TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
+            TextStyle(fontSize: 12.sp, fontWeight: FontWeight.normal),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerHeight: 0,
         tabs: [
@@ -554,10 +554,10 @@ class _MyListingsPageState extends State<MyListingsPage>
   }
 
   Widget _buildHeader(
-      double statusBar,
-      bool isIOS,
-      Widget tabBarWidget,
-      ) {
+    double statusBar,
+    bool isIOS,
+    Widget tabBarWidget,
+  ) {
     if (isIOS) {
       const double kNavBarHeight = 44.0;
       const double kButtonSize = 32.0;
@@ -600,7 +600,7 @@ class _MyListingsPageState extends State<MyListingsPage>
       );
 
       const Widget iosRightPlaceholder =
-      SizedBox(width: kButtonSize, height: kButtonSize);
+          SizedBox(width: kButtonSize, height: kButtonSize);
 
       return Container(
         decoration: const BoxDecoration(
@@ -770,7 +770,7 @@ class _MyListingsPageState extends State<MyListingsPage>
     final price = listing['price']?.toString() ?? 'No Price';
     final images = ListingService.readImages(listing) ?? <String>[];
     final firstImage =
-    images.isNotEmpty ? images.first : 'assets/images/placeholder.jpg';
+        images.isNotEmpty ? images.first : 'assets/images/placeholder.jpg';
     final city = listing['city']?.toString() ?? '';
     final createdAt = listing['created_at']?.toString() ?? '';
     final listingId = listing['id']?.toString() ?? '';
@@ -835,25 +835,23 @@ class _MyListingsPageState extends State<MyListingsPage>
                             borderRadius: BorderRadius.circular(8.r),
                             child: firstImage.startsWith('http')
                                 ? Image.network(
-                              firstImage,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) {
-                                return Icon(Icons.image_rounded,
-                                    color: Colors.grey.shade400,
-                                    size: 20.w);
-                              },
-                            )
+                                    firstImage,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_rounded,
+                                          color: Colors.grey.shade400,
+                                          size: 20.w);
+                                    },
+                                  )
                                 : Image.asset(
-                              firstImage,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) {
-                                return Icon(Icons.image_rounded,
-                                    color: Colors.grey.shade400,
-                                    size: 20.w);
-                              },
-                            ),
+                                    firstImage,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_rounded,
+                                          color: Colors.grey.shade400,
+                                          size: 20.w);
+                                    },
+                                  ),
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -927,7 +925,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                   SafeNavigator.push(
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                      const SellFormPage(),
+                                          const SellFormPage(),
                                     ),
                                   );
                                   break;
@@ -974,9 +972,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                         ),
                       ],
                     ),
-
                     SizedBox(height: 12.h),
-
                     Container(
                       padding: EdgeInsets.all(10.w),
                       decoration: BoxDecoration(
@@ -1011,7 +1007,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                         color: const Color(0xFF2563EB)
                                             .withOpacity(0.1),
                                         borderRadius:
-                                        BorderRadius.circular(6.r),
+                                            BorderRadius.circular(6.r),
                                       ),
                                       child: Icon(
                                         Icons.visibility_outlined,
@@ -1022,7 +1018,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                     SizedBox(width: 8.w),
                                     Column(
                                       crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '$viewsCount',
@@ -1047,14 +1043,12 @@ class _MyListingsPageState extends State<MyListingsPage>
                               ),
                             ),
                           ),
-
                           Container(
                             height: 30.h,
                             width: 1.w,
                             color: const Color(0xFF2563EB).withOpacity(0.2),
                             margin: EdgeInsets.symmetric(horizontal: 8.w),
                           ),
-
                           Expanded(
                             child: FutureBuilder<Map<String, int>>(
                               future: _getInquiryStats(listingId),
@@ -1063,38 +1057,39 @@ class _MyListingsPageState extends State<MyListingsPage>
                                     ConnectionState.waiting) {
                                   return Container(
                                     padding:
-                                    EdgeInsets.symmetric(vertical: 4.h),
+                                        EdgeInsets.symmetric(vertical: 4.h),
                                     child: Row(
                                       children: [
                                         Container(
                                           padding: EdgeInsets.all(6.r),
                                           decoration: BoxDecoration(
                                             color:
-                                            Colors.green.withOpacity(0.1),
+                                                Colors.green.withOpacity(0.1),
                                             borderRadius:
-                                            BorderRadius.circular(6.r),
+                                                BorderRadius.circular(6.r),
                                           ),
                                           child: SizedBox(
                                             width: 14.r,
                                             height: 14.r,
-                                            child: const CircularProgressIndicator(
+                                            child:
+                                                const CircularProgressIndicator(
                                               strokeWidth: 2,
                                               valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                  Colors.green),
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.green),
                                             ),
                                           ),
                                         ),
                                         SizedBox(width: 8.w),
                                         Column(
                                           crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text('...',
                                                 style: TextStyle(
                                                     fontSize: 14.sp,
                                                     fontWeight:
-                                                    FontWeight.bold)),
+                                                        FontWeight.bold)),
                                             Text('Inquiries',
                                                 style: TextStyle(
                                                     fontSize: 10.sp,
@@ -1122,16 +1117,16 @@ class _MyListingsPageState extends State<MyListingsPage>
                                   },
                                   child: Container(
                                     padding:
-                                    EdgeInsets.symmetric(vertical: 4.h),
+                                        EdgeInsets.symmetric(vertical: 4.h),
                                     child: Row(
                                       children: [
                                         Container(
                                           padding: EdgeInsets.all(6.r),
                                           decoration: BoxDecoration(
                                             color:
-                                            Colors.green.withOpacity(0.1),
+                                                Colors.green.withOpacity(0.1),
                                             borderRadius:
-                                            BorderRadius.circular(6.r),
+                                                BorderRadius.circular(6.r),
                                           ),
                                           child: Icon(
                                             Icons.chat_bubble_outline,
@@ -1143,7 +1138,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 '$totalInquiries',
@@ -1202,7 +1197,7 @@ class _MyListingsPageState extends State<MyListingsPage>
       builder: (BuildContext context) {
         return AlertDialog(
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           contentPadding: EdgeInsets.zero,
           content: Container(
             width: MediaQuery.of(context).size.width * 0.85,
@@ -1236,15 +1231,15 @@ class _MyListingsPageState extends State<MyListingsPage>
                 Text(
                   title,
                   style:
-                  TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
+                      TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 12.h),
                 _buildStatRow(Icons.phone, 'Phone Calls', calls, Colors.green),
                 SizedBox(height: 8.h),
-                _buildStatRow(Icons.chat, 'WhatsApp', whatsapp,
-                    const Color(0xFF25D366)),
+                _buildStatRow(
+                    Icons.chat, 'WhatsApp', whatsapp, const Color(0xFF25D366)),
                 SizedBox(height: 8.h),
                 _buildStatRow(Icons.local_offer, 'Offers', offers,
                     const Color(0xFF2563EB)),
@@ -1361,7 +1356,7 @@ class _MyListingsPageState extends State<MyListingsPage>
   Widget _buildOfferCard(OfferModel offer, int index) {
     final images = offer.listingImages ?? <String>[];
     final firstImage =
-    images.isNotEmpty ? images.first : 'assets/images/placeholder.jpg';
+        images.isNotEmpty ? images.first : 'assets/images/placeholder.jpg';
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 200 + (index * 50)),
@@ -1406,25 +1401,23 @@ class _MyListingsPageState extends State<MyListingsPage>
                             borderRadius: BorderRadius.circular(8.r),
                             child: firstImage.startsWith('http')
                                 ? Image.network(
-                              firstImage,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) {
-                                return Icon(Icons.image_rounded,
-                                    color: Colors.grey.shade400,
-                                    size: 18.w);
-                              },
-                            )
+                                    firstImage,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_rounded,
+                                          color: Colors.grey.shade400,
+                                          size: 18.w);
+                                    },
+                                  )
                                 : Image.asset(
-                              firstImage,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) {
-                                return Icon(Icons.image_rounded,
-                                    color: Colors.grey.shade400,
-                                    size: 18.w);
-                              },
-                            ),
+                                    firstImage,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.image_rounded,
+                                          color: Colors.grey.shade400,
+                                          size: 18.w);
+                                    },
+                                  ),
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -1478,7 +1471,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                               horizontal: 8.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color:
-                            _getStatusColor(offer.status).withOpacity(0.1),
+                                _getStatusColor(offer.status).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
@@ -1492,7 +1485,6 @@ class _MyListingsPageState extends State<MyListingsPage>
                         ),
                       ],
                     ),
-
                     if (offer.status == OfferStatus.pending) ...[
                       SizedBox(height: 12.h),
                       Row(
@@ -1513,8 +1505,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                   elevation: 0,
                                   shadowColor: Colors.transparent,
                                   shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                      BorderRadius.circular(8.r)),
+                                      borderRadius: BorderRadius.circular(8.r)),
                                 ),
                                 child: Text('Decline',
                                     style: TextStyle(
@@ -1545,8 +1536,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                   elevation: 0,
                                   shadowColor: Colors.transparent,
                                   shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                      BorderRadius.circular(8.r)),
+                                      borderRadius: BorderRadius.circular(8.r)),
                                 ),
                                 child: Text('Accept',
                                     style: TextStyle(
@@ -1676,7 +1666,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
+                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.r)),
                 ),
@@ -1778,7 +1768,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                      EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.r)),
                 ),

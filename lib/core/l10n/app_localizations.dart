@@ -16,12 +16,13 @@ class AppLocalizations {
   }
 
   static const LocalizationsDelegate<AppLocalizations> delegate =
-  _AppLocalizationsDelegate();
+      _AppLocalizationsDelegate();
 
   // ---------- Generic / Auth ----------
   String get appTitle => 'Swaply';
   String get loginRequired => 'Login required';
-  String loginRequiredMessage(String feature) => 'Please login to use $feature.';
+  String loginRequiredMessage(String feature) =>
+      'Please login to use $feature.';
   String get cancel => 'Cancel';
   String get login => 'Login';
   String get logout => 'Logout';
@@ -118,7 +119,8 @@ class AppLocalizations {
   String get markAllAsRead => 'Mark all as read';
   String get clearAll => 'Clear all';
   String get noNotifications => 'No notifications';
-  String get notificationsWillAppearHere => 'Your notifications will appear here.';
+  String get notificationsWillAppearHere =>
+      'Your notifications will appear here.';
   String get receiveNotifications => 'Login to receive notifications.';
 
   // ---------- Profile ----------

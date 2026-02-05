@@ -1,4 +1,4 @@
-﻿// lib/auth/login_screen.dart
+// lib/auth/login_screen.dart
 // ✅ 增强版：添加网络错误检测和友好提示
 // ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
 // ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
@@ -165,9 +165,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   /// 统一 OAuth 启动器（移除超时限制）
   Future<void> _oauthSignIn(
-      OAuthProvider provider, {
-        Map<String, String>? queryParams,
-      }) async {
+    OAuthProvider provider, {
+    Map<String, String>? queryParams,
+  }) async {
     if (!mounted || _busy) return;
 
     if (!OAuthEntry.mayStartInteractive()) {
@@ -343,7 +343,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     style: TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
                   ),
                   SizedBox(height: 28.h),
-
                   _input(
                     controller: _emailController,
                     label: 'Email Address',
@@ -361,7 +360,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     },
                   ),
                   SizedBox(height: 14.h),
-
                   _input(
                     controller: _passwordController,
                     label: 'Password',
@@ -392,9 +390,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       },
                     ),
                   ),
-
                   SizedBox(height: 10.h),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -436,9 +432,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-
                   SizedBox(height: 20.h),
-
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
@@ -450,24 +444,24 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           gradient: (_busy || isOAuthInFlight)
                               ? null
                               : const LinearGradient(
-                            colors: [
-                              Color(0xFF2196F3),
-                              Color(0xFF1976D2),
-                            ],
-                          ),
+                                  colors: [
+                                    Color(0xFF2196F3),
+                                    Color(0xFF1976D2),
+                                  ],
+                                ),
                           color: (_busy || isOAuthInFlight)
                               ? Colors.grey[300]
                               : null,
                           boxShadow: (_busy || isOAuthInFlight)
                               ? null
                               : [
-                            BoxShadow(
-                              color: const Color(0xFF2196F3)
-                                  .withOpacity(0.3),
-                              blurRadius: 8.r,
-                              offset: Offset(0, 4.h),
-                            ),
-                          ],
+                                  BoxShadow(
+                                    color: const Color(0xFF2196F3)
+                                        .withOpacity(0.3),
+                                    blurRadius: 8.r,
+                                    offset: Offset(0, 4.h),
+                                  ),
+                                ],
                         ),
                         child: InkWell(
                           onTap: _busy || isOAuthInFlight
@@ -476,23 +470,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           child: Center(
                             child: _busy
                                 ? const CircularProgressIndicator(
-                                color: Colors.white)
+                                    color: Colors.white)
                                 : Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                                    'Sign In',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                       );
                     },
                   ),
-
                   SizedBox(height: 18.h),
-
                   Row(
                     children: [
                       Expanded(child: Divider(color: Colors.grey[300])),
@@ -507,9 +499,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       Expanded(child: Divider(color: Colors.grey[300])),
                     ],
                   ),
-
                   SizedBox(height: 18.h),
-
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
@@ -538,7 +528,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       );
                     },
                   ),
-
                   if (showApple) SizedBox(height: 12.h),
                   if (showApple)
                     ValueListenableBuilder<bool>(
@@ -547,16 +536,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         return _appleSignInButton(disabled: isOAuthInFlight);
                       },
                     ),
-
                   SizedBox(height: 22.h),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         "Don't have an account? ",
-                        style: TextStyle(
-                            color: Colors.grey[600], fontSize: 12.sp),
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12.sp),
                       ),
                       GestureDetector(
                         onTap: () => navPush('/register'),
@@ -640,19 +627,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             borderSide: BorderSide(color: Colors.red, width: 1.5),
           ),
           contentPadding:
-          EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
         ),
       ),
     );
   }
 
   Widget _socialBtn(
-      String text,
-      Color color,
-      IconData icon,
-      Future<void> Function() onTap, {
-        bool disabled = false,
-      }) {
+    String text,
+    Color color,
+    IconData icon,
+    Future<void> Function() onTap, {
+    bool disabled = false,
+  }) {
     return SizedBox(
       height: 42.h,
       child: OutlinedButton(
@@ -693,7 +680,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           foregroundColor: Colors.white,
           elevation: 0,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
           padding: EdgeInsets.symmetric(horizontal: 12.w),
         ),
         child: Row(

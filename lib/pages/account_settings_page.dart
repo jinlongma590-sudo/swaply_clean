@@ -1,4 +1,4 @@
-﻿// lib/pages/account_settings_page.dart
+// lib/pages/account_settings_page.dart
 import 'package:flutter/foundation.dart';
 import 'package:swaply/router/safe_navigator.dart'; // 閴?For platform check
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:swaply/services/auth_flow_observer.dart';
 import 'package:swaply/router/safe_navigator.dart'; // 鉁?鏂板 Observer
 import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/router/safe_navigator.dart';
+
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
 
@@ -279,7 +280,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
 
     const Widget iosRightPlaceholder =
-    SizedBox(width: kButtonSize, height: kButtonSize);
+        SizedBox(width: kButtonSize, height: kButtonSize);
 
     return PreferredSize(
       preferredSize: Size.fromHeight(statusBar + kNavBarHeight),
@@ -388,7 +389,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     onPressed: _canSubmit ? _deleteAccount : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                      _canSubmit ? danger : danger.withOpacity(.5),
+                          _canSubmit ? danger : danger.withOpacity(.5),
                       textStyle: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -397,10 +398,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     ),
                     child: _deleting
                         ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text('Delete My Account'),
                   ),
                 ),

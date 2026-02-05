@@ -126,17 +126,18 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   int get spinsAddedNow => _toInt(_data['spins_added_now']);
   int get spinGrantTriggerN => _toInt(_data['spin_grant_trigger_n']);
 
-  Map<String, dynamic>? get reward =>
-      _data['reward'] is Map ? Map<String, dynamic>.from(_data['reward'] as Map) : null;
+  Map<String, dynamic>? get reward => _data['reward'] is Map
+      ? Map<String, dynamic>.from(_data['reward'] as Map)
+      : null;
 
   List<Map<String, dynamic>> get pool {
     final raw = _data['pool'];
     if (raw is List) {
       return raw
           .map((e) {
-        if (e is Map) return Map<String, dynamic>.from(e);
-        return <String, dynamic>{};
-      })
+            if (e is Map) return Map<String, dynamic>.from(e);
+            return <String, dynamic>{};
+          })
           .where((e) => e.isNotEmpty)
           .toList();
     }
@@ -151,11 +152,16 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   int get loopStartAt => _toInt(_data['spin_loop_start_at']);
 
   bool get hasLoopInfo =>
-      loopEnabled && loopNextAt > 0 && loopRemaining > 0 && loopInterval > 0 && loopStartAt > 0;
+      loopEnabled &&
+      loopNextAt > 0 &&
+      loopRemaining > 0 &&
+      loopInterval > 0 &&
+      loopStartAt > 0;
 
   String get loopHintText {
     // ✅ 优先使用后端返回的文案（便于后端统一口径/国际化）
-    final backendText = (_data['spin_loop_progress_text'] ?? '').toString().trim();
+    final backendText =
+        (_data['spin_loop_progress_text'] ?? '').toString().trim();
     if (backendText.isNotEmpty) return backendText;
 
     // Fallback：沿用你现在的前端计算逻辑
@@ -163,10 +169,15 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     return 'Next loop spin in $loopRemaining listings (at #$loopNextAt)';
   }
 
-  bool get canSpin => ok && spins > 0 && !_spinning && (widget.listingId?.isNotEmpty ?? false);
+  bool get canSpin =>
+      ok && spins > 0 && !_spinning && (widget.listingId?.isNotEmpty ?? false);
 
   String _formatScope(String scope) {
-    const names = {'category': 'Category', 'search': 'Search', 'trending': 'Trending'};
+    const names = {
+      'category': 'Category',
+      'search': 'Search',
+      'trending': 'Trending'
+    };
     return names[scope.toLowerCase()] ?? scope;
   }
 
@@ -193,7 +204,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     // 下一帧再导航，避免使用已经被 pop 的 context
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SafeNavigator.push(
-        MaterialPageRoute(builder: (_) => const TaskManagementPage()),
+        MaterialPageRoute(builder: (_) => const RewardCenterPage()),
       );
     });
   }
@@ -210,7 +221,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
         ),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
@@ -380,10 +392,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       setState(() {
         _spinResp = map.isEmpty
             ? {
-          'ok': false,
-          'reason': 'unexpected_response',
-          'error': 'spin() returned non-map response: ${resp.runtimeType}',
-        }
+                'ok': false,
+                'reason': 'unexpected_response',
+                'error':
+                    'spin() returned non-map response: ${resp.runtimeType}',
+              }
             : map;
         _spinning = false;
       });
@@ -515,12 +528,15 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     final c = qualifiedCount;
 
     Color chipColor(bool done) => done ? Colors.green : Colors.grey;
-    Color bgColor(bool done) => done ? Colors.green.withOpacity(0.10) : Colors.grey.withOpacity(0.10);
-    Color borderColor(bool done) => done ? Colors.green.withOpacity(0.25) : Colors.grey.withOpacity(0.25);
+    Color bgColor(bool done) =>
+        done ? Colors.green.withOpacity(0.10) : Colors.grey.withOpacity(0.10);
+    Color borderColor(bool done) =>
+        done ? Colors.green.withOpacity(0.25) : Colors.grey.withOpacity(0.25);
 
     Widget chip(int n) {
       final done = c >= n;
-      final justGranted = spinGrantedNow && spinGrantTriggerN == n && spinsAddedNow > 0;
+      final justGranted =
+          spinGrantedNow && spinGrantTriggerN == n && spinsAddedNow > 0;
 
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -589,7 +605,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       children: [
         Icon(icon, size: 22, color: Colors.grey[600]),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
@@ -616,7 +633,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
   // -------------------- Modes --------------------
 
   Widget _buildError(BuildContext context) {
-    final subtitle = _data['error']?.toString() ?? _data['reason']?.toString() ?? 'Unknown error';
+    final subtitle = _data['error']?.toString() ??
+        _data['reason']?.toString() ??
+        'Unknown error';
 
     return _wrap(
       Column(
@@ -711,7 +730,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
                       SizedBox(width: 8),
                       Text(
                         'Revealing reward...',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -836,17 +856,18 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
               ),
               child: _spinning
                   ? const SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text(
-                'SPIN NOW',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+                      'SPIN NOW',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
 
@@ -862,11 +883,11 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     final items = pool.isNotEmpty
         ? pool
         : const [
-      {'title': 'Airtime +5'},
-      {'title': 'Boost'},
-      {'title': 'None'},
-      {'title': 'Airtime +10'},
-    ];
+            {'title': 'Airtime +5'},
+            {'title': 'Boost'},
+            {'title': 'None'},
+            {'title': 'Airtime +10'},
+          ];
 
     final display = items.take(8).toList();
     final n = display.length;
@@ -897,7 +918,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
                 ),
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -925,8 +947,10 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
-              Text(prob, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+              Expanded(
+                  child: Text(title, style: const TextStyle(fontSize: 12))),
+              Text(prob,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
             ],
           ),
         );
@@ -936,7 +960,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
 
   Widget _buildSpinResult(BuildContext context, Map<String, dynamic> resp) {
     if (resp['ok'] != true) {
-      final reason = resp['reason']?.toString() ?? resp['error']?.toString() ?? 'Spin failed';
+      final reason = resp['reason']?.toString() ??
+          resp['error']?.toString() ??
+          'Spin failed';
 
       return _wrap(
         Column(
@@ -983,7 +1009,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     }
 
     final spinsLeft = _toInt(resp['spins_left']);
-    final r = resp['reward'] is Map ? Map<String, dynamic>.from(resp['reward'] as Map) : <String, dynamic>{};
+    final r = resp['reward'] is Map
+        ? Map<String, dynamic>.from(resp['reward'] as Map)
+        : <String, dynamic>{};
 
     // ✅ 兼容 featured / boost_coupon 两种类型
     final typeRaw = (r['result_type'] ?? '').toString();
@@ -1079,7 +1107,8 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
               ),
               child: Text(
                 spinsLeft > 0 ? 'Spin again' : 'Close',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -1187,7 +1216,9 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
           ),
           const SizedBox(height: 6),
           Text(
-            milestoneProgress.isNotEmpty ? milestoneProgress : "No reward this time, but you're making progress!",
+            milestoneProgress.isNotEmpty
+                ? milestoneProgress
+                : "No reward this time, but you're making progress!",
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),

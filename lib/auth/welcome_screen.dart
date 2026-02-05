@@ -1,4 +1,4 @@
-﻿// lib/auth/welcome_screen.dart
+// lib/auth/welcome_screen.dart
 // ✅ 页面级 onAuthStateChange 已移除：并发导航统一交由 AuthFlowObserver 处理
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -236,14 +236,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             if (!mounted) return;
                             // ✅ 最小修复：直接清栈跳转到 /home（游客态由 MainNavigationPage 基于 session==null 判定）
                             try {
-                              debugPrint('[Welcome] guest -> navReplaceAll(/home)');
-                              await navReplaceAll('/home', arguments: const {'isGuest': true});
+                              debugPrint(
+                                  '[Welcome] guest -> navReplaceAll(/home)');
+                              await navReplaceAll('/home',
+                                  arguments: const {'isGuest': true});
                             } catch (e, st) {
                               debugPrint('[Welcome] guest nav error: $e');
                               debugPrint(st.toString());
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Failed to enter guest mode')),
+                                  const SnackBar(
+                                      content:
+                                          Text('Failed to enter guest mode')),
                                 );
                               }
                             }
@@ -303,11 +307,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1E88E5),
-              Color(0xFF1565C0),
-              Color(0xFF0D47A1)
-            ],
+            colors: [Color(0xFF1E88E5), Color(0xFF1565C0), Color(0xFF0D47A1)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
@@ -343,7 +343,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   return SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
                       child: IntrinsicHeight(
                         child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -370,15 +371,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                           height: 90.r,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(24.r),
+                                            borderRadius:
+                                                BorderRadius.circular(24.r),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
                                                 blurRadius: 20.r,
                                                 offset: Offset(0, 10.h),
                                               ),
                                               BoxShadow(
-                                                color: Colors.white.withOpacity(0.1),
+                                                color: Colors.white
+                                                    .withOpacity(0.1),
                                                 blurRadius: 10.r,
                                                 offset: Offset(-5.w, -5.h),
                                               ),
@@ -390,7 +394,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                               style: TextStyle(
                                                 fontSize: 48.sp,
                                                 fontWeight: FontWeight.w900,
-                                                color: const Color(0xFF1565C0), // 纯色
+                                                color: const Color(
+                                                    0xFF1565C0), // 纯色
                                               ),
                                             ),
                                           ),
@@ -406,7 +411,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                             letterSpacing: 1.5,
                                             shadows: [
                                               Shadow(
-                                                color: Colors.black.withOpacity(0.1),
+                                                color: Colors.black
+                                                    .withOpacity(0.1),
                                                 offset: const Offset(0, 2),
                                                 blurRadius: 4,
                                               ),
@@ -418,7 +424,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                           'Buy. Sell. Swap. Locally.',
                                           style: TextStyle(
                                             fontSize: 16.sp,
-                                            color: Colors.white.withOpacity(0.95),
+                                            color:
+                                                Colors.white.withOpacity(0.95),
                                             fontWeight: FontWeight.w500,
                                             letterSpacing: 1.2,
                                           ),
@@ -434,11 +441,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 child: FadeTransition(
                                   opacity: _fadeAnimation,
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
                                     children: [
-                                      _buildFeature(Icons.shopping_cart_rounded, 'Shop Smart'),
-                                      _buildFeature(Icons.near_me_rounded, 'Near You'),
-                                      _buildFeature(Icons.security_rounded, 'Safe Trade'),
+                                      _buildFeature(Icons.shopping_cart_rounded,
+                                          'Shop Smart'),
+                                      _buildFeature(
+                                          Icons.near_me_rounded, 'Near You'),
+                                      _buildFeature(
+                                          Icons.security_rounded, 'Safe Trade'),
                                     ],
                                   ),
                                 ),
@@ -456,12 +467,17 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                         height: 52.h,
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
-                                            colors: [Colors.white, Color(0xFFF8F9FA)],
+                                            colors: [
+                                              Colors.white,
+                                              Color(0xFFF8F9FA)
+                                            ],
                                           ),
-                                          borderRadius: BorderRadius.circular(16.r),
+                                          borderRadius:
+                                              BorderRadius.circular(16.r),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(0.15),
+                                              color: Colors.black
+                                                  .withOpacity(0.15),
                                               blurRadius: 12.r,
                                               offset: Offset(0, 6.h),
                                             ),
@@ -473,27 +489,38 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                             onTap: _busy
                                                 ? null
                                                 : () {
-                                              setState(() => _busy = true);
-                                              navPush('/register').whenComplete(() {
-                                                if (mounted) {
-                                                  setState(() => _busy = false);
-                                                }
-                                              });
-                                            },
-                                            borderRadius: BorderRadius.circular(16.r),
+                                                    setState(
+                                                        () => _busy = true);
+                                                    navPush('/register')
+                                                        .whenComplete(() {
+                                                      if (mounted) {
+                                                        setState(() =>
+                                                            _busy = false);
+                                                      }
+                                                    });
+                                                  },
+                                            borderRadius:
+                                                BorderRadius.circular(16.r),
                                             child: Center(
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
-                                                  Icon(Icons.rocket_launch_rounded,
-                                                      color: const Color(0xFF1565C0), size: 20.r),
+                                                  Icon(
+                                                      Icons
+                                                          .rocket_launch_rounded,
+                                                      color: const Color(
+                                                          0xFF1565C0),
+                                                      size: 20.r),
                                                   SizedBox(width: 8.w),
                                                   Text(
                                                     'Get Started',
                                                     style: TextStyle(
-                                                      color: const Color(0xFF1565C0),
+                                                      color: const Color(
+                                                          0xFF1565C0),
                                                       fontSize: 16.sp,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                                   ),
                                                 ],
@@ -511,9 +538,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                         height: 52.h,
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(16.r),
+                                          borderRadius:
+                                              BorderRadius.circular(16.r),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(0.3),
+                                            color:
+                                                Colors.white.withOpacity(0.3),
                                             width: 1.5,
                                           ),
                                         ),
@@ -523,14 +552,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                             onTap: _busy
                                                 ? null
                                                 : () {
-                                              setState(() => _busy = true);
-                                              navPush('/login').whenComplete(() {
-                                                if (mounted) {
-                                                  setState(() => _busy = false);
-                                                }
-                                              });
-                                            },
-                                            borderRadius: BorderRadius.circular(16.r),
+                                                    setState(
+                                                        () => _busy = true);
+                                                    navPush('/login')
+                                                        .whenComplete(() {
+                                                      if (mounted) {
+                                                        setState(() =>
+                                                            _busy = false);
+                                                      }
+                                                    });
+                                                  },
+                                            borderRadius:
+                                                BorderRadius.circular(16.r),
                                             child: Center(
                                               child: Text(
                                                 'Sign In',
@@ -549,15 +582,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                                       // -------- Browse as Guest --------
                                       TextButton(
-                                        onPressed: _busy ? null : _continueAsGuest,
+                                        onPressed:
+                                            _busy ? null : _continueAsGuest,
                                         style: TextButton.styleFrom(
-                                          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 20.w, vertical: 12.h),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(Icons.visibility_outlined,
-                                                color: Colors.white70, size: 18.r),
+                                                color: Colors.white70,
+                                                size: 18.r),
                                             SizedBox(width: 6.w),
                                             Text(
                                               'Browse as Guest',
@@ -565,7 +601,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                                 color: Colors.white70,
                                                 fontSize: 14.sp,
                                                 fontWeight: FontWeight.w500,
-                                                decoration: TextDecoration.underline,
+                                                decoration:
+                                                    TextDecoration.underline,
                                                 decorationColor: Colors.white30,
                                               ),
                                             ),
@@ -576,13 +613,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                   ),
                                 ),
                               ),
-
                               SizedBox(height: 20.h),
-
                               FadeTransition(
                                 opacity: _fadeAnimation,
                                 child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: 20.w),
                                   child: Text(
                                     'By continuing, you agree to our\nTerms of Service and Privacy Policy',
                                     textAlign: TextAlign.center,
@@ -594,7 +630,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                   ),
                                 ),
                               ),
-
                               SizedBox(height: 20.h),
                             ],
                           ),

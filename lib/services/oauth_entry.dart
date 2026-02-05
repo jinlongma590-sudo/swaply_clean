@@ -1,4 +1,4 @@
-﻿// lib/services/oauth_entry.dart
+// lib/services/oauth_entry.dart
 //
 // ✅ [P0 修复] 增加 ValueNotifier 通知机制，解决按钮锁死问题
 // ✅ [应用内认证] 三方登录统一调用 AuthService().signInWithNativeProvider(...)
@@ -32,7 +32,8 @@ class OAuthEntry {
   static bool get inFlight => _inFlight;
 
   // ✅ UI 通知
-  static final ValueNotifier<bool> inFlightNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> inFlightNotifier =
+      ValueNotifier<bool>(false);
 
   // ✅ 持久化 key 与超时
   static const String _kOAuthInFlightKey = 'oauth_in_flight_timestamp';
@@ -63,7 +64,8 @@ class OAuthEntry {
       if (elapsedSeconds < 5) {
         _setInFlight(true);
         _lastProvider = provider;
-        debugPrint('[OAuthEntry] Restored inFlight=true (${elapsedSeconds.toStringAsFixed(1)}s ago, provider=$provider)');
+        debugPrint(
+            '[OAuthEntry] Restored inFlight=true (${elapsedSeconds.toStringAsFixed(1)}s ago, provider=$provider)');
         final remaining = (_kOAuthTimeoutSeconds * 1000) - elapsed;
         _armReset(++_epoch, Duration(milliseconds: remaining.toInt()));
         return;
@@ -72,12 +74,14 @@ class OAuthEntry {
       if (elapsedSeconds < 15) {
         _setInFlight(true);
         _lastProvider = provider;
-        debugPrint('[OAuthEntry] Restored inFlight=true with SHORT timeout (${elapsedSeconds.toStringAsFixed(1)}s ago)');
+        debugPrint(
+            '[OAuthEntry] Restored inFlight=true with SHORT timeout (${elapsedSeconds.toStringAsFixed(1)}s ago)');
         _armReset(++_epoch, const Duration(seconds: 5));
         return;
       }
 
-      debugPrint('[OAuthEntry] Clearing expired state (${elapsedSeconds.toStringAsFixed(1)}s ago)');
+      debugPrint(
+          '[OAuthEntry] Clearing expired state (${elapsedSeconds.toStringAsFixed(1)}s ago)');
       await prefs.remove(_kOAuthInFlightKey);
       await prefs.remove(_kOAuthProviderKey);
     } catch (e) {
@@ -96,7 +100,8 @@ class OAuthEntry {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (value) {
-        await prefs.setInt(_kOAuthInFlightKey, DateTime.now().millisecondsSinceEpoch);
+        await prefs.setInt(
+            _kOAuthInFlightKey, DateTime.now().millisecondsSinceEpoch);
         if (provider != null) {
           await prefs.setString(_kOAuthProviderKey, provider);
         }
@@ -143,7 +148,8 @@ class OAuthEntry {
       final h = uri.host.toLowerCase();
       if (h == 'swaply.cc' || h == 'www.swaply.cc') {
         final seg = uri.pathSegments;
-        final isAuthCallback = (seg.length >= 2 && seg[0] == 'auth' && seg[1] == 'callback');
+        final isAuthCallback =
+            (seg.length >= 2 && seg[0] == 'auth' && seg[1] == 'callback');
         final isLoginCallback = (seg.isNotEmpty && seg[0] == 'login-callback');
         return isAuthCallback || isLoginCallback;
       }
@@ -153,7 +159,8 @@ class OAuthEntry {
   }
 
   // ✅ 兜底定时器，避免 UI 永久锁死
-  static void _armReset(int ticket, [Duration d = const Duration(seconds: 10)]) {
+  static void _armReset(int ticket,
+      [Duration d = const Duration(seconds: 10)]) {
     _resetTimer?.cancel();
     _resetTimer = Timer(d, () {
       _clear(ticket, reason: 'timeout');
@@ -162,7 +169,8 @@ class OAuthEntry {
 
   static void _clear(int ticket, {String reason = 'finish'}) {
     if (ticket != _epoch) {
-      debugPrint('[OAuthEntry] skip clear (stale ticket=$ticket < current=$_epoch), reason=$reason');
+      debugPrint(
+          '[OAuthEntry] skip clear (stale ticket=$ticket < current=$_epoch), reason=$reason');
       return;
     }
 
@@ -173,19 +181,21 @@ class OAuthEntry {
     _lastProvider = null;
     _persistInFlight(false);
 
-    debugPrint('[OAuthEntry] cleared (reason=$reason), inFlight=false, epoch=$_epoch');
+    debugPrint(
+        '[OAuthEntry] cleared (reason=$reason), inFlight=false, epoch=$_epoch');
   }
 
   /// ✅ 统一入口：三方登录完全内置
   /// Google / Facebook / Apple → 交给 AuthService().signInWithNativeProvider(provider)
   /// 其它供应商（若未来新增）才走内置 WebView
   static Future<void> signIn(
-      OAuthProvider provider, {
-        String? scopes,
-        Map<String, String>? queryParams,
-      }) async {
+    OAuthProvider provider, {
+    String? scopes,
+    Map<String, String>? queryParams,
+  }) async {
     if (_inFlight) {
-      debugPrint('[OAuthEntry] duplicate signIn ignored: provider=$provider (inFlight=true, epoch=$_epoch)');
+      debugPrint(
+          '[OAuthEntry] duplicate signIn ignored: provider=$provider (inFlight=true, epoch=$_epoch)');
       return;
     }
 
@@ -216,19 +226,19 @@ class OAuthEntry {
       }
     }
 
-    final Map<String, String> qp = { if (queryParams != null) ...queryParams };
+    final Map<String, String> qp = {if (queryParams != null) ...queryParams};
 
     try {
       switch (provider) {
         case OAuthProvider.google:
         case OAuthProvider.facebook:
         case OAuthProvider.apple:
-        // ✅ 三种都走原生/系统浏览器方案（由 AuthService 内部决定）
+          // ✅ 三种都走原生/系统浏览器方案（由 AuthService 内部决定）
           await AuthService().signInWithNativeProvider(provider);
           break;
 
         default:
-        // ✅ 其它供应商（未来新增）才走内置 WebView
+          // ✅ 其它供应商（未来新增）才走内置 WebView
           await Supabase.instance.client.auth.signInWithOAuth(
             provider,
             redirectTo: getAuthRedirectUri(),
@@ -266,7 +276,8 @@ class OAuthEntry {
   }
 
   static void clearGuardIfSignedIn(AuthState state) {
-    final ok = state.event == AuthChangeEvent.signedIn || state.session?.user != null;
+    final ok =
+        state.event == AuthChangeEvent.signedIn || state.session?.user != null;
     if (ok) {
       _clear(_epoch, reason: 'onAuthStateChange:signedIn');
     } else if (state.event == AuthChangeEvent.userUpdated ||

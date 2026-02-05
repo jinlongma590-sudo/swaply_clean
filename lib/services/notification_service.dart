@@ -11,8 +11,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 typedef NotificationEventCallback = void Function(
-    Map<String, dynamic> notification,
-    );
+  Map<String, dynamic> notification,
+);
 
 enum NotificationType {
   offer('offer'),
@@ -32,7 +32,7 @@ class NotificationService {
 
   // ======= ✅ UI 单一数据源（页面只监听它） =======
   static final ValueNotifier<List<Map<String, dynamic>>> listNotifier =
-  ValueNotifier<List<Map<String, dynamic>>>(const []);
+      ValueNotifier<List<Map<String, dynamic>>>(const []);
 
   static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
@@ -46,7 +46,8 @@ class NotificationService {
         filtered.where((n) => n['is_read'] != true).length;
   }
 
-  static void _upsertLocal(Map<String, dynamic> record, {bool bumpToTop = false}) {
+  static void _upsertLocal(Map<String, dynamic> record,
+      {bool bumpToTop = false}) {
     final id = (record['id'] ?? '').toString();
     if (id.isEmpty) return;
 
@@ -81,8 +82,9 @@ class NotificationService {
 
   static void _setDictUnread(List<Map<String, dynamic>> cur) {
     listNotifier.value = List<Map<String, dynamic>>.unmodifiable(cur);
-    unreadCountNotifier.value =
-        cur.where((n) => n['is_deleted'] != true && n['is_read'] != true).length;
+    unreadCountNotifier.value = cur
+        .where((n) => n['is_deleted'] != true && n['is_read'] != true)
+        .length;
   }
 
   static Future<void> refresh({
@@ -125,14 +127,15 @@ class NotificationService {
       final type = (record['type'] ?? '').toString();
       final meta = (record['metadata'] ?? {}) as Map<String, dynamic>;
       final fromMeta = (meta['payload'] ??
-          meta['deep_link'] ??
-          meta['deeplink'] ??
-          meta['link'])
+              meta['deep_link'] ??
+              meta['deeplink'] ??
+              meta['link'])
           ?.toString();
 
       if (fromMeta != null && fromMeta.isNotEmpty) return fromMeta;
 
-      final listingId = (record['listing_id'] ?? meta['listing_id'])?.toString();
+      final listingId =
+          (record['listing_id'] ?? meta['listing_id'])?.toString();
       final offerId = (record['offer_id'] ?? meta['offer_id'])?.toString();
 
       if (type == 'offer' && offerId != null && listingId != null) {
@@ -155,7 +158,7 @@ class NotificationService {
 
   // ===== 全局广播流 =====
   static final StreamController<Map<String, dynamic>> _controller =
-  StreamController<Map<String, dynamic>>.broadcast();
+      StreamController<Map<String, dynamic>>.broadcast();
   static Stream<Map<String, dynamic>> get stream => _controller.stream;
 
   // 简单去重，避免同一通知重复推送
@@ -271,9 +274,9 @@ class NotificationService {
   // ================================================
 
   static Future<void> subscribeUser(
-      String userId, {
-        NotificationEventCallback? onEvent,
-      }) async {
+    String userId, {
+    NotificationEventCallback? onEvent,
+  }) async {
     if (_currentUserId == userId && _channel != null) {
       _debugPrint('Already subscribed for user: $userId');
       return;
@@ -388,7 +391,7 @@ class NotificationService {
       final safeName = (likerName?.trim().isNotEmpty == true)
           ? likerName!.trim()
           : (currentUser?.userMetadata?['full_name'] as String?) ??
-          (currentUser?.email ?? 'Someone');
+              (currentUser?.email ?? 'Someone');
 
       // 自己收藏自己就不发
       if (sellerId == (likerId ?? currentUser?.id)) {
@@ -488,9 +491,11 @@ class NotificationService {
       // ✅ 构建包含消息的通知内容
       String notificationMessage;
       if (message != null && message.isNotEmpty) {
-        notificationMessage = '$displayName offered \$${offerAmount.toStringAsFixed(2)}\n\n"$message"';
+        notificationMessage =
+            '$displayName offered \$${offerAmount.toStringAsFixed(2)}\n\n"$message"';
       } else {
-        notificationMessage = '$displayName offered \$${offerAmount.toStringAsFixed(2)}';
+        notificationMessage =
+            '$displayName offered \$${offerAmount.toStringAsFixed(2)}';
       }
 
       // 构建payload
@@ -648,9 +653,9 @@ class NotificationService {
       await _client
           .from(_tableName)
           .update({
-        'is_read': true,
-        'read_at': DateTime.now().toIso8601String(),
-      })
+            'is_read': true,
+            'read_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
@@ -677,9 +682,9 @@ class NotificationService {
       await _client
           .from(_tableName)
           .update({
-        'is_read': true,
-        'read_at': DateTime.now().toIso8601String(),
-      })
+            'is_read': true,
+            'read_at': DateTime.now().toIso8601String(),
+          })
           .eq('recipient_id', targetUserId)
           .eq('is_read', false);
 

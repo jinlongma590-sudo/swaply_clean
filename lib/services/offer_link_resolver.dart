@@ -37,20 +37,20 @@ class OfferLinkResolver {
     if (type == 'offer' && _notEmpty(offerId)) {
       // 这里约定路由为 '/offer-detail'；若你的 AppRouter 用的是其它名字，改成你的即可
       return (
-      route: '/offer-detail',
-      arguments: <String, Object?>{
-        'offerId': offerId, // String? → Object? OK
-        if (_notEmpty(listingId)) 'listingId': listingId,
-      },
+        route: '/offer-detail',
+        arguments: <String, Object?>{
+          'offerId': offerId, // String? → Object? OK
+          if (_notEmpty(listingId)) 'listingId': listingId,
+        },
       );
     }
 
     // 2) 普通消息/心愿单/价格变动等：跳到商品详情
     if (_notEmpty(listingId)) {
       return (
-      route: '/listing',
-      // 你的 listing 详情目前是直接用 String 作为 arguments
-      arguments: listingId,
+        route: '/listing',
+        // 你的 listing 详情目前是直接用 String 作为 arguments
+        arguments: listingId,
       );
     }
 

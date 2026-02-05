@@ -52,8 +52,7 @@ class DualFavoritesService {
         : _failureRetryDelay;
 
     if (now.difference(failure.lastAttempt) < delay) {
-      _debugPrint(
-          '⏭️ 跳过查询 $key（失败 ${failure.count} 次，等待 ${delay.inSeconds}s）');
+      _debugPrint('⏭️ 跳过查询 $key（失败 ${failure.count} 次，等待 ${delay.inSeconds}s）');
       return true;
     }
 
@@ -154,7 +153,7 @@ class DualFavoritesService {
         _debugPrint('准备插入收藏数据: $favoriteData');
 
         final favoriteResult =
-        await _client.from(_favoritesTable).insert(favoriteData).select();
+            await _client.from(_favoritesTable).insert(favoriteData).select();
 
         _debugPrint('Favorites 表插入结果: $favoriteResult');
         favoritesSuccess =
@@ -201,7 +200,7 @@ class DualFavoritesService {
         };
 
         final wishlistResult =
-        await _client.from(_wishlistsTable).insert(wishlistData).select();
+            await _client.from(_wishlistsTable).insert(wishlistData).select();
 
         wishlistSuccess = (wishlistResult is List) && wishlistResult.isNotEmpty;
 
@@ -231,14 +230,12 @@ class DualFavoritesService {
 
           final sellerId = listingRow?['user_id'] as String?;
           final listingTitleRaw = listingRow?['title'];
-          final safeTitle = (listingTitleRaw is String &&
-              listingTitleRaw.trim().isNotEmpty)
-              ? listingTitleRaw
-              : 'your item';
+          final safeTitle =
+              (listingTitleRaw is String && listingTitleRaw.trim().isNotEmpty)
+                  ? listingTitleRaw
+                  : 'your item';
 
-          if (sellerId != null &&
-              sellerId.isNotEmpty &&
-              sellerId != userId) {
+          if (sellerId != null && sellerId.isNotEmpty && sellerId != userId) {
             final ok = await NotificationService.notifyFavorite(
               sellerId: sellerId,
               listingId: listingId,
@@ -417,7 +414,7 @@ class DualFavoritesService {
 
     // 发起请求
     final future =
-    _fetchFavorites(userId: userId, limit: limit, offset: offset);
+        _fetchFavorites(userId: userId, limit: limit, offset: offset);
     _inflight[key] = future;
     try {
       final data = await future;
@@ -461,7 +458,7 @@ class DualFavoritesService {
       }
 
       final List<Map<String, dynamic>> favoritesData =
-      _safeListConvert(rawFavoritesData);
+          _safeListConvert(rawFavoritesData);
 
       // ✅ [性能优化] 收集所有listing_id，一次性查询
       final listingIds = favoritesData
@@ -482,8 +479,8 @@ class DualFavoritesService {
       final allListings = await _client
           .from('listings')
           .select(
-          'id, title, price, city, images, image_urls, status, is_active, seller_name, category, description, created_at')
-          .filter('id', 'in', '(${listingIds.join(',')})')  // ← 修复：不添加引号
+              'id, title, price, city, images, image_urls, status, is_active, seller_name, category, description, created_at')
+          .filter('id', 'in', '(${listingIds.join(',')})') // ← 修复：不添加引号
           .eq('is_active', true);
 
       _debugPrint('查询到 ${allListings.length} 个有效商品');
@@ -592,7 +589,7 @@ class DualFavoritesService {
       }
 
       final List<Map<String, dynamic>> wishlistData =
-      _safeListConvert(rawWishlistData);
+          _safeListConvert(rawWishlistData);
 
       // ✅ [性能优化] 收集所有listing_id，一次性查询
       final listingIds = wishlistData
@@ -613,8 +610,8 @@ class DualFavoritesService {
       final allListings = await _client
           .from('listings')
           .select(
-          'id, title, price, city, images, image_urls, status, is_active, seller_name, category, description, created_at')
-          .filter('id', 'in', '(${listingIds.join(',')})')  // ← 修复：不添加引号
+              'id, title, price, city, images, image_urls, status, is_active, seller_name, category, description, created_at')
+          .filter('id', 'in', '(${listingIds.join(',')})') // ← 修复：不添加引号
           .eq('is_active', true);
 
       _debugPrint('查询到 ${allListings.length} 个有效心愿单商品');

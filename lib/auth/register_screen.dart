@@ -1,4 +1,4 @@
-﻿// lib/auth/register_screen.dart
+// lib/auth/register_screen.dart
 // ✅ 增强版：添加网络错误检测和友好提示
 // ✅ 最终修复：使用 ValueListenableBuilder 监听 OAuthEntry.inFlightNotifier
 // ✅ 解决按钮锁死问题：当用户点返回时，UI 会立即响应 inFlight 变化
@@ -187,9 +187,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   /// 统一 OAuth 启动器（移除超时限制）
   Future<void> _oauthSignIn(
-      OAuthProvider provider, {
-        Map<String, String>? queryParams,
-      }) async {
+    OAuthProvider provider, {
+    Map<String, String>? queryParams,
+  }) async {
     if (!mounted || _busy) return;
 
     if (!OAuthEntry.mayStartInteractive()) {
@@ -427,7 +427,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                     style: TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
                   ),
                   SizedBox(height: 28.h),
-
                   _input(
                     controller: _nameController,
                     label: 'Full Name',
@@ -441,7 +440,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                     },
                   ),
                   SizedBox(height: 14.h),
-
                   _input(
                     controller: _emailController,
                     label: 'Email Address',
@@ -452,15 +450,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                       if (v == null || v.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$')
-                          .hasMatch(v)) {
+                      if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$').hasMatch(v)) {
                         return 'Please enter a valid email';
                       }
                       return null;
                     },
                   ),
                   SizedBox(height: 14.h),
-
                   _input(
                     controller: _phoneController,
                     label: 'Phone Number',
@@ -475,7 +471,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                     },
                   ),
                   SizedBox(height: 14.h),
-
                   _input(
                     controller: _passwordController,
                     label: 'Password',
@@ -507,7 +502,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                     ),
                   ),
                   SizedBox(height: 14.h),
-
                   _input(
                     controller: _confirmPasswordController,
                     label: 'Confirm Password',
@@ -534,18 +528,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                       onPressed: () {
                         setState(() {
                           _isConfirmPasswordVisible =
-                          !_isConfirmPasswordVisible;
+                              !_isConfirmPasswordVisible;
                         });
                       },
                     ),
                   ),
-
                   SizedBox(height: 14.h),
-
                   _invitationCodeCard(),
-
                   SizedBox(height: 16.h),
-
                   Row(
                     children: [
                       SizedBox(
@@ -608,9 +598,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                       ),
                     ],
                   ),
-
                   SizedBox(height: 20.h),
-
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
@@ -622,49 +610,46 @@ class _RegisterScreenState extends State<RegisterScreen>
                           gradient: (_isLoading || isOAuthInFlight)
                               ? null
                               : const LinearGradient(
-                            colors: [
-                              Color(0xFF2196F3),
-                              Color(0xFF1976D2),
-                            ],
-                          ),
+                                  colors: [
+                                    Color(0xFF2196F3),
+                                    Color(0xFF1976D2),
+                                  ],
+                                ),
                           color: (_isLoading || isOAuthInFlight)
                               ? Colors.grey[300]
                               : null,
                           boxShadow: (_isLoading || isOAuthInFlight)
                               ? null
                               : [
-                            BoxShadow(
-                              color: const Color(0xFF2196F3)
-                                  .withOpacity(0.3),
-                              blurRadius: 8.r,
-                              offset: Offset(0, 4.h),
-                            ),
-                          ],
+                                  BoxShadow(
+                                    color: const Color(0xFF2196F3)
+                                        .withOpacity(0.3),
+                                    blurRadius: 8.r,
+                                    offset: Offset(0, 4.h),
+                                  ),
+                                ],
                         ),
                         child: InkWell(
-                          onTap: _isLoading || isOAuthInFlight
-                              ? null
-                              : _register,
+                          onTap:
+                              _isLoading || isOAuthInFlight ? null : _register,
                           child: Center(
                             child: _isLoading
                                 ? const CircularProgressIndicator(
-                                color: Colors.white)
+                                    color: Colors.white)
                                 : Text(
-                              'Create Account',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                                    'Create Account',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                       );
                     },
                   ),
-
                   SizedBox(height: 18.h),
-
                   Row(
                     children: [
                       Expanded(child: Divider(color: Colors.grey[300])),
@@ -679,9 +664,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                       Expanded(child: Divider(color: Colors.grey[300])),
                     ],
                   ),
-
                   SizedBox(height: 18.h),
-
                   ValueListenableBuilder<bool>(
                     valueListenable: OAuthEntry.inFlightNotifier,
                     builder: (context, isOAuthInFlight, child) {
@@ -710,26 +693,22 @@ class _RegisterScreenState extends State<RegisterScreen>
                       );
                     },
                   ),
-
                   if (showApple) SizedBox(height: 12.h),
                   if (showApple)
                     ValueListenableBuilder<bool>(
                       valueListenable: OAuthEntry.inFlightNotifier,
                       builder: (context, isOAuthInFlight, child) {
-                        return _appleSignInButtonIOS(
-                            disabled: isOAuthInFlight);
+                        return _appleSignInButtonIOS(disabled: isOAuthInFlight);
                       },
                     ),
-
                   SizedBox(height: 22.h),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: TextStyle(
-                            color: Colors.grey[600], fontSize: 12.sp),
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12.sp),
                       ),
                       GestureDetector(
                         onTap: () => navPop(),
@@ -775,8 +754,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 setState(() => _showInvitationCode = !_showInvitationCode),
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(12.r),
-              bottom:
-              _showInvitationCode ? Radius.zero : Radius.circular(12.r),
+              bottom: _showInvitationCode ? Radius.zero : Radius.circular(12.r),
             ),
             child: Padding(
               padding: EdgeInsets.all(12.r),
@@ -816,9 +794,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     ),
                   ),
                   Icon(
-                    _showInvitationCode
-                        ? Icons.expand_less
-                        : Icons.expand_more,
+                    _showInvitationCode ? Icons.expand_less : Icons.expand_more,
                     color: Colors.grey[600],
                     size: 20.r,
                   ),
@@ -843,8 +819,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                     textCapitalization: TextCapitalization.characters,
                     decoration: InputDecoration(
                       hintText: 'Enter invitation code',
-                      hintStyle: TextStyle(
-                          fontSize: 12.sp, color: Colors.grey[400]),
+                      hintStyle:
+                          TextStyle(fontSize: 12.sp, color: Colors.grey[400]),
                       prefixIcon: Icon(
                         Icons.vpn_key,
                         size: 18.r,
@@ -937,19 +913,19 @@ class _RegisterScreenState extends State<RegisterScreen>
             borderSide: BorderSide(color: Colors.red, width: 1.5),
           ),
           contentPadding:
-          EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
         ),
       ),
     );
   }
 
   Widget _socialBtn(
-      String text,
-      Color color,
-      IconData icon,
-      Future<void> Function() onTap, {
-        bool disabled = false,
-      }) {
+    String text,
+    Color color,
+    IconData icon,
+    Future<void> Function() onTap, {
+    bool disabled = false,
+  }) {
     return SizedBox(
       height: 42.h,
       child: OutlinedButton(
@@ -990,7 +966,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           foregroundColor: Colors.white,
           elevation: 0,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
           padding: EdgeInsets.symmetric(horizontal: 12.w),
         ),
         child: Row(

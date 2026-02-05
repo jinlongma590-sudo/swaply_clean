@@ -105,7 +105,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
       final listingsResponse = await Supabase.instance.client
           .from('listings')
           .select(
-          'id, title, price, images, image_urls, city, created_at, views_count')
+              'id, title, price, images, image_urls, city, created_at, views_count')
           .eq('user_id', widget.sellerId)
           .order('created_at', ascending: false)
           .limit(50);
@@ -214,8 +214,8 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
         slivers: [
           SliverAppBar(
             // ↓↓↓ 仅为“高度与 Wishlist 一致”所做的最小改动 ↓↓↓
-            toolbarHeight: toolbarHeight,         // iOS 44 / Android 56
-            collapsedHeight: toolbarHeight,       // 折叠后同上
+            toolbarHeight: toolbarHeight, // iOS 44 / Android 56
+            collapsedHeight: toolbarHeight, // 折叠后同上
             systemOverlayStyle: SystemUiOverlayStyle.light,
             // ↑↑↑ 其余逻辑不动 ↑↑↑
 
@@ -382,7 +382,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
                   mainAxisSpacing: 12.w,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                      (context, index) {
+                  (context, index) {
                     final listing = _sellerListings[index];
                     return _buildListingCard(listing);
                   },
@@ -422,7 +422,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
   Widget _buildListingCard(Map<String, dynamic> listing) {
     final images = listing['images'] ?? listing['image_urls'] ?? [];
     final imageUrl =
-    images is List && images.isNotEmpty ? images[0].toString() : '';
+        images is List && images.isNotEmpty ? images[0].toString() : '';
 
     return InkWell(
       onTap: () {
@@ -458,21 +458,21 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
                 aspectRatio: 1.25, // 宽:高 ≈ 1.25，更贴近 Jiji 卡片观感
                 child: imageUrl.isNotEmpty
                     ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover, // ✅ 关键：铺满裁剪
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[200],
-                    child: Icon(Icons.image,
-                        size: 32.sp, color: Colors.grey[400]),
-                  ),
-                )
+                        imageUrl,
+                        fit: BoxFit.cover, // ✅ 关键：铺满裁剪
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: Icon(Icons.image,
+                              size: 32.sp, color: Colors.grey[400]),
+                        ),
+                      )
                     : Container(
-                  color: Colors.grey[200],
-                  child: Icon(Icons.image,
-                      size: 32.sp, color: Colors.grey[400]),
-                ),
+                        color: Colors.grey[200],
+                        child: Icon(Icons.image,
+                            size: 32.sp, color: Colors.grey[400]),
+                      ),
               ),
             ),
 

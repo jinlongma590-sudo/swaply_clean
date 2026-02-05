@@ -1,8 +1,8 @@
-﻿// lib/pages/profile_page.dart
+// lib/pages/profile_page.dart
 // ✅ [方案四] 使用 StreamBuilder 监听 Profile Stream
 // ✅ 修复：iOS端使用更紧凑的UI比例，Android保持不变
 // ✅ 修复：统一所有入口卡片的大小
-// ✅ 修复：My Rewards 跳转到 TaskManagementPage
+// ✅ 修复：My Rewards 跳转到 RewardCenterPage
 // ✅ [应用内认证] 删除账号链接强制在应用内打开
 
 import 'dart:async';
@@ -155,7 +155,8 @@ class _ProfilePageState extends State<ProfilePage>
       barrierDismissible: true,
       builder: (dialogCtx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 8,
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -184,7 +185,8 @@ class _ProfilePageState extends State<ProfilePage>
                     ),
                     const SizedBox(width: 12),
                     const Text('Edit Profile',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -194,8 +196,10 @@ class _ProfilePageState extends State<ProfilePage>
                   decoration: InputDecoration(
                     labelText: 'Full name',
                     labelStyle: const TextStyle(fontSize: 14),
-                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon:
+                        const Icon(Icons.person_outline_rounded, size: 20),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
@@ -212,7 +216,8 @@ class _ProfilePageState extends State<ProfilePage>
                     labelText: 'Phone',
                     labelStyle: const TextStyle(fontSize: 14),
                     prefixIcon: const Icon(Icons.phone_outlined, size: 20),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
@@ -227,8 +232,10 @@ class _ProfilePageState extends State<ProfilePage>
                     TextButton(
                       onPressed: () => Navigator.of(dialogCtx).maybePop(false),
                       style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-                      child: const Text('Cancel', style: TextStyle(fontSize: 15)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12)),
+                      child:
+                          const Text('Cancel', style: TextStyle(fontSize: 15)),
                     ),
                     const SizedBox(width: 12),
                     DecoratedBox(
@@ -242,11 +249,14 @@ class _ProfilePageState extends State<ProfilePage>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 28, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                         child: const Text('Save',
-                            style: TextStyle(fontSize: 15, color: Colors.white)),
+                            style:
+                                TextStyle(fontSize: 15, color: Colors.white)),
                       ),
                     ),
                   ],
@@ -273,12 +283,14 @@ class _ProfilePageState extends State<ProfilePage>
               children: [
                 Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Text('Profile updated successfully', style: TextStyle(fontSize: 14)),
+                Text('Profile updated successfully',
+                    style: TextStyle(fontSize: 14)),
               ],
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             margin: const EdgeInsets.all(16),
           ),
         );
@@ -290,14 +302,18 @@ class _ProfilePageState extends State<ProfilePage>
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Update failed: $e', style: const TextStyle(fontSize: 14))),
+                Expanded(
+                    child: Text('Update failed: $e',
+                        style: const TextStyle(fontSize: 14))),
               ],
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             margin: const EdgeInsets.all(16),
           ),
         );
@@ -337,14 +353,14 @@ class _ProfilePageState extends State<ProfilePage>
       final path =
           '${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await Supabase.instance.client.storage
-          .from('avatars')
-          .uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: true));
+      await Supabase.instance.client.storage.from('avatars').uploadBinary(
+          path, bytes,
+          fileOptions: const FileOptions(upsert: true));
 
       if (!mounted || _dead) return;
 
       final publicUrl =
-      Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
+          Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
       await ProfileService.instance.updateUserProfile(avatarUrl: publicUrl);
 
       if (!mounted || _dead) return;
@@ -358,12 +374,14 @@ class _ProfilePageState extends State<ProfilePage>
             children: [
               Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
               SizedBox(width: 8),
-              Text('Avatar updated successfully', style: TextStyle(fontSize: 14)),
+              Text('Avatar updated successfully',
+                  style: TextStyle(fontSize: 14)),
             ],
           ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           margin: const EdgeInsets.all(16),
         ),
       );
@@ -373,14 +391,18 @@ class _ProfilePageState extends State<ProfilePage>
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+              const Icon(Icons.error_outline_rounded,
+                  color: Colors.white, size: 18),
               SizedBox(width: 8),
-              Expanded(child: Text('Upload failed: $e', style: const TextStyle(fontSize: 14))),
+              Expanded(
+                  child: Text('Upload failed: $e',
+                      style: const TextStyle(fontSize: 14))),
             ],
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           margin: const EdgeInsets.all(16),
         ),
       );
@@ -458,7 +480,8 @@ class _ProfilePageState extends State<ProfilePage>
                         child: CircularProgressIndicator(strokeWidth: 3)),
                     SizedBox(height: 16),
                     Text('Loading profile...',
-                        style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
+                        style:
+                            TextStyle(color: Color(0xFF666666), fontSize: 15)),
                   ],
                 ),
               );
@@ -476,15 +499,15 @@ class _ProfilePageState extends State<ProfilePage>
             final profile = snapshot.data!;
             final fullName = (profile['full_name'] ?? 'User').toString();
             final phone = (profile['phone'] ?? '').toString();
-            final email = phone.isNotEmpty
-                ? phone
-                : (profile['email'] ?? '').toString();
+            final email =
+                phone.isNotEmpty ? phone : (profile['email'] ?? '').toString();
             final avatarUrl = (profile['avatar_url'] ?? '') as String?;
             final memberSince = profile['created_at']?.toString();
             String? memberSinceText;
             if (memberSince != null && memberSince.isNotEmpty) {
-              final cut =
-              memberSince.length >= 10 ? memberSince.substring(0, 10) : memberSince;
+              final cut = memberSince.length >= 10
+                  ? memberSince.substring(0, 10)
+                  : memberSince;
               memberSinceText = cut;
             }
 
@@ -499,10 +522,13 @@ class _ProfilePageState extends State<ProfilePage>
                           isGuest: false,
                           name: fullName,
                           email: email,
-                          avatarUrl:
-                          (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null,
+                          avatarUrl: (avatarUrl != null && avatarUrl.isNotEmpty)
+                              ? avatarUrl
+                              : null,
                           memberSince: memberSinceText,
-                          verificationType: _verified ? _badge : vt.VerificationBadgeType.none,
+                          verificationType: _verified
+                              ? _badge
+                              : vt.VerificationBadgeType.none,
                         ),
                       ),
                       SliverToBoxAdapter(
@@ -533,7 +559,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   onTap: () async {
                                     await SafeNavigator.push<bool>(
                                       MaterialPageRoute(
-                                          builder: (_) => const VerificationPage()),
+                                          builder: (_) =>
+                                              const VerificationPage()),
                                     );
                                     await _reloadUserVerificationStatus();
                                   },
@@ -552,7 +579,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   color: Colors.purple,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
-                                        builder: (_) => const TaskManagementPage()),
+                                        builder: (_) =>
+                                            const RewardCenterPage()),
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -560,8 +588,10 @@ class _ProfilePageState extends State<ProfilePage>
                                   icon: Icons.inventory_2_rounded,
                                   title: l10n.myListings,
                                   color: Colors.indigo,
-                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
-                                      builder: (_) => const MyListingsPage())),
+                                  onTap: () => SafeNavigator.push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const MyListingsPage())),
                                 ),
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
@@ -569,13 +599,14 @@ class _ProfilePageState extends State<ProfilePage>
                                   title: l10n.wishlist,
                                   color: Colors.pink,
                                   onTap: () {
-                                    final user =
-                                        Supabase.instance.client.auth.currentUser;
+                                    final user = Supabase
+                                        .instance.client.auth.currentUser;
                                     if (user == null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                            content:
-                                            Text('Please sign in to view Wishlist')),
+                                            content: Text(
+                                                'Please sign in to view Wishlist')),
                                       );
                                       return;
                                     }
@@ -591,7 +622,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   color: Colors.orange,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
-                                        builder: (_) => const InviteFriendsPage()),
+                                        builder: (_) =>
+                                            const InviteFriendsPage()),
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -602,7 +634,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   color: Colors.purple,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
-                                        builder: (_) => const CouponManagementPage()),
+                                        builder: (_) =>
+                                            const CouponManagementPage()),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
@@ -620,7 +653,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   color: Colors.cyan,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
-                                        builder: (_) => const AccountSettingsPage()),
+                                        builder: (_) =>
+                                            const AccountSettingsPage()),
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -636,7 +670,8 @@ class _ProfilePageState extends State<ProfilePage>
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
                                   icon: Icons.delete_outline,
-                                  title: 'Data Deletion / How to delete my account',
+                                  title:
+                                      'Data Deletion / How to delete my account',
                                   color: Colors.deepOrange,
                                   onTap: () => launchUrl(
                                     Uri.parse(_kDeleteUrl),
@@ -648,8 +683,10 @@ class _ProfilePageState extends State<ProfilePage>
                                   icon: Icons.help_outline_rounded,
                                   title: l10n.helpSupport,
                                   color: Colors.teal,
-                                  onTap: () => SafeNavigator.push(MaterialPageRoute(
-                                      builder: (_) => const HelpSupportPage())),
+                                  onTap: () => SafeNavigator.push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const HelpSupportPage())),
                                 ),
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
@@ -657,7 +694,8 @@ class _ProfilePageState extends State<ProfilePage>
                                   title: l10n.about,
                                   color: Colors.blueGrey,
                                   onTap: () => SafeNavigator.push(
-                                      MaterialPageRoute(builder: (_) => const AboutPage())),
+                                      MaterialPageRoute(
+                                          builder: (_) => const AboutPage())),
                                 ),
                                 const SizedBox(height: 28),
                                 _ProfileOptionEnhanced(
@@ -669,27 +707,34 @@ class _ProfilePageState extends State<ProfilePage>
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(18)),
+                                            borderRadius:
+                                                BorderRadius.circular(18)),
                                         title: Row(
                                           children: [
                                             Container(
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
-                                                  color: Colors.red.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(8)),
-                                              child: const Icon(Icons.logout_rounded,
-                                                  color: Colors.red, size: 20),
+                                                  color: Colors.red
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8)),
+                                              child: const Icon(
+                                                  Icons.logout_rounded,
+                                                  color: Colors.red,
+                                                  size: 20),
                                             ),
                                             const SizedBox(width: 12),
                                             const Text('Logout',
                                                 style: TextStyle(
                                                     fontSize: 18,
-                                                    fontWeight: FontWeight.w600)),
+                                                    fontWeight:
+                                                        FontWeight.w600)),
                                           ],
                                         ),
                                         content: const Text(
                                             'Are you sure you want to logout?',
-                                            style: TextStyle(fontSize: 15, height: 1.4)),
+                                            style: TextStyle(
+                                                fontSize: 15, height: 1.4)),
                                         actions: [
                                           TextButton(
                                               onPressed: () =>
@@ -697,18 +742,22 @@ class _ProfilePageState extends State<ProfilePage>
                                               child: Text('Cancel',
                                                   style: TextStyle(
                                                       fontSize: 15,
-                                                      color: Colors.grey[600]))),
+                                                      color:
+                                                          Colors.grey[600]))),
                                           Container(
                                             decoration: BoxDecoration(
                                                 color: Colors.red,
-                                                borderRadius: BorderRadius.circular(8)),
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
                                             child: TextButton(
-                                              onPressed: () => Navigator.of(ctx).pop(true),
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(true),
                                               child: const Text('Logout',
                                                   style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 15,
-                                                      fontWeight: FontWeight.w600)),
+                                                      fontWeight:
+                                                          FontWeight.w600)),
                                             ),
                                           ),
                                         ],
@@ -737,12 +786,15 @@ class _ProfilePageState extends State<ProfilePage>
                                           navReplaceAll('/welcome');
                                         }
                                       } catch (e) {
-                                        AuthFlowObserver.I.clearManualSignOutFlag();
+                                        AuthFlowObserver.I
+                                            .clearManualSignOutFlag();
                                         if (mounted) {
                                           Navigator.of(context).pop();
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             SnackBar(
-                                                content: Text('Logout failed: $e'),
+                                                content:
+                                                    Text('Logout failed: $e'),
                                                 backgroundColor: Colors.red),
                                           );
                                         }
@@ -777,8 +829,8 @@ class _ProfilePageState extends State<ProfilePage>
                                 child: CircularProgressIndicator()),
                             SizedBox(height: 16),
                             Text('Uploading avatar...',
-                                style:
-                                TextStyle(color: Color(0xFF616161), fontSize: 15)),
+                                style: TextStyle(
+                                    color: Color(0xFF616161), fontSize: 15)),
                           ],
                         ),
                       ),
@@ -828,7 +880,8 @@ class _ProfilePageState extends State<ProfilePage>
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(24, statusBar + 20, 24, headerBottomPadding),
+          padding:
+              EdgeInsets.fromLTRB(24, statusBar + 20, 24, headerBottomPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -857,7 +910,8 @@ class _ProfilePageState extends State<ProfilePage>
                         radius: avatarRadius,
                         verificationType: verificationType,
                         onTap: !isGuest ? _uploadAvatarSimple : null,
-                        defaultIcon: isGuest ? Icons.person_outline : Icons.person,
+                        defaultIcon:
+                            isGuest ? Icons.person_outline : Icons.person,
                       ),
                     ],
                   ),
@@ -884,11 +938,13 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.3), width: 1),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -907,7 +963,8 @@ class _ProfilePageState extends State<ProfilePage>
               if (!isGuest && memberSince != null) ...[
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(16),
@@ -993,21 +1050,27 @@ class _VerificationTileCard extends StatelessWidget {
                   children: [
                     Text(isVerified ? 'Verified' : 'Verification',
                         style: TextStyle(
-                            fontSize: titleFontSize, fontWeight: FontWeight.w600)),
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 3),
-                    Text(isVerified ? 'Status: Verified' : 'Status: Not verified',
+                    Text(
+                        isVerified
+                            ? 'Status: Verified'
+                            : 'Status: Not verified',
                         style: TextStyle(
-                            fontSize: subtitleFontSize, color: Colors.grey[600])),
+                            fontSize: subtitleFontSize,
+                            color: Colors.grey[600])),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               isLoading
                   ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(Icons.arrow_forward_ios,
+                      size: 18, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -1075,12 +1138,14 @@ class _ProfileOptionEnhanced extends StatelessWidget {
                   children: [
                     Text(title,
                         style: TextStyle(
-                            fontSize: titleFontSize, fontWeight: FontWeight.w600)),
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w600)),
                     if (subtitle != null) ...[
                       const SizedBox(height: 3),
                       Text(subtitle!,
                           style: TextStyle(
-                              fontSize: subtitleFontSize, color: Colors.grey[600])),
+                              fontSize: subtitleFontSize,
+                              color: Colors.grey[600])),
                     ],
                   ],
                 ),
@@ -1116,8 +1181,8 @@ class _GuestSimpleOptions extends StatelessWidget {
           icon: Icons.info_outline_rounded,
           title: l10n.about,
           color: Colors.indigo,
-          onTap: () =>
-              SafeNavigator.push(MaterialPageRoute(builder: (_) => const AboutPage())),
+          onTap: () => SafeNavigator.push(
+              MaterialPageRoute(builder: (_) => const AboutPage())),
         ),
       ],
     );
@@ -1169,22 +1234,25 @@ class HelpSupportPage extends StatelessWidget {
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   Text('Our support team is here to help you 24/7',
-                      style:
-                      TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15)),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.9), fontSize: 15)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             Text('Contact Information',
                 style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[800])),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey[800])),
             const SizedBox(height: 14),
             _buildContactCard(
               icon: Icons.email_outlined,
               title: 'Email Support',
               subtitle: 'swaply@swaply.cc',
               color: Colors.blue,
-              onTap: () => launchUrl(Uri(scheme: 'mailto', path: 'swaply@swaply.cc')),
+              onTap: () =>
+                  launchUrl(Uri(scheme: 'mailto', path: 'swaply@swaply.cc')),
             ),
             const SizedBox(height: 12),
             _buildContactCard(
@@ -1238,19 +1306,23 @@ class HelpSupportPage extends StatelessWidget {
               ),
               const SizedBox(width: 18),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800])),
-                  const SizedBox(height: 3),
-                  Text(subtitle,
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800])),
+                      const SizedBox(height: 3),
+                      Text(subtitle,
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[600])),
+                    ]),
               ),
               if (onTap != null)
-                Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -1301,7 +1373,8 @@ class AboutPage extends StatelessWidget {
                   Text(
                     'Swaply is your community marketplace for trading items you no longer need for things you actually want.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Color(0xFF6B7280), height: 1.5),
+                    style: TextStyle(
+                        fontSize: 15, color: Color(0xFF6B7280), height: 1.5),
                   ),
                 ],
               ),
@@ -1322,7 +1395,8 @@ class AboutPage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.copyright_rounded, size: 18, color: Colors.grey[600]),
+                  Icon(Icons.copyright_rounded,
+                      size: 18, color: Colors.grey[600]),
                   const SizedBox(width: 5),
                   Text('2024 Swaply. All rights reserved.',
                       style: TextStyle(fontSize: 14, color: Colors.grey[600])),

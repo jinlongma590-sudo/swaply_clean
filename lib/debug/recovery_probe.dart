@@ -1,4 +1,4 @@
-﻿// lib/debug/recovery_probe.dart
+// lib/debug/recovery_probe.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -35,8 +35,7 @@ class RecoveryProbe {
 
     final isAuthCallbackHttps =
         isOurHttpsHost && first == 'auth' && second == 'callback';
-    final isLoginCallbackHttps =
-        isOurHttpsHost && first == 'login-callback';
+    final isLoginCallbackHttps = isOurHttpsHost && first == 'login-callback';
 
     return schemeAuth || isAuthCallbackHttps || isLoginCallbackHttps;
   }
@@ -64,7 +63,7 @@ class RecoveryProbe {
     // 运行期深链
     await _sub?.cancel();
     _sub = appLinks.uriLinkStream.listen(
-          (uri) {
+      (uri) {
         if (_isSupabaseAuthCallback(uri)) {
           debugPrint(
               '[RECOVERY.PROBE] skip login/auth callback (handled by Supabase): $uri');

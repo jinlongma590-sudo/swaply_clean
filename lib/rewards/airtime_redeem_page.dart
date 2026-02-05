@@ -86,7 +86,8 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
         _phoneController.clear();
         await _loadPoints();
       } else {
-        _showError((data is Map ? data['error'] : null)?.toString() ?? 'Redemption failed');
+        _showError((data is Map ? data['error'] : null)?.toString() ??
+            'Redemption failed');
       }
     } catch (e) {
       _showError('Error: $e');
@@ -106,7 +107,10 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
   void _showSuccess(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green, duration: const Duration(seconds: 4)),
+      SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4)),
     );
   }
 
@@ -117,98 +121,124 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
       body: _loadingPoints
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue[400]!, Colors.blue[600]!],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    const Text('Available Points',
-                        style: TextStyle(fontSize: 16, color: Colors.white70, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 8),
-                    Text('$_availablePoints',
-                        style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 8),
-                    const Text('100 points = \$1 airtime', style: TextStyle(fontSize: 14, color: Colors.white70)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text('Redeem Airtime',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800])),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _phoneController,
-              decoration: InputDecoration(
-                labelText: 'Phone Number',
-                hintText: 'Enter phone number',
-                prefixIcon: const Icon(Icons.phone),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loading ? null : _redeemAirtime,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _loading
-                  ? const SizedBox(
-                height: 20, width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-              )
-                  : const Text('Redeem \$1 Airtime (100 points)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 24),
-            Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.grey[700], size: 20),
-                      const SizedBox(width: 8),
-                      Text('Important Notes',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
-                    ],
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue[400]!, Colors.blue[600]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('Available Points',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          Text('$_availablePoints',
+                              style: const TextStyle(
+                                  fontSize: 56,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                          const SizedBox(height: 8),
+                          const Text('100 points = \$1 airtime',
+                              style: TextStyle(
+                                  fontSize: 14, color: Colors.white70)),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  _info('• One redemption per 30 days per phone'),
-                  _info('• Usually completes within 24 hours'),
-                  _info('• Minimum 100 points required'),
-                  _info('• Points are non-refundable'),
+                  const SizedBox(height: 32),
+                  Text('Redeem Airtime',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800])),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _phoneController,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      hintText: 'Enter phone number',
+                      prefixIcon: const Icon(Icons.phone),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loading ? null : _redeemAirtime,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white)),
+                          )
+                        : const Text('Redeem \$1 Airtime (100 points)',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: Colors.grey[700], size: 20),
+                            const SizedBox(width: 8),
+                            Text('Important Notes',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800])),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _info('• One redemption per 30 days per phone'),
+                        _info('• Usually completes within 24 hours'),
+                        _info('• Minimum 100 points required'),
+                        _info('• Points are non-refundable'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _info(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+      child:
+          Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
     );
   }
 }

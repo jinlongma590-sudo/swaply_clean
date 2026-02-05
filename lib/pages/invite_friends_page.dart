@@ -258,13 +258,13 @@ Download: https://www.swaply.cc
 
     final refreshBtnWidget = _isRefreshing
         ? SizedBox(
-      width: 20.r,
-      height: 20.r,
-      child: const CircularProgressIndicator(
-        strokeWidth: 2,
-        color: Colors.white,
-      ),
-    )
+            width: 20.r,
+            height: 20.r,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
         : Icon(Icons.refresh, size: 20.r);
 
     if (isIOS) {
@@ -361,26 +361,26 @@ Download: https://www.swaply.cc
                 height: 32,
                 child: trailing
                     ? GestureDetector(
-                  onTap: _isRefreshing ? null : _refreshData,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: _isRefreshing
-                        ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                        : const Icon(Icons.refresh,
-                        color: Colors.white, size: 18),
-                  ),
-                )
+                        onTap: _isRefreshing ? null : _refreshData,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: _isRefreshing
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh,
+                                  color: Colors.white, size: 18),
+                        ),
+                      )
                     : null,
               ),
             ],
@@ -395,32 +395,32 @@ Download: https://www.swaply.cc
     return _loading
         ? _buildLoadingState()
         : FadeTransition(
-      opacity: _fadeAnimation,
-      child: RefreshIndicator(
-        onRefresh: _refreshData,
-        color: const Color(0xFF4CAF50),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16.w),
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildModernStatsCard(),
-              SizedBox(height: 20.h),
-              _buildRewardsInfoCard(),
-              SizedBox(height: 20.h),
-              _buildInviteCodeCard(),
-              SizedBox(height: 20.h),
-              _buildBindInviteCard(),
-              SizedBox(height: 20.h),
-              _buildProgressCard(),
-              SizedBox(height: 20.h),
-              _buildHistoryCard(),
-            ],
-          ),
-        ),
-      ),
-    );
+            opacity: _fadeAnimation,
+            child: RefreshIndicator(
+              onRefresh: _refreshData,
+              color: const Color(0xFF4CAF50),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(16.w),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildModernStatsCard(),
+                    SizedBox(height: 20.h),
+                    _buildRewardsInfoCard(),
+                    SizedBox(height: 20.h),
+                    _buildInviteCodeCard(),
+                    SizedBox(height: 20.h),
+                    _buildBindInviteCard(),
+                    SizedBox(height: 20.h),
+                    _buildProgressCard(),
+                    SizedBox(height: 20.h),
+                    _buildHistoryCard(),
+                  ],
+                ),
+              ),
+            ),
+          );
   }
 
   /// 未登录视图
@@ -501,7 +501,7 @@ Download: https://www.swaply.cc
 
   Widget _buildModernStatsCard() {
     final successRate =
-    _totalCount > 0 ? (_completedCount / _totalCount * 100).toInt() : 0;
+        _totalCount > 0 ? (_completedCount / _totalCount * 100).toInt() : 0;
 
     return Container(
       padding: EdgeInsets.all(20.w),
@@ -785,8 +785,8 @@ Download: https://www.swaply.cc
               decoration: BoxDecoration(
                 color: const Color(0xFFF8F9FA),
                 borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(
-                    color: const Color(0xFF4CAF50).withOpacity(0.3)),
+                border:
+                    Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
               ),
               child: Column(
                 children: [
@@ -841,10 +841,10 @@ Download: https://www.swaply.cc
                 onPressed: _regenerating ? null : _refreshCode,
                 icon: _regenerating
                     ? SizedBox(
-                  width: 16.r,
-                  height: 16.r,
-                  child: const CircularProgressIndicator(strokeWidth: 2),
-                )
+                        width: 16.r,
+                        height: 16.r,
+                        child: const CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.refresh, size: 16),
                 label: Text(_regenerating ? 'Refreshing...' : 'Refresh Code'),
               ),
@@ -906,7 +906,7 @@ Download: https://www.swaply.cc
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide:
-                const BorderSide(color: Color(0xFFFF9800), width: 2),
+                    const BorderSide(color: Color(0xFFFF9800), width: 2),
               ),
             ),
           ),
@@ -917,13 +917,13 @@ Download: https://www.swaply.cc
               onPressed: _binding ? null : _bindInviteCode,
               icon: _binding
                   ? SizedBox(
-                width: 16.r,
-                height: 16.r,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
+                      width: 16.r,
+                      height: 16.r,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.link, size: 18),
               label: Text(_binding ? 'Binding...' : 'Bind Invitation'),
               style: ElevatedButton.styleFrom(

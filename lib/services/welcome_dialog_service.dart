@@ -62,9 +62,9 @@ class WelcomeDialogService {
   // 核心逻辑
   // ================================================================
   static Future<void> _showIfNeeded(
-      BuildContext context, {
-        required bool force,
-      }) async {
+    BuildContext context, {
+    required bool force,
+  }) async {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
     if (user == null) return;
@@ -115,7 +115,7 @@ class WelcomeDialogService {
       final r = await client
           .from('coupons')
           .select(
-          'id, code, title, description, expires_at, type, status, user_id')
+              'id, code, title, description, expires_at, type, status, user_id')
           .eq('id', couponId)
           .maybeSingle();
 
@@ -170,8 +170,10 @@ class WelcomeDialogService {
 
   static Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
-    final keys =
-    prefs.getKeys().where((k) => k.startsWith('welcome_popup_shown_')).toList();
+    final keys = prefs
+        .getKeys()
+        .where((k) => k.startsWith('welcome_popup_shown_'))
+        .toList();
     for (final k in keys) {
       await prefs.remove(k);
     }

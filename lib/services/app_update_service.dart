@@ -10,8 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// 服务器返回的更新信息
 class AppUpdateInfo {
-  final String latestVersion;  // 展示用
-  final int latestBuild;       // 最新 buildNumber
+  final String latestVersion; // 展示用
+  final int latestBuild; // 最新 buildNumber
   final int minSupportedBuild; // 最低可用（小于它时强制）
   final String? androidApkUrl;
   final String? iosStoreUrl;
@@ -45,17 +45,16 @@ class AppUpdateInfo {
 
 class AppUpdateService {
   // 你刚才上线的地址
-  static const String _configUrl =
-      'https://swaply.cc/app/app-update.json';
+  static const String _configUrl = 'https://swaply.cc/app/app-update.json';
 
   // 防重复（一次冷启动只弹一次）
   static bool _checkedThisLaunch = false;
 
   /// 在页面渲染后调用；发现新版本时弹窗提示（默认非强制）
   static Future<void> checkForUpdates(
-      BuildContext context, {
-        bool showNoUpdateToast = false,
-      }) async {
+    BuildContext context, {
+    bool showNoUpdateToast = false,
+  }) async {
     if (_checkedThisLaunch) return;
     _checkedThisLaunch = true;
 
@@ -65,8 +64,9 @@ class AppUpdateService {
       final currentBuild = int.tryParse(info.buildNumber) ?? 0;
 
       // 读取配置
-      final resp =
-      await http.get(Uri.parse(_configUrl)).timeout(const Duration(seconds: 6));
+      final resp = await http
+          .get(Uri.parse(_configUrl))
+          .timeout(const Duration(seconds: 6));
       if (resp.statusCode != 200) return;
 
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -95,10 +95,10 @@ class AppUpdateService {
   }
 
   static void _showDialog(
-      BuildContext context,
-      AppUpdateInfo info, {
-        required bool force,
-      }) {
+    BuildContext context,
+    AppUpdateInfo info, {
+    required bool force,
+  }) {
     final String body = [
       if (info.latestVersion.isNotEmpty) '发现新版本：${info.latestVersion}',
       if ((info.changelog ?? '').trim().isNotEmpty) '',
@@ -123,9 +123,7 @@ class AppUpdateService {
             child: AlertDialog(
               title: Text(force ? '必须更新才能继续使用' : '发现新版本'),
               content: Text(
-                body.isEmpty
-                    ? 'Swaply 有新版本，可以前往下载最新安装包。'
-                    : body,
+                body.isEmpty ? 'Swaply 有新版本，可以前往下载最新安装包。' : body,
               ),
               actions: [
                 if (!force)
@@ -142,7 +140,8 @@ class AppUpdateService {
                     if (url != null && url.isNotEmpty) {
                       final uri = Uri.parse(url);
                       if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
                       }
                     }
 

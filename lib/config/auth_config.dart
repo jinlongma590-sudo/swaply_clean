@@ -1,4 +1,4 @@
-﻿// lib/config/auth_config.dart
+// lib/config/auth_config.dart
 
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;

@@ -31,10 +31,10 @@ class GoogleSignInButton extends StatelessWidget {
           onPressed: inFlight ? null : () => _startGoogleOAuth(context),
           child: inFlight
               ? const SizedBox(
-            height: 18,
-            width: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Continue with Google'),
         );
       },

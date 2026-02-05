@@ -18,8 +18,8 @@ import 'package:flutter_image_compress/flutter_image_compress.dart' as fic;
 
 class NormalizedImageResult {
   final Uint8List bytes;
-  final String ext;       // 一律 "jpg"
-  final String mimeType;  // 一律 "image/jpeg"
+  final String ext; // 一律 "jpg"
+  final String mimeType; // 一律 "image/jpeg"
   const NormalizedImageResult(this.bytes)
       : ext = 'jpg',
         mimeType = 'image/jpeg';
@@ -27,7 +27,7 @@ class NormalizedImageResult {
 
 class ImageNormalizer {
   static const int _maxDim = 1440; // 最长边
-  static const int _quality = 85;  // 压缩质量
+  static const int _quality = 85; // 压缩质量
 
   static bool _isHeicExt(String? nameOrPath) {
     final p = (nameOrPath ?? '').toLowerCase();
@@ -58,8 +58,8 @@ class ImageNormalizer {
 
   /// 直接从 bytes 归一化到 JPG（给其他调用方使用）
   static Future<NormalizedImageResult> normalizeBytesToJpeg(
-      Uint8List input,
-      ) async {
+    Uint8List input,
+  ) async {
     if (kIsWeb) return NormalizedImageResult(input);
     return await _normalizeBytesToJpeg(input);
   }
@@ -67,10 +67,10 @@ class ImageNormalizer {
   // ---------------- internal (pure-bytes) ----------------
 
   static Future<NormalizedImageResult> _normalizeBytesToJpeg(
-      Uint8List input, {
-        bool treatAsHeic = false,
-        bool alreadyJpeg = false,
-      }) async {
+    Uint8List input, {
+    bool treatAsHeic = false,
+    bool alreadyJpeg = false,
+  }) async {
     // 统一用 compressWithList（纯内存）做一次有损压缩，同时限制最长边
     final out = await fic.FlutterImageCompress.compressWithList(
       input,

@@ -1,8 +1,10 @@
 // lib/listing_api.dart —— 兼容你项目 & 旧版 supabase_dart，修复 eq<T> 推断与三元类型提升问题
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 class ListingApi {
   static final SupabaseClient _sb = Supabase.instance.client;
+
   /// 与 Supabase Dashboard 保持一致的桶名
   static const String kListingBucket = 'listings';
 /* ========================= 工具 ========================= */
@@ -11,11 +13,13 @@ class ListingApi {
     if (i <= 0 || i == p.length - 1) return '';
     return p.substring(i).toLowerCase();
   }
+
   static Future<void> debugPrintBuckets() async {
     final bs = await _sb.storage.listBuckets();
 // ignore: avoid_print
     print('Buckets from client: ${bs.map((b) => b.name).toList()}');
   }
+
   // 工具：安全把 String 转 int（解析失败返回 null）
   static int? _tryInt(String? s) {
     if (s == null) return null;
@@ -29,9 +33,11 @@ class ListingApi {
   /// 统一规范化 Supabase 返回：无论是 List 还是 {data: List}
   static List _rowsOf(dynamic resp) {
     if (resp is List) return resp;
-    if (resp is Map && resp['data'] is List) return List.from(resp['data'] as List);
+    if (resp is Map && resp['data'] is List)
+      return List.from(resp['data'] as List);
     return const <dynamic>[];
   }
+
 /* ========================= 图片上传 ========================= */
   /// 批量上传图片，返回（public）URL 列表。
   /// 若你的桶不是 public，把 getPublicUrl 换成 createSignedUrl。
@@ -52,10 +58,10 @@ class ListingApi {
 
       try {
         await _sb.storage.from(kListingBucket).upload(
-          objectPath,
-          f,
-          fileOptions: const FileOptions(upsert: false),
-        );
+              objectPath,
+              f,
+              fileOptions: const FileOptions(upsert: false),
+            );
 
         // public 桶：
         final url = _sb.storage.from(kListingBucket).getPublicUrl(objectPath);
@@ -70,14 +76,14 @@ class ListingApi {
       } on StorageException catch (e) {
         throw Exception(
           'Upload failed: ${e.message} '
-              '(status=${e.statusCode}, bucket=$kListingBucket, path=$objectPath)',
+          '(status=${e.statusCode}, bucket=$kListingBucket, path=$objectPath)',
         );
       }
     }
 
     return urls;
-
   }
+
 /* ========================= 新增 / 更新 / 删除 ========================= */
   /// 新增一条 listing（兼容旧调用：支持 sellerName / contactPhone / price 为 num?）
   static Future<Map<String, dynamic>> insertListing({
@@ -116,12 +122,11 @@ class ListingApi {
 
     final data = await _sb.from('listings').insert(payload).select().single();
     return Map<String, dynamic>.from(data);
-
   }
 
   // ✅ 修改：支持 String 类型 ID（UUID）
   static Future<Map<String, dynamic>> updateListing({
-    required String id,  // ✅ 改为 String
+    required String id, // ✅ 改为 String
     Map<String, dynamic>? fields,
   }) async {
     final dataToUpdate = Map<String, dynamic>.from(fields ?? {})
@@ -134,12 +139,11 @@ class ListingApi {
         .single();
 
     return Map<String, dynamic>.from(data);
-
   }
 
   // ✅ 修改：支持 String 类型 ID（UUID）
   static Future<void> deleteListing({
-    required String id,  // ✅ 改为 String
+    required String id, // ✅ 改为 String
     List<String>? storageObjectPaths,
   }) async {
     await _sb.from('listings').delete().eq('id', id);
@@ -150,8 +154,8 @@ class ListingApi {
         // 忽略存储删除失败
       }
     }
-
   }
+
 /* ========================= 查询 / 搜索 / 计数 ========================= */
   /// 列表查询（分页/筛选/排序）
   /// - 正式参数：categoryId
@@ -163,8 +167,8 @@ class ListingApi {
 
 // ===== 兼容旧调用的别名参数（不要删）=====
     dynamic category, // 旧：可能是 String 或 int
-    String? userId,   // 旧
-    String? sort,     // 旧：'newest' | 'price_low' | 'price_high'
+    String? userId, // 旧
+    String? sort, // 旧：'newest' | 'price_low' | 'price_high'
 
 // ===== 其余参数 =====
     required int limit,
@@ -175,7 +179,6 @@ class ListingApi {
 
 // 若实现了内存缓存，可用于强制绕过缓存
     bool forceNetwork = false,
-
   }) async {
 // ---------- 兼容映射 ----------
     int? catId = categoryId;
@@ -237,9 +240,9 @@ class ListingApi {
     }
 
     query = query.order(orderBy0, ascending: asc).range(
-      offset,
-      offset + limit - 1,
-    );
+          offset,
+          offset + limit - 1,
+        );
 
     final resp = await query;
     final rows = _rowsOf(resp);
@@ -247,8 +250,8 @@ class ListingApi {
     return rows
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-
   }
+
   /// 关键词搜索（简单 ilike），并兼容 category 既可能是 id 也可能是 name
   static Future<List<Map<String, dynamic>>> searchListings({
     required String keyword,
@@ -278,9 +281,9 @@ class ListingApi {
 
     query = query.or('title.ilike.%$keyword%,description.ilike.%$keyword%');
     query = query.order(orderBy, ascending: ascending).range(
-      offset,
-      offset + limit - 1,
-    );
+          offset,
+          offset + limit - 1,
+        );
 
     final resp = await query;
     final rows = _rowsOf(resp);
@@ -288,8 +291,8 @@ class ListingApi {
     return rows
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-
   }
+
   /// 计数（兼容最旧版 SDK：不再使用 select(count: ...)）
   static Future<int> countListings({
     String? region,
@@ -320,11 +323,12 @@ class ListingApi {
     final resp = await query;
     final rows = _rowsOf(resp);
     return rows.length;
-
   }
+
 /* ========================= 维表/下拉（统一 _rowsOf 版本） ========================= */
   static Future<List<String>> getRegions({String status = 'active'}) async {
-    final resp = await _sb.from('listings').select('region').eq('status', status);
+    final resp =
+        await _sb.from('listings').select('region').eq('status', status);
     final rows = _rowsOf(resp);
     final set = <String>{};
     for (final row in rows) {
@@ -333,8 +337,8 @@ class ListingApi {
     }
     final list = set.toList()..sort();
     return list;
-
   }
+
   static Future<List<String>> getCities({String status = 'active'}) async {
     final resp = await _sb.from('listings').select('city').eq('status', status);
     final rows = _rowsOf(resp);
@@ -345,6 +349,5 @@ class ListingApi {
     }
     final list = set.toList()..sort();
     return list;
-
   }
 }

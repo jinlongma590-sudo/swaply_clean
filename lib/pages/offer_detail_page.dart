@@ -263,7 +263,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
         shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
         margin: EdgeInsets.all(12.w),
       ),
     );
@@ -365,8 +365,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                   ),
                 ),
                 Container(
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: Color(offerStatus.color).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12.r),
@@ -463,7 +462,8 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.message, size: 14.sp, color: Colors.blue.shade700),
+                        Icon(Icons.message,
+                            size: 14.sp, color: Colors.blue.shade700),
                         SizedBox(width: 6.w),
                         Text(
                           'Buyer\'s Message',
@@ -576,7 +576,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
               SizedBox(height: 12.h),
               Text('Report user',
                   style:
-                  TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                      TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700)),
               SizedBox(height: 12.h),
               DropdownButtonFormField<String>(
                 value: type,
@@ -709,7 +709,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
         margin: EdgeInsets.symmetric(vertical: 4.h),
         child: Column(
           crossAxisAlignment:
-          isMyMessage ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              isMyMessage ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Container(
               constraints: BoxConstraints(
@@ -719,10 +719,12 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
               decoration: BoxDecoration(
                 color: isMyMessage ? _fbBlue : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(18.r).copyWith(
-                  bottomRight:
-                  isMyMessage ? Radius.circular(4.r) : Radius.circular(18.r),
-                  bottomLeft:
-                  isMyMessage ? Radius.circular(18.r) : Radius.circular(4.r),
+                  bottomRight: isMyMessage
+                      ? Radius.circular(4.r)
+                      : Radius.circular(18.r),
+                  bottomLeft: isMyMessage
+                      ? Radius.circular(18.r)
+                      : Radius.circular(4.r),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -781,7 +783,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
               SizedBox(height: 8.h),
               Text('Start the conversation!',
                   style:
-                  TextStyle(fontSize: 14.sp, color: Colors.grey.shade500)),
+                      TextStyle(fontSize: 14.sp, color: Colors.grey.shade500)),
             ],
           ),
         ),
@@ -795,8 +797,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
       Expanded(
         child: ListView.builder(
           controller: _scrollController,
-          keyboardDismissBehavior:
-          ScrollViewKeyboardDismissBehavior.onDrag,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
           itemCount: _messages.length,
           itemBuilder: (context, index) {
@@ -879,8 +880,8 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                   decoration: InputDecoration(
                     hintText: disabled
                         ? (_otherBlockedMe
-                        ? 'You are blocked by this user'
-                        : 'You blocked this user')
+                            ? 'You are blocked by this user'
+                            : 'You blocked this user')
                         : 'Type a message...',
                     hintStyle: TextStyle(
                       color: Colors.grey.shade500,
@@ -915,16 +916,16 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                         height: 50.h,
                         child: _isSendingMessage
                             ? Padding(
-                          padding: EdgeInsets.all(12.w),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.w,
-                            valueColor:
-                            const AlwaysStoppedAnimation<Color>(
-                                Colors.white),
-                          ),
-                        )
+                                padding: EdgeInsets.all(12.w),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.w,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                ),
+                              )
                             : Icon(Icons.send_rounded,
-                            color: Colors.white, size: 24.w),
+                                color: Colors.white, size: 24.w),
                       ),
                     ),
                   ),

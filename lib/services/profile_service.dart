@@ -33,7 +33,8 @@ class ProfileService {
   final Map<String, Future<Map<String, dynamic>?>> _pendingQueries = {};
 
   // ✅ [方案四] 核心：Stream 支持
-  final _profileController = StreamController<Map<String, dynamic>?>.broadcast();
+  final _profileController =
+      StreamController<Map<String, dynamic>?>.broadcast();
 
   /// 对外暴露的 Stream - UI 层可以监听这个 Stream
   Stream<Map<String, dynamic>?> get profileStream => _profileController.stream;
@@ -51,7 +52,8 @@ class ProfileService {
       _profileController.add(profile);
       if (kDebugMode) {
         if (profile != null) {
-          debugPrint('[ProfileService] 📡 Stream updated: ${profile['full_name']}');
+          debugPrint(
+              '[ProfileService] 📡 Stream updated: ${profile['full_name']}');
         } else {
           debugPrint('[ProfileService] 📡 Stream cleared');
         }
@@ -96,22 +98,20 @@ class ProfileService {
     final now = DateTime.now().toUtc().toIso8601String();
 
     // ⚠️ 当前 Supabase Dart 版本：select() 不带泛型
-    final row = await supa
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
+    final row =
+        await supa.from('profiles').select().eq('id', user.id).maybeSingle();
 
     final Map<String, dynamic>? rowMap =
-    row == null ? null : Map<String, dynamic>.from(row as Map);
+        row == null ? null : Map<String, dynamic>.from(row as Map);
 
     if (rowMap == null) {
       // 首登：允许默认写 full_name / avatar_url（仅此一次）
       final meta = user.userMetadata ?? {};
       final email = (user.email ?? '').trim();
       final fullNameMeta = (meta['full_name'] ?? '').toString().trim();
-      final displayName =
-      fullNameMeta.isNotEmpty ? fullNameMeta : (email.isNotEmpty ? email : 'User');
+      final displayName = fullNameMeta.isNotEmpty
+          ? fullNameMeta
+          : (email.isNotEmpty ? email : 'User');
 
       await supa.from('profiles').insert({
         'id': user.id,
@@ -156,14 +156,15 @@ class ProfileService {
     final fullNameMeta = (meta['full_name'] ?? '').toString().trim();
 
     final row =
-    await supa.from('profiles').select().eq('id', user.id).maybeSingle();
+        await supa.from('profiles').select().eq('id', user.id).maybeSingle();
 
     final Map<String, dynamic>? rowMap =
-    row == null ? null : Map<String, dynamic>.from(row as Map);
+        row == null ? null : Map<String, dynamic>.from(row as Map);
 
     if (rowMap == null) {
-      final displayName =
-      fullNameMeta.isNotEmpty ? fullNameMeta : (email.isNotEmpty ? email : 'User');
+      final displayName = fullNameMeta.isNotEmpty
+          ? fullNameMeta
+          : (email.isNotEmpty ? email : 'User');
 
       await supa.from('profiles').insert({
         'id': user.id,
@@ -177,7 +178,8 @@ class ProfileService {
       });
 
       if (kDebugMode) {
-        print('[ProfileService] synced (insert) for ${user.id} full_name=$displayName');
+        print(
+            '[ProfileService] synced (insert) for ${user.id} full_name=$displayName');
       }
     } else {
       await supa.from('profiles').update({
@@ -246,7 +248,8 @@ class ProfileService {
           .eq('id', userId)
           .maybeSingle();
 
-      final alreadyGranted = (prof?['welcome_reward_granted'] as bool?) ?? false;
+      final alreadyGranted =
+          (prof?['welcome_reward_granted'] as bool?) ?? false;
 
       // 4) 未发过 → 发券 + 标记
       if (!alreadyGranted) {
@@ -280,7 +283,8 @@ class ProfileService {
       return grantedNow;
     } on PostgrestException catch (e) {
       if (kDebugMode) {
-        print('❌ Profile/Welcome setup Postgrest error: ${e.message} (code: ${e.code})');
+        print(
+            '❌ Profile/Welcome setup Postgrest error: ${e.message} (code: ${e.code})');
       }
       return false;
     } catch (e) {
@@ -291,7 +295,11 @@ class ProfileService {
 
   // ========== 邀请码：处理唯一冲突并重试 ==========
   Future<void> _ensureInvitationCode(String userId) async {
-    final rec = await _sb.from('invitation_codes').select('code').eq('user_id', userId).maybeSingle();
+    final rec = await _sb
+        .from('invitation_codes')
+        .select('code')
+        .eq('user_id', userId)
+        .maybeSingle();
     if (rec != null) return;
 
     const int maxTries = 6;
@@ -346,10 +354,12 @@ class ProfileService {
 
   Future<Map<String, dynamic>?> getMyProfile() async {
     if (kDebugMode) {
-      print('[ProfileService] ==================== getMyProfile START ====================');
+      print(
+          '[ProfileService] ==================== getMyProfile START ====================');
       // ✅ [诊断] 添加 stack trace 来追踪调用来源
       print('[ProfileService] 📍 Called from:');
-      final stackTrace = StackTrace.current.toString().split('\n').take(10).join('\n');
+      final stackTrace =
+          StackTrace.current.toString().split('\n').take(10).join('\n');
       print(stackTrace);
     }
 
@@ -357,14 +367,16 @@ class ProfileService {
 
     if (kDebugMode) {
       print('[ProfileService] User ID: $id');
-      print('[ProfileService] Auth session: ${_sb.auth.currentSession != null}');
+      print(
+          '[ProfileService] Auth session: ${_sb.auth.currentSession != null}');
       print('[ProfileService] Current user: ${_sb.auth.currentUser?.email}');
     }
 
     if (id == null) {
       if (kDebugMode) {
         print('[ProfileService] ❌ User ID is null! Returning null.');
-        print('[ProfileService] ==================== getMyProfile END (NO USER) ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile END (NO USER) ====================');
       }
       // ✅ [方案四] 推送 null 到 Stream
       _updateStream(null);
@@ -376,7 +388,8 @@ class ProfileService {
     if (cached != null) {
       if (kDebugMode) {
         print('[ProfileService] ✅ Returning CACHED profile');
-        print('[ProfileService] ==================== getMyProfile END (CACHED) ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile END (CACHED) ====================');
       }
       // ✅ [方案四] 返回缓存时也推送到 Stream（确保监听者获得最新数据）
       _updateStream(Map<String, dynamic>.from(cached));
@@ -392,7 +405,8 @@ class ProfileService {
       final result = await _pendingQueries[id];
       if (kDebugMode) {
         print('[ProfileService] ✅ Got result from pending query');
-        print('[ProfileService] ==================== getMyProfile END (FROM PENDING) ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile END (FROM PENDING) ====================');
       }
       return result != null ? Map<String, dynamic>.from(result) : null;
     }
@@ -414,7 +428,8 @@ class ProfileService {
   /// ✅ [性能优化] 实际执行数据库查询的方法（从 getMyProfile 中提取）
   Future<Map<String, dynamic>?> _executeProfileQuery(String id) async {
     try {
-      if (kDebugMode) print('[ProfileService] 🔍 Querying database for profile...');
+      if (kDebugMode)
+        print('[ProfileService] 🔍 Querying database for profile...');
 
       var data = await _sb
           .from('profiles')
@@ -424,7 +439,8 @@ class ProfileService {
 
       if (kDebugMode) {
         print('[ProfileService] Query completed');
-        print('[ProfileService] Result: ${data != null ? "✅ FOUND" : "❌ NULL"}');
+        print(
+            '[ProfileService] Result: ${data != null ? "✅ FOUND" : "❌ NULL"}');
         if (data != null) {
           print('[ProfileService] Profile data: $data');
         }
@@ -432,7 +448,9 @@ class ProfileService {
 
       // ✅ 如果没有记录，自动创建
       if (data == null) {
-        if (kDebugMode) print('[ProfileService] ⚠️ No profile found, attempting to create default...');
+        if (kDebugMode)
+          print(
+              '[ProfileService] ⚠️ No profile found, attempting to create default...');
 
         try {
           final user = _sb.auth.currentUser;
@@ -451,22 +469,24 @@ class ProfileService {
           if (kDebugMode) {
             print('[ProfileService] Inserting new profile record...');
             print('[ProfileService] Display name from OAuth: $displayName');
-            print('[ProfileService] Avatar URL from OAuth: ${meta['avatar_url']}');
+            print(
+                '[ProfileService] Avatar URL from OAuth: ${meta['avatar_url']}');
           }
 
           await _sb.from('profiles').insert({
             'id': id,
-            'full_name': displayName,              // ✅ 使用 OAuth metadata
+            'full_name': displayName, // ✅ 使用 OAuth metadata
             'email': email.isNotEmpty ? email : null,
             'phone': user?.phone ?? '',
-            'avatar_url': meta['avatar_url'],      // ✅ 使用 OAuth metadata
+            'avatar_url': meta['avatar_url'], // ✅ 使用 OAuth metadata
             'welcome_reward_granted': false,
             'is_official': false,
             'created_at': now,
             'updated_at': now,
           });
 
-          if (kDebugMode) print('[ProfileService] ✅ Default profile created, re-querying...');
+          if (kDebugMode)
+            print('[ProfileService] ✅ Default profile created, re-querying...');
 
           data = await _sb
               .from('profiles')
@@ -475,7 +495,8 @@ class ProfileService {
               .maybeSingle();
 
           if (kDebugMode) {
-            print('[ProfileService] Re-query result: ${data != null ? "✅ FOUND" : "❌ NULL"}');
+            print(
+                '[ProfileService] Re-query result: ${data != null ? "✅ FOUND" : "❌ NULL"}');
             if (data != null) {
               print('[ProfileService] New profile data: $data');
             }
@@ -490,7 +511,8 @@ class ProfileService {
       if (data == null) {
         if (kDebugMode) {
           print('[ProfileService] ❌ Still no profile after all attempts!');
-          print('[ProfileService] ==================== getMyProfile END (FAILED) ====================');
+          print(
+              '[ProfileService] ==================== getMyProfile END (FAILED) ====================');
         }
         // ✅ [方案四] 失败时推送 null
         _updateStream(null);
@@ -513,16 +535,19 @@ class ProfileService {
         print('[ProfileService] Name: ${map['full_name']}');
         print('[ProfileService] Email: ${map['email']}');
         print('[ProfileService] 📡 Data pushed to Stream');
-        print('[ProfileService] ==================== getMyProfile END (SUCCESS) ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile END (SUCCESS) ====================');
       }
 
       return Map<String, dynamic>.from(map);
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('[ProfileService] ==================== getMyProfile ERROR ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile ERROR ====================');
         print('[ProfileService] ❌ Error: $e');
         print('[ProfileService] Stack trace: $stackTrace');
-        print('[ProfileService] ==================== getMyProfile END (ERROR) ====================');
+        print(
+            '[ProfileService] ==================== getMyProfile END (ERROR) ====================');
       }
       // ✅ [方案四] 错误时推送 null
       _updateStream(null);
@@ -601,10 +626,10 @@ class ProfileService {
       final storagePath = '$id/avatar$ext';
 
       await _sb.storage.from('avatars').upload(
-        storagePath,
-        file,
-        fileOptions: const FileOptions(upsert: true),
-      );
+            storagePath,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
       // 成功后清缓存并重新加载（会自动推送到 Stream）
       invalidateCache(id);

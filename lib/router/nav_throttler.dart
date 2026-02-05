@@ -13,9 +13,9 @@ class NavThrottler {
   static String? _lastKey;
 
   static bool _ready(
-      String? key, {
-        Duration minInterval = const Duration(milliseconds: 300),
-      }) {
+    String? key, {
+    Duration minInterval = const Duration(milliseconds: 300),
+  }) {
     final now = DateTime.now();
 
     // 1) time interval throttle
@@ -23,7 +23,7 @@ class NavThrottler {
       if (kDebugMode) {
         debugPrint(
           '[NavThrottler] drop "${key ?? "(no-key)"}" '
-              '(interval < ${minInterval.inMilliseconds}ms)',
+          '(interval < ${minInterval.inMilliseconds}ms)',
         );
       }
       return false;
@@ -42,11 +42,11 @@ class NavThrottler {
 
   /// push by named route (String)
   static Future<T?> pushNamed<T extends Object?>(
-      String name, {
-        Object? arguments,
-        String? dedupKey, // default: route name
-        Duration minInterval = const Duration(milliseconds: 300),
-      }) {
+    String name, {
+    Object? arguments,
+    String? dedupKey, // default: route name
+    Duration minInterval = const Duration(milliseconds: 300),
+  }) {
     final key = dedupKey ?? name;
     if (!_ready(key, minInterval: minInterval)) {
       return Future<T?>.value(null);
@@ -56,11 +56,11 @@ class NavThrottler {
 
   /// replaceAll (clear stack then go)
   static Future<T?> replaceAll<T extends Object?>(
-      String name, {
-        Object? arguments,
-        String? dedupKey,
-        Duration minInterval = const Duration(milliseconds: 300),
-      }) {
+    String name, {
+    Object? arguments,
+    String? dedupKey,
+    Duration minInterval = const Duration(milliseconds: 300),
+  }) {
     final key = dedupKey ?? name;
     if (!_ready(key, minInterval: minInterval)) {
       return Future<T?>.value(null);
@@ -70,10 +70,10 @@ class NavThrottler {
 
   /// push a custom Route<T>
   static Future<T?> pushRoute<T extends Object?>(
-      Route<T> route, {
-        String? dedupKey, // default: route.settings.name or hash
-        Duration minInterval = const Duration(milliseconds: 300),
-      }) {
+    Route<T> route, {
+    String? dedupKey, // default: route.settings.name or hash
+    Duration minInterval = const Duration(milliseconds: 300),
+  }) {
     final key = dedupKey ?? route.settings.name ?? route.hashCode.toString();
     if (!_ready(key, minInterval: minInterval)) {
       return Future<T?>.value(null);

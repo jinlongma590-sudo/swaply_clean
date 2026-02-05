@@ -1,4 +1,4 @@
-﻿// lib/pages/wishlist_page.dart
+// lib/pages/wishlist_page.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +11,9 @@ import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/favorites_update_service.dart';
 
 // === 全局路由 & 常量 & API ===
-import 'package:swaply/router/root_nav.dart';       // navPush / navReplaceAll
-import 'package:swaply/theme/constants.dart';       // kPrimaryBlue / kCustomHeaderHeight
-import 'package:swaply/listing_api.dart';           // 保留用于其他可能的引用，主要逻辑已切回 DualFavoritesService
+import 'package:swaply/router/root_nav.dart'; // navPush / navReplaceAll
+import 'package:swaply/theme/constants.dart'; // kPrimaryBlue / kCustomHeaderHeight
+import 'package:swaply/listing_api.dart'; // 保留用于其他可能的引用，主要逻辑已切回 DualFavoritesService
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -59,7 +59,7 @@ class _WishlistPageState extends State<WishlistPage> {
           if (id != null) {
             setState(() {
               _wishlistItems.removeWhere((x) =>
-              x['listing_id']?.toString() == id ||
+                  x['listing_id']?.toString() == id ||
                   x['listing']?['id']?.toString() == id);
             });
           }
@@ -146,8 +146,8 @@ class _WishlistPageState extends State<WishlistPage> {
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.w)),
             margin: EdgeInsets.all(12.w),
           ),
         );
@@ -170,7 +170,7 @@ class _WishlistPageState extends State<WishlistPage> {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
           margin: EdgeInsets.all(12.w),
         ),
       );
@@ -251,57 +251,56 @@ class _WishlistPageState extends State<WishlistPage> {
                       ),
                       child: imageUrl.startsWith('http')
                           ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        loadingBuilder:
-                            (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: SizedBox(
-                              width: 15.w,
-                              height: 15.w,
-                              child: CircularProgressIndicator(
-                                value: loadingProgress
-                                    .expectedTotalBytes !=
-                                    null
-                                    ? loadingProgress
-                                    .cumulativeBytesLoaded /
-                                    loadingProgress
-                                        .expectedTotalBytes!
-                                    : null,
-                                strokeWidth: 1.5.w,
-                                valueColor:
-                                AlwaysStoppedAnimation<Color>(
-                                    kPrimaryBlue),
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: SizedBox(
+                                    width: 15.w,
+                                    height: 15.w,
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                              : null,
+                                      strokeWidth: 1.5.w,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          kPrimaryBlue),
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: kPrimaryBlue.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(8.w),
+                                  ),
+                                  child: Icon(
+                                    Icons.image_not_supported_rounded,
+                                    color: kPrimaryBlue.withOpacity(0.5),
+                                    size: 24.w,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(8.w),
+                              ),
+                              child: Icon(
+                                Icons.image_not_supported_rounded,
+                                color: kPrimaryBlue.withOpacity(0.5),
+                                size: 24.w,
                               ),
                             ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: kPrimaryBlue.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(8.w),
-                            ),
-                            child: Icon(
-                              Icons.image_not_supported_rounded,
-                              color: kPrimaryBlue.withOpacity(0.5),
-                              size: 24.w,
-                            ),
-                          );
-                        },
-                      )
-                          : Container(
-                        decoration: BoxDecoration(
-                          color: kPrimaryBlue.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(8.w),
-                        ),
-                        child: Icon(
-                          Icons.image_not_supported_rounded,
-                          color: kPrimaryBlue.withOpacity(0.5),
-                          size: 24.w,
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -389,7 +388,8 @@ class _WishlistPageState extends State<WishlistPage> {
                 Container(
                   margin: EdgeInsets.only(left: 6.w),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1), // ❌ 原: kPrimaryBlue.withOpacity(0.1)
+                    color: Colors.red
+                        .withOpacity(0.1), // ❌ 原: kPrimaryBlue.withOpacity(0.1)
                     borderRadius: BorderRadius.circular(8.w),
                   ),
                   child: Material(
@@ -422,7 +422,7 @@ class _WishlistPageState extends State<WishlistPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
           title: Row(
             children: [
               Container(
@@ -439,7 +439,7 @@ class _WishlistPageState extends State<WishlistPage> {
                 child: Text(
                   'Remove from Wishlist',
                   style:
-                  TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -557,13 +557,13 @@ class _WishlistPageState extends State<WishlistPage> {
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.w),
                   ),
                 ),
-                icon:
-                Icon(Icons.explore_rounded, size: 16.w, color: Colors.white),
+                icon: Icon(Icons.explore_rounded,
+                    size: 16.w, color: Colors.white),
                 label: Text(
                   'Browse Items',
                   style: TextStyle(
@@ -633,7 +633,7 @@ class _WishlistPageState extends State<WishlistPage> {
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                      EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10.w),
                   ),
@@ -642,7 +642,7 @@ class _WishlistPageState extends State<WishlistPage> {
                 label: Text(
                   'Try Again',
                   style:
-                  TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
+                      TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -655,8 +655,7 @@ class _WishlistPageState extends State<WishlistPage> {
   @override
   Widget build(BuildContext context) {
     // ✅ 与邀请好友页对齐的头部高度策略
-    final bool isIOS =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -707,48 +706,47 @@ class _WishlistPageState extends State<WishlistPage> {
       ),
       body: _isLoading
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 30.w,
-              height: 30.w,
-              child: CircularProgressIndicator(
-                valueColor:
-                AlwaysStoppedAnimation<Color>(kPrimaryBlue),
-                strokeWidth: 2.5.w,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 30.w,
+                    height: 30.w,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                      strokeWidth: 2.5.w,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Loading wishlist...',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: 12.h),
-            Text(
-              'Loading wishlist...',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 13.sp,
-              ),
-            ),
-          ],
-        ),
-      )
+            )
           : _errorMessage != null
-          ? _buildErrorState()
-          : _wishlistItems.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-        onRefresh: _refreshWishlist,
-        color: kPrimaryBlue,
-        backgroundColor: Colors.white,
-        strokeWidth: 2.w,
-        child: ListView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          itemCount: _wishlistItems.length,
-          itemBuilder: (context, index) {
-            return _buildWishlistCard(
-                _wishlistItems[index], index);
-          },
-        ),
-      ),
+              ? _buildErrorState()
+              : _wishlistItems.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: _refreshWishlist,
+                      color: kPrimaryBlue,
+                      backgroundColor: Colors.white,
+                      strokeWidth: 2.w,
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.symmetric(vertical: 8.h),
+                        itemCount: _wishlistItems.length,
+                        itemBuilder: (context, index) {
+                          return _buildWishlistCard(
+                              _wishlistItems[index], index);
+                        },
+                      ),
+                    ),
     );
   }
 
@@ -758,7 +756,7 @@ class _WishlistPageState extends State<WishlistPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.w)),
           title: Row(
             children: [
               Container(
@@ -768,14 +766,14 @@ class _WishlistPageState extends State<WishlistPage> {
                   borderRadius: BorderRadius.circular(6.w),
                 ),
                 child:
-                Icon(Icons.warning_outlined, color: Colors.red, size: 16.w),
+                    Icon(Icons.warning_outlined, color: Colors.red, size: 16.w),
               ),
               SizedBox(width: 10.w),
               Expanded(
                 child: Text(
                   'Clear All Wishlist',
                   style:
-                  TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -822,7 +820,7 @@ class _WishlistPageState extends State<WishlistPage> {
 
     try {
       final success =
-      await DualFavoritesService.clearUserFavorites(userId: user.id);
+          await DualFavoritesService.clearUserFavorites(userId: user.id);
 
       if (success && mounted) {
         setState(() {
@@ -841,8 +839,8 @@ class _WishlistPageState extends State<WishlistPage> {
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.w)),
             margin: EdgeInsets.all(12.w),
           ),
         );
@@ -865,7 +863,7 @@ class _WishlistPageState extends State<WishlistPage> {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.w)),
           margin: EdgeInsets.all(12.w),
         ),
       );

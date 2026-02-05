@@ -1,4 +1,4 @@
-﻿// lib/pages/saved_page.dart
+// lib/pages/saved_page.dart
 // ✅ [热启动修复] 添加深链 Guard 保护
 import 'dart:async'; // Timer, StreamSubscription
 import 'package:flutter/foundation.dart'; // ✅ 修改：引入完整 foundation 以使用 defaultTargetPlatform
@@ -90,24 +90,24 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
   void _setupFavoritesListener() {
     _favoritesSubscription =
         FavoritesUpdateService().favoritesStream.listen((event) {
-          if (!mounted || widget.isGuest) return;
+      if (!mounted || widget.isGuest) return;
 
-          try {
-            final isAdded = (event as dynamic).isAdded == true;
-            final listingId = (event as dynamic).listingId?.toString();
-            final data = (event as dynamic).listingData as Map<String, dynamic>?;
+      try {
+        final isAdded = (event as dynamic).isAdded == true;
+        final listingId = (event as dynamic).listingId?.toString();
+        final data = (event as dynamic).listingData as Map<String, dynamic>?;
 
-            if (isAdded && data != null) {
-              _addToLocalFavorites(data);
-            } else if (!isAdded && listingId != null) {
-              _removeFromLocalFavorites(listingId);
-            }
-          } catch (e) {
-            if (kDebugMode) debugPrint('favoritesStream parse error: $e');
-          }
-        }, onError: (error) {
-          if (kDebugMode) debugPrint('Error in favorites stream: $error');
-        });
+        if (isAdded && data != null) {
+          _addToLocalFavorites(data);
+        } else if (!isAdded && listingId != null) {
+          _removeFromLocalFavorites(listingId);
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('favoritesStream parse error: $e');
+      }
+    }, onError: (error) {
+      if (kDebugMode) debugPrint('Error in favorites stream: $error');
+    });
   }
 
   void _addToLocalFavorites(Map<String, dynamic> listingData) {
@@ -116,7 +116,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
       if (listingId == null) return;
 
       final exists = _favoriteItems.any((item) =>
-      item['listing_id']?.toString() == listingId ||
+          item['listing_id']?.toString() == listingId ||
           item['listing']?['id']?.toString() == listingId);
 
       if (!exists) {
@@ -139,7 +139,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
     try {
       setState(() {
         _favoriteItems.removeWhere((item) =>
-        item['listing_id']?.toString() == listingId ||
+            item['listing_id']?.toString() == listingId ||
             item['listing']?['id']?.toString() == listingId);
       });
     } catch (e) {
@@ -304,7 +304,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.w)),
           margin: EdgeInsets.all(8.w),
         ),
       );
@@ -318,7 +318,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
     try {
       final currentItems = List<Map<String, dynamic>>.from(_favoriteItems);
       final success =
-      await DualFavoritesService.clearUserFavorites(userId: user.id);
+          await DualFavoritesService.clearUserFavorites(userId: user.id);
 
       if (success && mounted) {
         setState(() {
@@ -371,7 +371,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.w)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.w)),
           margin: EdgeInsets.all(8.w),
         ),
       );
@@ -487,13 +487,13 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.w),
                   ),
                 ),
-                icon:
-                Icon(Icons.explore_rounded, size: 12.w, color: Colors.white),
+                icon: Icon(Icons.explore_rounded,
+                    size: 12.w, color: Colors.white),
                 label: Text(
                   'Browse Items',
                   style: TextStyle(
@@ -563,7 +563,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.w),
                   ),
@@ -572,7 +572,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                 label: Text(
                   'Try Again',
                   style:
-                  TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w600),
+                      TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -592,7 +592,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
       if (listingId.isEmpty) return const SizedBox.shrink();
 
       final title =
-      _safeGetString(safeListing, 'title', defaultValue: 'Unknown Item');
+          _safeGetString(safeListing, 'title', defaultValue: 'Unknown Item');
       final price = _formatPrice(safeListing['price']);
       final city = _safeGetString(safeListing, 'city');
       final imageUrl = _getListingImage(safeListing);
@@ -625,38 +625,38 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                     color: Colors.grey[100],
                     child: imageUrl.startsWith('http')
                         ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, prog) {
-                        if (prog == null) return child;
-                        return Center(
-                          child: SizedBox(
-                            width: 12.w,
-                            height: 12.w,
-                            child: CircularProgressIndicator(
-                              value: prog.expectedTotalBytes != null
-                                  ? prog.cumulativeBytesLoaded /
-                                  prog.expectedTotalBytes!
-                                  : null,
-                              strokeWidth: 1.w,
-                              valueColor:
-                              const AlwaysStoppedAnimation<Color>(
-                                  kPrimaryBlue),
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, prog) {
+                              if (prog == null) return child;
+                              return Center(
+                                child: SizedBox(
+                                  width: 12.w,
+                                  height: 12.w,
+                                  child: CircularProgressIndicator(
+                                    value: prog.expectedTotalBytes != null
+                                        ? prog.cumulativeBytesLoaded /
+                                            prog.expectedTotalBytes!
+                                        : null,
+                                    strokeWidth: 1.w,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            kPrimaryBlue),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.image_not_supported_rounded,
+                              color: Colors.grey[400],
+                              size: 18.w,
                             ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.image_not_supported_rounded,
-                        color: Colors.grey[400],
-                        size: 18.w,
-                      ),
-                    )
+                          )
                         : Icon(
-                      Icons.image_not_supported_rounded,
-                      color: Colors.grey[400],
-                      size: 18.w,
-                    ),
+                            Icons.image_not_supported_rounded,
+                            color: Colors.grey[400],
+                            size: 18.w,
+                          ),
                   ),
                 ),
                 SizedBox(width: 8.w),
@@ -679,8 +679,8 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                       ),
                       SizedBox(height: 2.h),
                       Container(
-                        padding:
-                        EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 4.w, vertical: 1.h),
                         decoration: BoxDecoration(
                           color: kPrimaryBlue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4.w),
@@ -791,7 +791,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
       context: context,
       builder: (_) => AlertDialog(
         shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.w)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.w)),
         title: Row(
           children: [
             Container(
@@ -931,7 +931,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     padding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.w),
                     ),
@@ -994,8 +994,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                         Icon(Icons.clear_all_rounded,
                             color: Colors.red, size: 16.r),
                         SizedBox(width: 8.w),
-                        Text('Clear All',
-                            style: TextStyle(fontSize: 12.sp)),
+                        Text('Clear All', style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
                   ),
@@ -1006,44 +1005,43 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
       ),
       body: _isLoading
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 24.w,
-              height: 24.w,
-              child: CircularProgressIndicator(
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                    kPrimaryBlue),
-                strokeWidth: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 24.w,
+                    height: 24.w,
+                    child: CircularProgressIndicator(
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Loading favorites...',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11.sp),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'Loading favorites...',
-              style:
-              TextStyle(color: Colors.grey[600], fontSize: 11.sp),
-            ),
-          ],
-        ),
-      )
+            )
           : _errorMessage != null
-          ? _buildErrorState()
-          : _favoriteItems.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-        onRefresh: _refreshFavorites,
-        color: kPrimaryBlue,
-        backgroundColor: Colors.white,
-        strokeWidth: 2,
-        child: ListView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(vertical: 6.h),
-          itemCount: _favoriteItems.length,
-          itemBuilder: (context, index) =>
-              _buildFavoriteCard(_favoriteItems[index], index),
-        ),
-      ),
+              ? _buildErrorState()
+              : _favoriteItems.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: _refreshFavorites,
+                      color: kPrimaryBlue,
+                      backgroundColor: Colors.white,
+                      strokeWidth: 2,
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.symmetric(vertical: 6.h),
+                        itemCount: _favoriteItems.length,
+                        itemBuilder: (context, index) =>
+                            _buildFavoriteCard(_favoriteItems[index], index),
+                      ),
+                    ),
     );
   }
 }

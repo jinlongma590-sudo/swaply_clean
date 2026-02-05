@@ -186,7 +186,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     try {
       final categoryDb = _categoryIdToDb(widget.categoryId);
       final city =
-      _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
+          _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
 
       final pinnedAds = await CouponService.getCategoryPinnedAds(
         category: categoryDb,
@@ -251,7 +251,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     final categoryDb = _categoryIdToDb(widget.categoryId);
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final total =
-    await ListingApi.countListings(category: categoryDb, city: city);
+        await ListingApi.countListings(category: categoryDb, city: city);
     if (mounted) setState(() => _totalCount = total);
   }
 
@@ -450,14 +450,14 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                       loc,
                       style: TextStyle(
                         fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.normal,
+                            selected ? FontWeight.w600 : FontWeight.normal,
                         color: selected ? _primaryBlue : Colors.grey[800],
                         fontSize: 13.sp,
                       ),
                     ),
                     trailing: selected
                         ? Icon(Icons.check_circle,
-                        color: _primaryBlue, size: 18.sp)
+                            color: _primaryBlue, size: 18.sp)
                         : null,
                     onTap: () {
                       setState(() => _selectedLocation = loc);
@@ -520,7 +520,8 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18.sp),
+          icon:
+              Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18.sp),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -800,7 +801,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                   mainAxisSpacing: 8.h,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                      (context, i) {
+                  (context, i) {
                     if (i >= _items.length) return _buildLoadingTile();
                     final p = _items[i];
                     return _buildProductCard(p);
@@ -862,9 +863,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
             ],
           ),
         ),
-
         if (_loadingPinned) _buildPinnedAdsLoading() else _buildPinnedAdsGrid(),
-
         if (_pinnedAds.isNotEmpty) ...[
           SizedBox(height: 12.h),
           Container(
@@ -953,7 +952,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
                       borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(10.r)),
+                          BorderRadius.vertical(top: Radius.circular(10.r)),
                     ),
                     child: const Center(
                         child: CircularProgressIndicator(
@@ -1096,7 +1095,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         imageUrl: src,
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        memCacheWidth: 600,   // ✅ 性能优化：限制内存缓存大小
+        memCacheWidth: 600, // ✅ 性能优化：限制内存缓存大小
         memCacheHeight: 600,
         placeholder: (context, url) => Container(
           color: Colors.grey[200],
@@ -1177,7 +1176,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
       ),
       child: const Center(
           child:
-          CircularProgressIndicator(strokeWidth: 2, color: _primaryBlue)),
+              CircularProgressIndicator(strokeWidth: 2, color: _primaryBlue)),
     );
   }
 
@@ -1203,7 +1202,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
                   borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(10.r)),
+                      BorderRadius.vertical(top: Radius.circular(10.r)),
                 ),
                 child: const Center(
                     child: CircularProgressIndicator(
@@ -1217,7 +1216,10 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
                 children: [
                   Container(height: 12.h, width: 60.w, color: Colors.grey[300]),
                   SizedBox(height: 4.h),
-                  Container(height: 10.h, width: double.infinity, color: Colors.grey[200]),
+                  Container(
+                      height: 10.h,
+                      width: double.infinity,
+                      color: Colors.grey[200]),
                   SizedBox(height: 4.h),
                   Container(height: 8.h, width: 50.w, color: Colors.grey[200]),
                 ],

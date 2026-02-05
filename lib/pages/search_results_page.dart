@@ -42,7 +42,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[SearchResults] ==================== PAGE INIT ====================');
+    debugPrint(
+        '[SearchResults] ==================== PAGE INIT ====================');
     debugPrint('[SearchResults] keyword="${widget.keyword}"');
     debugPrint('[SearchResults] location="${widget.location}"');
 
@@ -54,7 +55,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
   }
 
   Future<void> _load() async {
-    debugPrint('[SearchResults] ==================== _load() START ====================');
+    debugPrint(
+        '[SearchResults] ==================== _load() START ====================');
 
     setState(() {
       _loading = true;
@@ -74,8 +76,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       }
 
       final city = (widget.location != null &&
-          widget.location!.isNotEmpty &&
-          widget.location != 'All Zimbabwe')
+              widget.location!.isNotEmpty &&
+              widget.location != 'All Zimbabwe')
           ? widget.location
           : null;
 
@@ -93,13 +95,16 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         offset: 0,
       );
 
-      final searchDuration = DateTime.now().difference(startTime).inMilliseconds;
-      debugPrint('[SearchResults] ✅ Got ${rows.length} results in ${searchDuration}ms');
+      final searchDuration =
+          DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint(
+          '[SearchResults] ✅ Got ${rows.length} results in ${searchDuration}ms');
 
       // 2) 读取置顶项
       debugPrint('[SearchResults] Fetching pinned IDs...');
       _pinnedIds = await _fetchPinnedIds(kw, city);
-      debugPrint('[SearchResults] Got ${_pinnedIds.length} pinned items: $_pinnedIds');
+      debugPrint(
+          '[SearchResults] Got ${_pinnedIds.length} pinned items: $_pinnedIds');
 
       // 3) 合并 & 映射
       debugPrint('[SearchResults] Mapping rows to cards...');
@@ -125,8 +130,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       });
 
       final pinnedCount = _items.where((item) => item['pinned'] == true).length;
-      debugPrint('[SearchResults] ✅ Final list: ${_items.length} items (${pinnedCount} pinned)');
-
+      debugPrint(
+          '[SearchResults] ✅ Final list: ${_items.length} items (${pinnedCount} pinned)');
     } catch (e, stackTrace) {
       debugPrint('[SearchResults] ❌ ERROR: $e');
       debugPrint('[SearchResults] ❌ Stack: $stackTrace');
@@ -138,7 +143,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       }
     }
 
-    debugPrint('[SearchResults] ==================== _load() END ====================');
+    debugPrint(
+        '[SearchResults] ==================== _load() END ====================');
   }
 
   /// ✅ 获取置顶 IDs（灵活分词匹配）
@@ -158,14 +164,14 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       final data = await sb
           .from('search_pins_active')
           .select('listing_id, keyword, city, rank')
-          .order('rank', ascending: false);  // 按 rank 排序
+          .order('rank', ascending: false); // 按 rank 排序
 
       final list = (data as List?)?.cast<Map<String, dynamic>>() ?? const [];
       debugPrint('[SearchResults] Got ${list.length} active pinned records');
 
       // ✅ 前端灵活匹配：支持分词
       final ids = <String>{};
-      final searchWords = _extractKeywords(kw);  // 分词
+      final searchWords = _extractKeywords(kw); // 分词
 
       debugPrint('[SearchResults] Search words: $searchWords');
 
@@ -186,8 +192,10 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
             pinCity.isEmpty ||
             pinCity == city;
 
-        debugPrint('[SearchResults]   Pin: id=$id, keyword="$pinKw", city="$pinCity"');
-        debugPrint('[SearchResults]   → kwMatch=$kwMatch, cityMatch=$cityMatch');
+        debugPrint(
+            '[SearchResults]   Pin: id=$id, keyword="$pinKw", city="$pinCity"');
+        debugPrint(
+            '[SearchResults]   → kwMatch=$kwMatch, cityMatch=$cityMatch');
 
         if (kwMatch && cityMatch) {
           debugPrint('[SearchResults]   ✅ MATCHED');
@@ -195,9 +203,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         }
       }
 
-      debugPrint('[SearchResults] _fetchPinnedIds END - ${ids.length} matched IDs');
+      debugPrint(
+          '[SearchResults] _fetchPinnedIds END - ${ids.length} matched IDs');
       return ids;
-
     } catch (e, stackTrace) {
       debugPrint('[SearchResults] ❌ _fetchPinnedIds ERROR: $e');
       debugPrint('[SearchResults] Stack: $stackTrace');
@@ -212,8 +220,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     return text
         .toLowerCase()
         .trim()
-        .split(RegExp(r'\s+'))  // 按空格分割
-        .where((w) => w.length >= 2)  // 过滤太短的词（如 "a", "i"）
+        .split(RegExp(r'\s+')) // 按空格分割
+        .where((w) => w.length >= 2) // 过滤太短的词（如 "a", "i"）
         .toList();
   }
 
@@ -250,7 +258,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       for (final pinWord in pinWords) {
         // 双向包含：A包含B 或 B包含A
         if (searchWord.contains(pinWord) || pinWord.contains(searchWord)) {
-          debugPrint('[SearchResults]     → ✅ Match: "$searchWord" ↔ "$pinWord"');
+          debugPrint(
+              '[SearchResults]     → ✅ Match: "$searchWord" ↔ "$pinWord"');
           return true;
         }
       }
@@ -270,7 +279,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     final idStr = r['id']?.toString() ?? '';
     final isPinned = _pinnedIds.contains(idStr);
 
-    debugPrint('[SearchResults] Mapping item: id=$idStr, title="${r['title']}", pinned=$isPinned');
+    debugPrint(
+        '[SearchResults] Mapping item: id=$idStr, title="${r['title']}", pinned=$isPinned');
 
     return {
       'id': idStr,
@@ -324,40 +334,39 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _primaryBlue))
           : _error != null
-          ? _buildErrorState()
-          : _items.isEmpty
-          ? _buildEmptyState()
-          : Column(
-        children: [
-          _buildCompactCountBar(),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _load,
-              color: _primaryBlue,
-              child: GridView.builder(
-                padding: EdgeInsets.all(12.w),
-                gridDelegate:
-                SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.66,
-                  crossAxisSpacing: 8.w,
-                  mainAxisSpacing: 8.h,
-                ),
-                itemCount: _items.length,
-                itemBuilder: (_, i) {
-                  final p = _items[i];
-                  return _buildProductCard(p);
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+              ? _buildErrorState()
+              : _items.isEmpty
+                  ? _buildEmptyState()
+                  : Column(
+                      children: [
+                        _buildCompactCountBar(),
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: _load,
+                            color: _primaryBlue,
+                            child: GridView.builder(
+                              padding: EdgeInsets.all(12.w),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.66,
+                                crossAxisSpacing: 8.w,
+                                mainAxisSpacing: 8.h,
+                              ),
+                              itemCount: _items.length,
+                              itemBuilder: (_, i) {
+                                final p = _items[i];
+                                return _buildProductCard(p);
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
     );
   }
 
-  PreferredSizeWidget _buildStandardAppBar(
-      BuildContext context, String title) {
+  PreferredSizeWidget _buildStandardAppBar(BuildContext context, String title) {
     final double statusBar = MediaQuery.of(context).padding.top;
     final bool isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     const Color kBgColor = Color(0xFF2196F3);
@@ -497,9 +506,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10.r),
-          border: pinned
-              ? Border.all(color: Colors.orange[400]!, width: 2)
-              : null,
+          border:
+              pinned ? Border.all(color: Colors.orange[400]!, width: 2) : null,
           boxShadow: [
             BoxShadow(
               color: pinned

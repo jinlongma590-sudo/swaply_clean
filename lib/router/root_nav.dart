@@ -40,9 +40,9 @@ void _evidenceNav(String api, String routeName) {
 
 /// 命名路由 push
 Future<T?> navPush<T extends Object?>(
-    String routeName, {
-      Object? arguments,
-    }) async {
+  String routeName, {
+  Object? arguments,
+}) async {
   _evidenceNav('navPush', routeName); // 🔍 证据点
 
   final nav = rootNavKey.currentState;
@@ -54,9 +54,9 @@ Future<T?> navPush<T extends Object?>(
 
 /// 命名路由：清栈并跳转
 Future<T?> navReplaceAll<T extends Object?>(
-    String routeName, {
-      Object? arguments,
-    }) async {
+  String routeName, {
+  Object? arguments,
+}) async {
   _evidenceNav('navReplaceAll', routeName); // 🔍 证据点（最关键）
 
   final nav = rootNavKey.currentState;
@@ -64,15 +64,15 @@ Future<T?> navReplaceAll<T extends Object?>(
   await Future<void>.delayed(Duration.zero);
   return nav.pushNamedAndRemoveUntil<T>(
     routeName,
-        (route) => false,
+    (route) => false,
     arguments: arguments,
   );
 }
 
 /// 直接 push 一个 Route（比如 MaterialPageRoute）
 Future<T?> navPushRoute<T extends Object?>(
-    Route<T> route,
-    ) async {
+  Route<T> route,
+) async {
   // 尝试从 route.settings.name 抓名字用于证据打印
   final name = route.settings.name ?? route.hashCode.toString();
   _evidenceNav('navPushRoute', name); // 🔍 证据点

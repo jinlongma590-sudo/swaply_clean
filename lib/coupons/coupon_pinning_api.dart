@@ -55,7 +55,9 @@ class CouponPinningApi {
     final now = DateTime.now().toUtc().toIso8601String();
 
     try {
-      final response = await _client.from('coupons').select('''
+      final response = await _client
+          .from('coupons')
+          .select('''
         id,
         code,
         type,
@@ -70,7 +72,7 @@ class CouponPinningApi {
       ''')
           .eq('user_id', userId)
           .eq('status', 'active')
-      // ✅ 不限制 source：抽奖/活动/邀请/运营发的券都能用
+          // ✅ 不限制 source：抽奖/活动/邀请/运营发的券都能用
           .gte('expires_at', now)
           .order('created_at', ascending: false);
 
@@ -86,7 +88,7 @@ class CouponPinningApi {
         final maxUses = (m['max_uses'] as int?) ?? 1;
 
         final pinScope =
-        (m['pin_scope']?.toString() ?? '').trim().toLowerCase(); // ✅ 统一小写
+            (m['pin_scope']?.toString() ?? '').trim().toLowerCase(); // ✅ 统一小写
         final pinDays = (m['pin_days'] as num?)?.toInt() ?? 0;
 
         final scopeOk = _allowedScopes.contains(pinScope);

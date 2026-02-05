@@ -1,4 +1,4 @@
-﻿// lib/auth/reset_password_page.dart
+// lib/auth/reset_password_page.dart
 // ✅ [修复] 使用统一的回调 URL 配置
 // ✅ 完整修复版本：
 //    1. 添加 code 参数处理（iOS/Android 统一）
@@ -59,11 +59,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   Future<void> _extractArgumentsAndCheckSession() async {
     if (!mounted) return;
 
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     if (kDebugMode) {
       debugPrint('[ResetPassword] 📋 Route arguments: $args');
-      debugPrint('[ResetPassword] 📋 Widget token: ${widget.token != null ? "***" : "null"}');
+      debugPrint(
+          '[ResetPassword] 📋 Widget token: ${widget.token != null ? "***" : "null"}');
     }
 
     setState(() {
@@ -77,11 +79,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     if (kDebugMode) {
       debugPrint('[ResetPassword] 🔐 Code: ${_code != null ? "***" : "NULL"}');
-      debugPrint('[ResetPassword] 🔑 Token: ${_token != null ? "***${_token!.length > 10 ? _token!.substring(_token!.length - 10) : _token!}" : "NULL"}');
+      debugPrint(
+          '[ResetPassword] 🔑 Token: ${_token != null ? "***${_token!.length > 10 ? _token!.substring(_token!.length - 10) : _token!}" : "NULL"}');
       debugPrint('[ResetPassword] 📝 Type: $_type');
       debugPrint('[ResetPassword] ❌ Error: $_error');
       debugPrint('[ResetPassword] 📄 Error Desc: $_errorDescription');
-      debugPrint('[ResetPassword] 🔄 Refresh: ${_refreshToken != null ? "***" : "null"}');
+      debugPrint(
+          '[ResetPassword] 🔄 Refresh: ${_refreshToken != null ? "***" : "null"}');
     }
 
     if (_error != null && _error!.isNotEmpty) {
@@ -109,7 +113,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   Future<void> _restoreSessionFromCode() async {
     if (kDebugMode) {
-      debugPrint('[ResetPassword] 🔐 Using code parameter (Supabase SDK will handle)...');
+      debugPrint(
+          '[ResetPassword] 🔐 Using code parameter (Supabase SDK will handle)...');
     }
 
     try {
@@ -126,18 +131,19 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       });
 
       if (kDebugMode) {
-        debugPrint('[ResetPassword] ${hasSession ? "✅" : "❌"} Code auto-recovery: $hasSession');
+        debugPrint(
+            '[ResetPassword] ${hasSession ? "✅" : "❌"} Code auto-recovery: $hasSession');
       }
 
       if (hasSession) {
-        _toast('Reset link verified! Please enter your new password.', isError: false);
+        _toast('Reset link verified! Please enter your new password.',
+            isError: false);
       } else {
         _toast(
           'Unable to verify reset link. It may have expired.\n\n'
-              'Please request a new reset link from the login page.',
+          'Please request a new reset link from the login page.',
         );
       }
-
     } catch (e) {
       if (!mounted) return;
 
@@ -152,21 +158,24 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       _toast(
         'An error occurred while verifying the reset link.\n\n'
-            'Please try again or request a new reset link.',
+        'Please try again or request a new reset link.',
       );
     }
   }
 
   Future<void> _restoreSessionFromToken() async {
     if (kDebugMode) {
-      debugPrint('[ResetPassword] 🔐 Starting session restoration from token...');
+      debugPrint(
+          '[ResetPassword] 🔐 Starting session restoration from token...');
     }
 
     try {
       final auth = Supabase.instance.client.auth;
       bool sessionRestored = false;
 
-      if (_refreshToken != null && _refreshToken!.isNotEmpty && _token != null) {
+      if (_refreshToken != null &&
+          _refreshToken!.isNotEmpty &&
+          _token != null) {
         if (kDebugMode) {
           debugPrint('[ResetPassword] 🔄 Method 1: setSession with tokens...');
         }
@@ -176,7 +185,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           sessionRestored = response.session != null;
 
           if (kDebugMode) {
-            debugPrint('[ResetPassword] ${sessionRestored ? "✅" : "❌"} setSession: $sessionRestored');
+            debugPrint(
+                '[ResetPassword] ${sessionRestored ? "✅" : "❌"} setSession: $sessionRestored');
           }
 
           if (sessionRestored) {
@@ -185,7 +195,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               _hasSession = true;
               _checkingSession = false;
             });
-            _toast('Reset link verified! Please enter your new password.', isError: false);
+            _toast('Reset link verified! Please enter your new password.',
+                isError: false);
             return;
           }
         } catch (e) {
@@ -203,20 +214,24 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         // ✅ 使用统一配置
         String recoveryUrl;
         if (_refreshToken != null && _refreshToken!.isNotEmpty) {
-          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
+          recoveryUrl =
+              '${kResetPasswordRedirectUri}#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
         } else {
-          recoveryUrl = '${kResetPasswordRedirectUri}#access_token=$_token&type=${_type ?? "recovery"}';
+          recoveryUrl =
+              '${kResetPasswordRedirectUri}#access_token=$_token&type=${_type ?? "recovery"}';
         }
 
         if (kDebugMode) {
-          debugPrint('[ResetPassword] 🔗 Recovery URL: ${recoveryUrl.replaceAll(_token!, "***")}');
+          debugPrint(
+              '[ResetPassword] 🔗 Recovery URL: ${recoveryUrl.replaceAll(_token!, "***")}');
         }
 
         final response = await auth.getSessionFromUrl(Uri.parse(recoveryUrl));
         sessionRestored = response.session != null;
 
         if (kDebugMode) {
-          debugPrint('[ResetPassword] ${sessionRestored ? "✅" : "❌"} getSessionFromUrl: $sessionRestored');
+          debugPrint(
+              '[ResetPassword] ${sessionRestored ? "✅" : "❌"} getSessionFromUrl: $sessionRestored');
         }
 
         if (sessionRestored) {
@@ -225,7 +240,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
             _hasSession = true;
             _checkingSession = false;
           });
-          _toast('Reset link verified! Please enter your new password.', isError: false);
+          _toast('Reset link verified! Please enter your new password.',
+              isError: false);
           return;
         }
       } catch (e) {
@@ -246,7 +262,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       sessionRestored = currentSession != null;
 
       if (kDebugMode) {
-        debugPrint('[ResetPassword] ${sessionRestored ? "✅" : "❌"} Auto-recovery: $sessionRestored');
+        debugPrint(
+            '[ResetPassword] ${sessionRestored ? "✅" : "❌"} Auto-recovery: $sessionRestored');
       }
 
       setState(() {
@@ -257,12 +274,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       if (!sessionRestored) {
         _toast(
           'Unable to verify reset link. It may have expired.\n\n'
-              'Please request a new reset link from the login page.',
+          'Please request a new reset link from the login page.',
         );
       } else {
-        _toast('Reset link verified! Please enter your new password.', isError: false);
+        _toast('Reset link verified! Please enter your new password.',
+            isError: false);
       }
-
     } on AuthException catch (e) {
       if (!mounted) return;
 
@@ -277,17 +294,20 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       String errorMsg;
       if (e.message.toLowerCase().contains('expired')) {
-        errorMsg = 'This reset link has expired.\n\nPlease request a new one from the login page.';
+        errorMsg =
+            'This reset link has expired.\n\nPlease request a new one from the login page.';
       } else if (e.message.toLowerCase().contains('invalid')) {
-        errorMsg = 'This reset link is invalid.\n\nPlease request a new one from the login page.';
+        errorMsg =
+            'This reset link is invalid.\n\nPlease request a new one from the login page.';
       } else if (e.message.toLowerCase().contains('used')) {
-        errorMsg = 'This reset link has already been used.\n\nPlease request a new one if needed.';
+        errorMsg =
+            'This reset link has already been used.\n\nPlease request a new one if needed.';
       } else {
-        errorMsg = 'Failed to verify reset link: ${e.message}\n\nPlease request a new one.';
+        errorMsg =
+            'Failed to verify reset link: ${e.message}\n\nPlease request a new one.';
       }
 
       _toast(errorMsg);
-
     } catch (e) {
       if (!mounted) return;
 
@@ -302,7 +322,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       _toast(
         'An error occurred while verifying the reset link.\n\n'
-            'Please try again or request a new reset link.',
+        'Please try again or request a new reset link.',
       );
     }
   }
@@ -324,7 +344,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     }
 
     if (!hasSession) {
-      _toast('No active reset session found.\n\nPlease click "Forgot Password" to get a new reset link.');
+      _toast(
+          'No active reset session found.\n\nPlease click "Forgot Password" to get a new reset link.');
     }
   }
 
@@ -366,7 +387,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       if (!mounted) return;
 
       navReplaceAll('/home');
-
     } on AuthException catch (e) {
       if (!mounted) return;
 
@@ -377,7 +397,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       setState(() => _busy = false);
 
       _toast('Failed to update password: ${e.message}');
-
     } catch (e) {
       if (!mounted) return;
 
@@ -438,17 +457,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         child: _checkingSession
             ? _buildLoadingView()
             : SingleChildScrollView(
-          padding: EdgeInsets.all(20.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!_hasSession) _buildErrorCard(),
-              if (_hasSession) _buildSuccessCard(),
-              SizedBox(height: 24.h),
-              _buildPasswordForm(),
-            ],
-          ),
-        ),
+                padding: EdgeInsets.all(20.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!_hasSession) _buildErrorCard(),
+                    if (_hasSession) _buildSuccessCard(),
+                    SizedBox(height: 24.h),
+                    _buildPasswordForm(),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -531,11 +550,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           SizedBox(height: 12.h),
           Text(
             'To reset your password:\n'
-                '1. Return to the login screen\n'
-                '2. Tap "Forgot Password"\n'
-                '3. Enter your email address\n'
-                '4. Check your email for a new reset link\n'
-                '5. Open the new link on this device',
+            '1. Return to the login screen\n'
+            '2. Tap "Forgot Password"\n'
+            '3. Enter your email address\n'
+            '4. Check your email for a new reset link\n'
+            '5. Open the new link on this device',
             style: TextStyle(
               fontSize: 14.sp,
               color: Colors.black87,
@@ -640,21 +659,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               ),
               child: _busy
                   ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
-              )
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text(
-                'Update Password',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-              ),
+                      'Update Password',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
             ),
           ),
           if (!_hasSession) ...[

@@ -25,7 +25,7 @@ import 'package:swaply/core/app.dart';
 
 // ✅ 前台通知实例
 final FlutterLocalNotificationsPlugin _localNotifications =
-FlutterLocalNotificationsPlugin();
+    FlutterLocalNotificationsPlugin();
 
 // ✅ [关键修复] 后台 isolate 需要自己的 FlutterLocalNotificationsPlugin 实例
 FlutterLocalNotificationsPlugin? _backgroundLocalNotifications;
@@ -62,7 +62,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     // ✅ 修复: 第一个参数改为位置参数（适配 v17.2.4）
     await _backgroundLocalNotifications!.initialize(
-      initSettings,  // ✅ 位置参数，不是命名参数
+      initSettings, // ✅ 位置参数，不是命名参数
       onDidReceiveNotificationResponse: (NotificationResponse details) {
         final payload = details.payload;
         if (payload != null && payload.isNotEmpty) {
@@ -120,7 +120,9 @@ Future<void> _showBackgroundLocalNotification(RemoteMessage message) async {
 
   final notificationId = offerId.isNotEmpty
       ? offerId.hashCode.abs()
-      : (listingId.isNotEmpty ? listingId.hashCode.abs() : message.hashCode.abs());
+      : (listingId.isNotEmpty
+          ? listingId.hashCode.abs()
+          : message.hashCode.abs());
 
   final groupKey = offerId.isNotEmpty
       ? 'offer_$offerId'
@@ -191,7 +193,9 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
 
   final notificationId = offerId.isNotEmpty
       ? offerId.hashCode.abs()
-      : (listingId.isNotEmpty ? listingId.hashCode.abs() : message.hashCode.abs());
+      : (listingId.isNotEmpty
+          ? listingId.hashCode.abs()
+          : message.hashCode.abs());
 
   final groupKey = offerId.isNotEmpty
       ? 'offer_$offerId'
@@ -256,7 +260,7 @@ Future<void> _initLocalNotifications() async {
 
   // ✅ 修复: 第一个参数改为位置参数（适配 v17.2.4）
   await _localNotifications.initialize(
-    initSettings,  // ✅ 位置参数，不是命名参数
+    initSettings, // ✅ 位置参数，不是命名参数
     onDidReceiveNotificationResponse: (NotificationResponse details) {
       final payload = details.payload;
       if (payload != null && payload.isNotEmpty) {
@@ -267,7 +271,8 @@ Future<void> _initLocalNotifications() async {
   );
 
   // ✅ 检查 app 是否由本地通知启动
-  final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+  final launchDetails =
+      await _localNotifications.getNotificationAppLaunchDetails();
   if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
     final payload = launchDetails.notificationResponse?.payload;
     if (payload != null && payload.isNotEmpty) {
@@ -290,7 +295,8 @@ Future<void> _initLocalNotifications() async {
   );
 
   await _localNotifications
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 }
 
@@ -333,7 +339,7 @@ Future<void> _initFirebaseMessaging() async {
 
     // 3. 监听 Token 刷新
     messaging.onTokenRefresh.listen(
-          (newToken) {
+      (newToken) {
         debugPrint('🔔 FCM Token 已刷新');
         debugPrint('📌 新 Token 将由 NotificationService 自动保存');
       },
@@ -414,7 +420,7 @@ Future<void> main() async {
     Supabase.initialize(
       url: 'https://rhckybselarzglkmlyqs.supabase.co',
       anonKey:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoY2t5YnNlbGFyemdsa21seXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTM0NTgsImV4cCI6MjA3MDU4OTQ1OH0.3I0T2DidiF-q9l2tWeHOjB31QogXHDqRtEjDn0RfVbU',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoY2t5YnNlbGFyemdsa21seXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMTM0NTgsImV4cCI6MjA3MDU4OTQ1OH0.3I0T2DidiF-q9l2tWeHOjB31QogXHDqRtEjDn0RfVbU',
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
         autoRefreshToken: true,
@@ -471,7 +477,8 @@ Future<void> main() async {
   // ✅ 7. 延迟初始化推送通知
   _initPushNotificationsLazy();
 
-  debugPrint('⏱️ [Startup] 总耗时: ${DateTime.now().difference(startTime).inMilliseconds}ms');
+  debugPrint(
+      '⏱️ [Startup] 总耗时: ${DateTime.now().difference(startTime).inMilliseconds}ms');
   debugPrint('🚀 [Startup] 启动应用...');
 
   // ✅ 8. 启动应用

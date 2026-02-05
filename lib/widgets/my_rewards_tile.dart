@@ -69,7 +69,8 @@ class _MyRewardsTileState extends State<MyRewardsTile> {
             subtitle: null,
             trailing: IconButton(
               tooltip: 'Retry',
-              icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.grey),
+              icon: const Icon(Icons.refresh_rounded,
+                  size: 20, color: Colors.grey),
               onPressed: _refresh,
             ),
             onTap: _refresh,
@@ -79,8 +80,10 @@ class _MyRewardsTileState extends State<MyRewardsTile> {
         // Normal
         // 这里虽然仍然计算了 points/coupons，但不再展示
         final data = snap.data ?? const <String, dynamic>{};
-        final points = _pickInt(data, ['points', 'total_points', 'point', 'totalPoints']);
-        final coupons = _pickInt(data, ['coupons', 'couponCount', 'coupon_count', 'total_coupons']);
+        final points =
+            _pickInt(data, ['points', 'total_points', 'point', 'totalPoints']);
+        final coupons = _pickInt(
+            data, ['coupons', 'couponCount', 'coupon_count', 'total_coupons']);
         // 如果后续想用到 points/coupons，可在这里根据需要拼接文案
 
         return _tileShell(
@@ -89,9 +92,11 @@ class _MyRewardsTileState extends State<MyRewardsTile> {
           title: 'My Rewards',
           // ✅ 隐藏副标题（不再显示 Points/Coupons）
           subtitle: null,
-          trailing: Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
+          trailing:
+              Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
           onTap: () {
-            SafeNavigator.push(MaterialPageRoute(builder: (_) => const TaskManagementPage()));
+            SafeNavigator.push(
+                MaterialPageRoute(builder: (_) => const RewardCenterPage()));
           },
         );
       },
@@ -133,7 +138,8 @@ class _MyRewardsTileState extends State<MyRewardsTile> {
                   color: iconBg,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(Icons.emoji_events_rounded, color: iconColor, size: 26),
+                child: Icon(Icons.emoji_events_rounded,
+                    color: iconColor, size: 26),
               ),
               const SizedBox(width: 18),
               Expanded(
@@ -142,11 +148,14 @@ class _MyRewardsTileState extends State<MyRewardsTile> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w600),
                     ),
                     if (subtitle != null && subtitle.isNotEmpty) ...[
                       const SizedBox(height: 3),
-                      Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      Text(subtitle,
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[600])),
                     ],
                   ],
                 ),

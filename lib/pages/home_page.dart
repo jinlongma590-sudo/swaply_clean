@@ -84,7 +84,11 @@ class _HomePageState extends State<HomePage>
     {"id": "fashion", "icon": "fashion", "label": "Fashion"},
     {"id": "services", "icon": "services", "label": "Services"},
     {"id": "jobs", "icon": "jobs", "label": "Jobs"},
-    {"id": "seeking_work_cvs", "icon": "seeking_work_cvs", "label": "Jobs Seeking"},
+    {
+      "id": "seeking_work_cvs",
+      "icon": "seeking_work_cvs",
+      "label": "Jobs Seeking"
+    },
     {
       "id": "home_furniture_appliances",
       "icon": "home_furniture_appliances",
@@ -97,9 +101,21 @@ class _HomePageState extends State<HomePage>
     },
     {"id": "pets", "icon": "pets", "label": "Pets"},
     {"id": "babies_kids", "icon": "babies_kids", "label": "Baby & Kids"},
-    {"id": "repair_construction", "icon": "repair_construction", "label": "Repair"},
-    {"id": "leisure_activities", "icon": "leisure_activities", "label": "Leisure"},
-    {"id": "food_agriculture_drinks", "icon": "food_agriculture_drinks", "label": "Food & Drinks"},
+    {
+      "id": "repair_construction",
+      "icon": "repair_construction",
+      "label": "Repair"
+    },
+    {
+      "id": "leisure_activities",
+      "icon": "leisure_activities",
+      "label": "Leisure"
+    },
+    {
+      "id": "food_agriculture_drinks",
+      "icon": "food_agriculture_drinks",
+      "label": "Food & Drinks"
+    },
   ];
 
   @override
@@ -184,13 +200,15 @@ class _HomePageState extends State<HomePage>
     final latest = results[1] as List<Map<String, dynamic>>;
 
     final duration = DateTime.now().difference(startTime).inMilliseconds;
-    debugPrint('✅ [Performance] 数据请求耗时: ${duration}ms (pinned: ${pinnedAds.length}, latest: ${latest.length})');
+    debugPrint(
+        '✅ [Performance] 数据请求耗时: ${duration}ms (pinned: ${pinnedAds.length}, latest: ${latest.length})');
 
     final list = <Map<String, dynamic>>[];
     for (final e in pinnedAds) {
       final l = (e['listings'] as Map<String, dynamic>? ?? {});
       if (l.isEmpty) continue;
-      final imgs = (l['images'] as List?) ?? (l['image_urls'] as List?) ?? const [];
+      final imgs =
+          (l['images'] as List?) ?? (l['image_urls'] as List?) ?? const [];
       list.add({
         'id': l['id'],
         'title': l['title'],
@@ -206,7 +224,8 @@ class _HomePageState extends State<HomePage>
       final id = r['id']?.toString();
       if (id == null || seen.contains(id)) continue;
       seen.add(id);
-      final imgs = (r['images'] as List?) ?? (r['image_urls'] as List?) ?? const [];
+      final imgs =
+          (r['images'] as List?) ?? (r['image_urls'] as List?) ?? const [];
       list.add({
         'id': r['id'],
         'title': r['title'],
@@ -220,14 +239,19 @@ class _HomePageState extends State<HomePage>
     return list.toList();
   }
 
-  Future<void> _loadTrending({bool bypassCache = false, bool showLoading = true}) async {
+  Future<void> _loadTrending(
+      {bool bypassCache = false, bool showLoading = true}) async {
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
 
-    if (!bypassCache && _cachedTrending != null && _cacheTime != null && _cachedLocation == cacheKey) {
+    if (!bypassCache &&
+        _cachedTrending != null &&
+        _cacheTime != null &&
+        _cachedLocation == cacheKey) {
       final age = DateTime.now().difference(_cacheTime!);
       if (age < _cacheDuration) {
-        debugPrint('✅ [SWR] 使用缓存数据 (${age.inSeconds}秒前, ${_cachedTrending!.length}条)');
+        debugPrint(
+            '✅ [SWR] 使用缓存数据 (${age.inSeconds}秒前, ${_cachedTrending!.length}条)');
         if (mounted) {
           setState(() {
             _trendingRemote = _cachedTrending!;
@@ -331,7 +355,8 @@ class _HomePageState extends State<HomePage>
 
   void _navigateToProductDetail(String productId) {
     SafeNavigator.push(
-      MaterialPageRoute(builder: (_) => ProductDetailPage(productId: productId)),
+      MaterialPageRoute(
+          builder: (_) => ProductDetailPage(productId: productId)),
     );
   }
 
@@ -348,7 +373,8 @@ class _HomePageState extends State<HomePage>
 
   // ✅ 优化：导航到独立搜索输入页面
   void _navigateToSearchWithFocus() {
-    debugPrint('[HomePage] ==================== NAVIGATE TO SEARCH ====================');
+    debugPrint(
+        '[HomePage] ==================== NAVIGATE TO SEARCH ====================');
     debugPrint('[HomePage] Current keyword: "${_searchCtrl.text}"');
     debugPrint('[HomePage] Current location: "$_selectedLocation"');
 
@@ -358,7 +384,8 @@ class _HomePageState extends State<HomePage>
           initialKeyword: _searchCtrl.text,
           location: _selectedLocation,
           onSearch: (keyword) {
-            debugPrint('[HomePage] ==================== SEARCH CALLBACK ====================');
+            debugPrint(
+                '[HomePage] ==================== SEARCH CALLBACK ====================');
             debugPrint('[HomePage] Search submitted: "$keyword"');
             debugPrint('[HomePage] Location: "$_selectedLocation"');
 
@@ -388,12 +415,17 @@ class _HomePageState extends State<HomePage>
       final goLogin = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           title: const Text('Login Required'),
           content: const Text('Please login to post listings.'),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Login')),
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Login')),
           ],
         ),
       );
@@ -417,8 +449,10 @@ class _HomePageState extends State<HomePage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final pinnedItems = _trendingRemote.where((r) => r['pinned'] == true).toList();
-    final regularItems = _trendingRemote.where((r) => r['pinned'] != true).toList();
+    final pinnedItems =
+        _trendingRemote.where((r) => r['pinned'] == true).toList();
+    final regularItems =
+        _trendingRemote.where((r) => r['pinned'] != true).toList();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -434,7 +468,8 @@ class _HomePageState extends State<HomePage>
                   elevation: 2,
                   borderRadius: BorderRadius.circular(20.r),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20.r),
@@ -472,7 +507,6 @@ class _HomePageState extends State<HomePage>
                 ),
               ),
             ),
-
           RefreshIndicator(
             onRefresh: () async {
               await _loadTrending(bypassCache: true, showLoading: false);
@@ -487,7 +521,6 @@ class _HomePageState extends State<HomePage>
                   : const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(child: _buildCompactHeader()),
-
                 SliverToBoxAdapter(
                   child: Padding(
                     key: _trendingKey,
@@ -517,7 +550,6 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                 ),
-
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 4.h),
@@ -529,7 +561,8 @@ class _HomePageState extends State<HomePage>
                             color: Colors.orange[100],
                             borderRadius: BorderRadius.circular(6.r),
                           ),
-                          child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
+                          child: Icon(Icons.star,
+                              color: Colors.orange[600], size: 14.sp),
                         ),
                         SizedBox(width: 6.w),
                         Text(
@@ -542,7 +575,8 @@ class _HomePageState extends State<HomePage>
                         ),
                         SizedBox(width: 4.w),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 4.w, vertical: 1.h),
                           decoration: BoxDecoration(
                             color: Colors.orange[600],
                             borderRadius: BorderRadius.circular(6.r),
@@ -561,7 +595,6 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                 ),
-
                 SliverPadding(
                   key: const ValueKey('featured_ads_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -571,7 +604,6 @@ class _HomePageState extends State<HomePage>
                     isLoading: _isFirstLoad,
                   ),
                 ),
-
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 4.h),
@@ -585,7 +617,6 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                 ),
-
                 SliverPadding(
                   key: const ValueKey('popular_items_grid'),
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -595,7 +626,6 @@ class _HomePageState extends State<HomePage>
                     isLoading: _isFirstLoad,
                   ),
                 ),
-
                 SliverToBoxAdapter(child: SizedBox(height: 80.h)),
               ],
             ),
@@ -642,7 +672,7 @@ class _HomePageState extends State<HomePage>
           childAspectRatio: 0.66,
         ),
         delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildSkeletonCard(isPinned: isPinned),
+          (context, index) => _buildSkeletonCard(isPinned: isPinned),
           childCount: skeletonCount,
         ),
       );
@@ -658,7 +688,7 @@ class _HomePageState extends State<HomePage>
             childAspectRatio: 0.66,
           ),
           delegate: SliverChildBuilderDelegate(
-                (context, index) {
+            (context, index) {
               if (index == 0) {
                 return Container(
                   decoration: BoxDecoration(
@@ -680,7 +710,8 @@ class _HomePageState extends State<HomePage>
                         SizedBox(height: 6.h),
                         Text(
                           'No featured ads',
-                          style: TextStyle(fontSize: 10.sp, color: Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 10.sp, color: Colors.grey[600]),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -735,7 +766,7 @@ class _HomePageState extends State<HomePage>
         childAspectRatio: 0.66,
       ),
       delegate: SliverChildBuilderDelegate(
-            (context, index) {
+        (context, index) {
           final item = items[index];
           final itemId = item['id']?.toString() ?? 'unknown_$index';
 
@@ -860,7 +891,8 @@ class _HomePageState extends State<HomePage>
                   padding: EdgeInsets.symmetric(horizontal: 8.w),
                   child: DropdownButton<String>(
                     value: _selectedLocation,
-                    icon: Icon(Icons.arrow_drop_down, color: Colors.grey[600], size: 18.sp),
+                    icon: Icon(Icons.arrow_drop_down,
+                        color: Colors.grey[600], size: 18.sp),
                     isExpanded: true,
                     style: TextStyle(fontSize: 11.sp, color: Colors.grey[800]),
                     onChanged: (v) {
@@ -869,13 +901,13 @@ class _HomePageState extends State<HomePage>
                     },
                     items: _locations
                         .map((loc) => DropdownMenuItem(
-                      value: loc,
-                      child: Text(
-                        loc,
-                        style: TextStyle(fontSize: 11.sp),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ))
+                              value: loc,
+                              child: Text(
+                                loc,
+                                style: TextStyle(fontSize: 11.sp),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
                         .toList(),
                   ),
                 ),
@@ -924,7 +956,8 @@ class _HomePageState extends State<HomePage>
                       },
                       child: Container(
                         padding: EdgeInsets.all(6.w),
-                        child: Icon(Icons.search, size: 18.sp, color: _primaryBlue),
+                        child: Icon(Icons.search,
+                            size: 18.sp, color: _primaryBlue),
                       ),
                     ),
                   ],
@@ -953,18 +986,23 @@ class _HomePageState extends State<HomePage>
           final double padVTop = Platform.isIOS ? 10.h : 12.h;
           final double padVBottom = Platform.isIOS ? 12.h : 16.h;
 
-          final double usableWidth = constraints.maxWidth - padHLeft - padHRight;
-          final double tileW = (usableWidth - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
+          final double usableWidth =
+              constraints.maxWidth - padHLeft - padHRight;
+          final double tileW =
+              (usableWidth - crossAxisSpacing * (crossAxisCount - 1)) /
+                  crossAxisCount;
           final double tileH = tileW / childAspectRatio;
 
           final int rows = (_categories.length / crossAxisCount).ceil();
-          final double gridCoreHeight = rows * tileH + (rows - 1) * mainAxisSpacing;
+          final double gridCoreHeight =
+              rows * tileH + (rows - 1) * mainAxisSpacing;
           final double gridTotalHeight = padVTop + gridCoreHeight + padVBottom;
 
           return SizedBox(
             height: gridTotalHeight,
             child: GridView.builder(
-              padding: EdgeInsets.fromLTRB(padHLeft, padVTop, padHRight, padVBottom),
+              padding:
+                  EdgeInsets.fromLTRB(padHLeft, padVTop, padHRight, padVBottom),
               primary: false,
               shrinkWrap: false,
               physics: const NeverScrollableScrollPhysics(),
@@ -988,10 +1026,13 @@ class _HomePageState extends State<HomePage>
                   onTap: () => _navigateToCategory(cat['id']!, cat['label']!),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isTrending ? Colors.orange.shade50 : Colors.grey[50],
+                      color:
+                          isTrending ? Colors.orange.shade50 : Colors.grey[50],
                       borderRadius: BorderRadius.circular(10.r),
                       border: Border.all(
-                        color: isTrending ? Colors.orange.shade200 : Colors.transparent,
+                        color: isTrending
+                            ? Colors.orange.shade200
+                            : Colors.transparent,
                         width: 1,
                       ),
                       boxShadow: [
@@ -1005,7 +1046,8 @@ class _HomePageState extends State<HomePage>
                     child: LayoutBuilder(
                       builder: (ctx, c) {
                         final double H = c.maxHeight;
-                        final double labelMax = (H - iconBox - gap).clamp(0.0, 40.h);
+                        final double labelMax =
+                            (H - iconBox - gap).clamp(0.0, 40.h);
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -1013,7 +1055,9 @@ class _HomePageState extends State<HomePage>
                               width: iconBox,
                               height: iconBox,
                               decoration: BoxDecoration(
-                                color: isTrending ? Colors.orange.shade100 : Colors.white,
+                                color: isTrending
+                                    ? Colors.orange.shade100
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(10.r),
                                 boxShadow: [
                                   BoxShadow(
@@ -1035,9 +1079,13 @@ class _HomePageState extends State<HomePage>
                                         'assets/icons/${cat['icon']}.jpg',
                                         fit: BoxFit.contain,
                                         errorBuilder: (_, __, ___) => Icon(
-                                          isTrending ? Icons.local_fire_department : Icons.category,
+                                          isTrending
+                                              ? Icons.local_fire_department
+                                              : Icons.category,
                                           size: iconFallbackSize,
-                                          color: isTrending ? Colors.orange : Colors.grey,
+                                          color: isTrending
+                                              ? Colors.orange
+                                              : Colors.grey,
                                         ),
                                       );
                                     },
@@ -1091,7 +1139,9 @@ class _HomePageState extends State<HomePage>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10.r),
-          border: isPinned ? Border.all(color: Colors.orange.shade300, width: 1.5) : null,
+          border: isPinned
+              ? Border.all(color: Colors.orange.shade300, width: 1.5)
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -1107,7 +1157,8 @@ class _HomePageState extends State<HomePage>
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(10.r)),
                 ),
               ),
             ),
@@ -1190,7 +1241,8 @@ class _HomePageState extends State<HomePage>
                     top: 6.h,
                     left: 6.w,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: Colors.orange[600],
                         borderRadius: BorderRadius.circular(8.r),
@@ -1224,11 +1276,13 @@ class _HomePageState extends State<HomePage>
                 children: [
                   if (priceText.isNotEmpty)
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: _successGreen.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4.r),
-                        border: Border.all(color: _successGreen.withOpacity(0.3)),
+                        border:
+                            Border.all(color: _successGreen.withOpacity(0.3)),
                       ),
                       child: Text(
                         priceText,
@@ -1254,14 +1308,16 @@ class _HomePageState extends State<HomePage>
                   SizedBox(height: 3.h),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 8.sp, color: Colors.grey[500]),
+                      Icon(Icons.location_on,
+                          size: 8.sp, color: Colors.grey[500]),
                       SizedBox(width: 2.w),
                       Expanded(
                         child: Text(
                           r['city']?.toString() ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 8.sp, color: Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 8.sp, color: Colors.grey[600]),
                         ),
                       ),
                     ],
@@ -1329,14 +1385,16 @@ class _HomePageState extends State<HomePage>
                   SizedBox(height: 2.h),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 8.sp, color: Colors.grey[500]),
+                      Icon(Icons.location_on,
+                          size: 8.sp, color: Colors.grey[500]),
                       SizedBox(width: 1.w),
                       Expanded(
                         child: Text(
                           r['city']?.toString() ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 8.sp, color: Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 8.sp, color: Colors.grey[600]),
                         ),
                       ),
                     ],
@@ -1385,7 +1443,8 @@ class _HomePageState extends State<HomePage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.broken_image, size: 20.sp, color: Colors.grey[400]),
+                  Icon(Icons.broken_image,
+                      size: 20.sp, color: Colors.grey[400]),
                   SizedBox(height: 2.h),
                   Text(
                     'Image not found',
@@ -1472,7 +1531,8 @@ class _SearchInputPageState extends State<_SearchInputPage> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[SearchInputPage] ==================== INIT ====================');
+    debugPrint(
+        '[SearchInputPage] ==================== INIT ====================');
     debugPrint('[SearchInputPage] Initial keyword: "${widget.initialKeyword}"');
     debugPrint('[SearchInputPage] Location: "${widget.location}"');
 
@@ -1495,7 +1555,8 @@ class _SearchInputPageState extends State<_SearchInputPage> {
 
   void _handleSearch() {
     final keyword = _controller.text.trim();
-    debugPrint('[SearchInputPage] ==================== SUBMIT ====================');
+    debugPrint(
+        '[SearchInputPage] ==================== SUBMIT ====================');
     debugPrint('[SearchInputPage] Keyword: "$keyword"');
 
     if (keyword.isEmpty) {
@@ -1535,17 +1596,18 @@ class _SearchInputPageState extends State<_SearchInputPage> {
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Search products...',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
+            hintStyle:
+                TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
             border: InputBorder.none,
             suffixIcon: _controller.text.isNotEmpty
                 ? IconButton(
-              icon: const Icon(Icons.clear, color: Colors.white),
-              onPressed: () {
-                debugPrint('[SearchInputPage] Clear button pressed');
-                _controller.clear();
-                setState(() {});
-              },
-            )
+                    icon: const Icon(Icons.clear, color: Colors.white),
+                    onPressed: () {
+                      debugPrint('[SearchInputPage] Clear button pressed');
+                      _controller.clear();
+                      setState(() {});
+                    },
+                  )
                 : null,
           ),
           onChanged: (value) {
