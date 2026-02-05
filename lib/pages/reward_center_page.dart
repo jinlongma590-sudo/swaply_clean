@@ -36,16 +36,16 @@ import 'package:flutter/services.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:uuid/uuid.dart';
 
-class TaskManagementPage extends StatefulWidget {
+class RewardCenterPage extends StatefulWidget {
   final int initialTab;
 
-  const TaskManagementPage({super.key, this.initialTab = 0});
+  const RewardCenterPage({super.key, this.initialTab = 0});
 
   @override
-  State<TaskManagementPage> createState() => _TaskManagementPageState();
+  State<RewardCenterPage> createState() => _RewardCenterPageState();
 }
 
-class _TaskManagementPageState extends State<TaskManagementPage>
+class _RewardCenterPageState extends State<RewardCenterPage>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   // ===== 防循环:TTL + Future缓存 =====
   static const _ttl = Duration(seconds: 30);
