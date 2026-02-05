@@ -750,8 +750,9 @@ class DeepLinkService {
         if (token == null || token.isEmpty) token = fp['token'];
 
         String? accessToken = qp['access_token'];
-        if (accessToken == null || accessToken.isEmpty)
+        if (accessToken == null || accessToken.isEmpty) {
           accessToken = fp['access_token'];
+        }
 
         String? refreshToken = qp['refresh_token'];
         if (refreshToken == null || refreshToken.isEmpty) {

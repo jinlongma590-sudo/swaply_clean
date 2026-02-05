@@ -1,6 +1,5 @@
 // lib/core/navigation/app_router.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/auth/reset_password_page.dart';
 
 import 'package:swaply/pages/main_navigation_page.dart';

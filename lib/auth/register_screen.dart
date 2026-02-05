@@ -14,7 +14,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:swaply/services/reward_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/config/auth_config.dart';
-import 'package:swaply/services/profile_service.dart';
 import 'dart:async';
 import 'dart:io'; // ✅ 用于网络错误检测
 

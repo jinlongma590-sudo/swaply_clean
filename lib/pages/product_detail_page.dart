@@ -35,7 +35,6 @@ import 'package:swaply/widgets/verified_avatar.dart';
 import 'package:swaply/utils/share_utils.dart';
 import 'package:swaply/services/email_verification_service.dart';
 import 'package:swaply/router/root_nav.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/rewards/reward_bottom_sheet.dart';
 import 'package:swaply/services/reward_after_publish.dart';
 
@@ -408,8 +407,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         _sellerVerified = (badge != vt.VerificationBadgeType.none);
       });
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[ProductDetail] fetchPublicVerification error: $e');
+      }
     }
   }
 
@@ -2218,8 +2218,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
 
     if (_isViewerOpening) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('⚠️ Image viewer already opening, ignoring duplicate tap');
+      }
       return;
     }
 

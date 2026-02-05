@@ -19,8 +19,7 @@ import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
 class SavedPage extends StatefulWidget {
   final bool isGuest;
   final VoidCallback? onNavigateToHome;
-  const SavedPage({Key? key, this.isGuest = false, this.onNavigateToHome})
-      : super(key: key);
+  const SavedPage({super.key, this.isGuest = false, this.onNavigateToHome});
 
   @override
   State<SavedPage> createState() => _SavedPageState();

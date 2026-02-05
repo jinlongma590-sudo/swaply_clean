@@ -1,6 +1,5 @@
 // lib/config/auth_config.dart
 
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// ✅ OAuth 回调配置

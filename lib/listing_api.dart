@@ -33,8 +33,9 @@ class ListingApi {
   /// 统一规范化 Supabase 返回：无论是 List 还是 {data: List}
   static List _rowsOf(dynamic resp) {
     if (resp is List) return resp;
-    if (resp is Map && resp['data'] is List)
+    if (resp is Map && resp['data'] is List) {
       return List.from(resp['data'] as List);
+    }
     return const <dynamic>[];
   }
 

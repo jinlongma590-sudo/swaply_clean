@@ -17,7 +17,6 @@ import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/listing_api.dart';
 import 'dart:async';
 import 'package:swaply/services/listing_events_bus.dart';
-import 'package:swaply/services/welcome_dialog_service.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -197,7 +196,7 @@ class _HomePageState extends State<HomePage>
     ]).timeout(const Duration(seconds: 15));
 
     final pinnedAds = results[0] as List;
-    final latest = results[1] as List<Map<String, dynamic>>;
+    final latest = results[1];
 
     final duration = DateTime.now().difference(startTime).inMilliseconds;
     debugPrint(

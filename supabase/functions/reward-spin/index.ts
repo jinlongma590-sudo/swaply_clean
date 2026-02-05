@@ -89,42 +89,35 @@ serve(async (req) => {
     // ------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------
-    async function addSpinsCAS(add: number): Promise<number> {
-      const maxRetry = 6;
-
-      for (let i = 0; i < maxRetry; i++) {
-        const { data: st, error: stErr } = await supabase
-          .from("user_reward_state")
-          .select("spins_balance")
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaignCode)
-          .maybeSingle();
-
-        if (stErr) throw new Error(`Failed to read spins for refund: ${stErr.message}`);
-
-        const oldSpins = Number(st?.spins_balance ?? 0);
-        const nextSpins = oldSpins + add;
-
-        const { data: upd, error: updErr } = await supabase
-          .from("user_reward_state")
-          .update({ spins_balance: nextSpins, updated_at: new Date().toISOString() })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaignCode)
-          .eq("spins_balance", oldSpins)
-          .select("spins_balance")
-          .maybeSingle();
-
-        if (!updErr && upd?.spins_balance != null) return Number(upd.spins_balance);
+    async function addSpinsAtomic(delta: number, reason: string): Promise<number> {
+      const { data, error } = await supabase.rpc("reward_add_spins", {
+        p_user: user.id,
+        p_campaign: campaignCode,
+        p_add: delta,
+      });
+      
+      if (error) {
+        console.error("[addSpinsAtomic] FAIL", {
+          userId: user.id,
+          campaign: campaignCode,
+          delta,
+          reason,
+          error
+        });
+        throw new Error(`addSpinsAtomic failed: ${error.message}`);
       }
+      
+      if (data == null) {
+        throw new Error("addSpinsAtomic returned null");
+      }
+      
+      return Number(data);
+    }
 
-      const { data: finalSt } = await supabase
-        .from("user_reward_state")
-        .select("spins_balance")
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaignCode)
-        .maybeSingle();
-
-      return Number(finalSt?.spins_balance ?? 0);
+    // ❌ 废弃的 CAS 函数，保留引用但标记为弃用
+    async function addSpinsCAS(add: number): Promise<number> {
+      console.error(`[DEPRECATED] addSpinsCAS called, use addSpinsAtomic instead`);
+      return await addSpinsAtomic(add, "legacy_addSpinsCAS");
     }
 
     async function finalizeRequest(result_type: string, result_payload: any) {
@@ -239,9 +232,13 @@ serve(async (req) => {
 
     if (st2Err) {
       // 这里已经扣了 spin，为避免用户“被扣但没结果”，尽量退款 + finalize
-      await addSpinsCAS(1);
-      await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refunded" });
-
+      try {
+        await addSpinsAtomic(1, "refund:state_read_error");
+        await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refunded" });
+      } catch (refundErr: any) {
+        await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
+        throw refundErr;
+      }
       throw new Error(`Failed to read user state after consume: ${st2Err.message}`);
     }
 
@@ -261,18 +258,26 @@ serve(async (req) => {
 
     if (poolErr) {
       // refund spin
-      latestSpins = await addSpinsCAS(1);
-      await finalizeRequest("none", { result_type: "none", reason: "pool_error_refunded" });
-
+      try {
+        latestSpins = await addSpinsAtomic(1, "refund:pool_error");
+        await finalizeRequest("none", { result_type: "none", reason: "pool_error_refunded" });
+      } catch (refundErr: any) {
+        await finalizeRequest("none", { result_type: "none", reason: "pool_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
+        throw refundErr;
+      }
       throw new Error(`Failed to load pool: ${poolErr.message}`);
     }
 
     const pool = (poolRows || []) as PoolRow[];
     if (!pool.length) {
       // refund spin
-      latestSpins = await addSpinsCAS(1);
-      await finalizeRequest("none", { result_type: "none", reason: "no_pool_refunded" });
-
+      try {
+        latestSpins = await addSpinsAtomic(1, "refund:no_pool");
+        await finalizeRequest("none", { result_type: "none", reason: "no_pool_refunded" });
+      } catch (refundErr: any) {
+        await finalizeRequest("none", { result_type: "none", reason: "no_pool_refund_failed", error: String(refundErr?.message ?? refundErr) });
+        throw refundErr;
+      }
       throw new Error("No pool configured");
     }
 
@@ -295,10 +300,13 @@ serve(async (req) => {
         });
 
         if (ptsErr) {
-          // refund spin
-          latestSpins = await addSpinsCAS(1);
-          await finalizeRequest("none", { result_type: "none", reason: "points_error_refunded" });
-
+          try {
+            await addSpinsAtomic(1, "refund:points_error");
+            await finalizeRequest("none", { result_type: "none", reason: "points_error_refunded" });
+          } catch (refundErr: any) {
+            await finalizeRequest("none", { result_type: "none", reason: "points_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
+            throw refundErr;
+          }
           throw new Error(`Failed to add points: ${ptsErr.message}`);
         }
 
@@ -340,9 +348,13 @@ serve(async (req) => {
 
       if (cErr || !couponId || typeof couponId !== "string") {
         // refund spin
-        latestSpins = await addSpinsCAS(1);
-        await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refunded" });
-
+        try {
+          latestSpins = await addSpinsAtomic(1, "refund:coupon_error");
+          await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refunded" });
+        } catch (refundErr: any) {
+          await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
+          throw refundErr;
+        }
         throw new Error(`Failed to issue coupon: ${cErr?.message ?? "coupon id missing"}`);
       }
 

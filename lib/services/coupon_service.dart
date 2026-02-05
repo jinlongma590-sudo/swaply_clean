@@ -68,7 +68,7 @@ class CouponService {
 
   /// ✅【关键】统一判断 RPC 是否成功：兼容 null / bool / Map(ok|success) / String(true)
   static bool _rpcOk(dynamic res) {
-    if (res == null) return true;
+    if (res == null) return false; // ❌ null 不再视为成功
     if (res is bool) return res == true;
     if (res is String) {
       final s = res.trim().toLowerCase();

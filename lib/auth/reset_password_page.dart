@@ -215,10 +215,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         String recoveryUrl;
         if (_refreshToken != null && _refreshToken!.isNotEmpty) {
           recoveryUrl =
-              '${kResetPasswordRedirectUri}#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
+              '$kResetPasswordRedirectUri#access_token=$_token&refresh_token=$_refreshToken&type=${_type ?? "recovery"}';
         } else {
           recoveryUrl =
-              '${kResetPasswordRedirectUri}#access_token=$_token&type=${_type ?? "recovery"}';
+              '$kResetPasswordRedirectUri#access_token=$_token&type=${_type ?? "recovery"}';
         }
 
         if (kDebugMode) {

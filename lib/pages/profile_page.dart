@@ -24,7 +24,6 @@ import 'package:swaply/services/auth_service.dart';
 import 'package:swaply/services/oauth_entry.dart';
 
 import 'package:swaply/widgets/verified_avatar.dart';
-import 'package:swaply/widgets/my_rewards_tile.dart';
 
 import 'package:swaply/pages/my_listings_page.dart';
 import 'package:swaply/pages/wishlist_page.dart';
@@ -34,12 +33,9 @@ import 'package:swaply/pages/account_settings_page.dart';
 import 'package:swaply/pages/verification_page.dart';
 import 'package:swaply/pages/reward_center_page.dart';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:provider/provider.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 
 import 'package:swaply/core/l10n/app_localizations.dart';
-import 'package:swaply/providers/language_provider.dart';
 
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
 const _kDeleteUrl = 'https://www.swaply.cc/delete-account';

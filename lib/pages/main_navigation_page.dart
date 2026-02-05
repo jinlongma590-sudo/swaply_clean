@@ -9,11 +9,9 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:swaply/core/l10n/app_localizations.dart';
@@ -25,7 +23,6 @@ import 'package:swaply/pages/sell_page.dart';
 import 'package:swaply/pages/profile_page.dart';
 
 import 'package:swaply/services/welcome_dialog_service.dart';
-import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/services/auth_flow_observer.dart';
 import 'package:swaply/services/notification_service.dart'; // ✅ [修复] 导入 NotificationService
 
@@ -35,7 +32,7 @@ class MainNavigationPage extends StatefulWidget {
   final bool isGuest;
   const MainNavigationPage({super.key, this.isGuest = false});
 
-  static bool _hasShownInitialLoading = false;
+  static final bool _hasShownInitialLoading = false;
 
   @override
   State<MainNavigationPage> createState() => _MainNavigationPageState();
@@ -48,7 +45,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   late AnimationController _sellButtonController;
   late Animation<double> _sellButtonAnimation;
 
-  bool _splitScreenMode = false;
+  final bool _splitScreenMode = false;
   bool _welcomeChecked = false;
 
   late AnimationController _loadingController;

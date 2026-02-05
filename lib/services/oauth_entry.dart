@@ -17,7 +17,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, ValueNotifier;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 // ✅ 统一回调配置（移动端/Web 端分离）
 import 'package:swaply/config/auth_config.dart';
@@ -265,9 +264,7 @@ class OAuthEntry {
     String? scopes,
     Map<String, dynamic>? queryParams,
   }) {
-    final qp = queryParams == null
-        ? null
-        : queryParams.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+    final qp = queryParams?.map((k, v) => MapEntry(k, v?.toString() ?? ''));
     return signIn(provider, scopes: scopes, queryParams: qp);
   }
 

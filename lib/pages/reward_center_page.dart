@@ -22,7 +22,9 @@
 // 20) ✅ coupon_usages 同时兼容 used_at / created_at：优先 used_at，缺失则用 created_at，并用"coalesce字段"映射 created_at
 // 21) ✅ GPT修复1: SpinSheet 本地状态管理(支持连续抽取,Sheet内数字实时更新)
 // 22) ✅ GPT修复2: isInitialLoading 判断修复(避免首屏闪空白)
+// 23) ✅ GPT修复3: 集成 flutter_fortune_wheel 转盘动画，严格匹配 SQL 奖池配置
 
+import 'dart:async'; // 新增
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +37,9 @@ import 'package:swaply/pages/sell_form_page.dart';
 import 'package:flutter/services.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:uuid/uuid.dart';
+// 新增依赖库
+import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
+import 'package:rxdart/rxdart.dart';
 
 class RewardCenterPage extends StatefulWidget {
   final int initialTab;
@@ -121,7 +126,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
 
     // 只含 ASCII + 常见分隔符 等"安全字符"——直接返回,避免误修
     final safe =
-        RegExp(r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
+    RegExp(r'^[\x00-\x7F\u00B7\u2022\s\.\,\;\:\!\?\-_/()\[\]&\+\%]*$');
     if (safe.hasMatch(s)) return s;
 
     // 只有出现这些"明显乱码痕迹"时才尝试修复
@@ -219,96 +224,96 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     _couponChannel = client
         .channel('rewards-coupons-${user.id}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'coupons',
-          filter: PostgresChangeFilter(
-            column: 'user_id',
-            type: PostgresChangeFilterType.eq,
-            value: user.id,
-          ),
-          callback: (_) {
-            _loadRewardCoupons();
-            _loadRewardStats();
-          },
-        )
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'coupons',
+      filter: PostgresChangeFilter(
+        column: 'user_id',
+        type: PostgresChangeFilterType.eq,
+        value: user.id,
+      ),
+      callback: (_) {
+        _loadRewardCoupons();
+        _loadRewardStats();
+      },
+    )
         .subscribe();
 
     // ✅ coupon_usages(历史/统计变化 -> 立即刷新)
     _logsChannel = client
         .channel('rewards-logs-${user.id}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'coupon_usages',
-          filter: PostgresChangeFilter(
-            column: 'user_id',
-            type: PostgresChangeFilterType.eq,
-            value: user.id,
-          ),
-          callback: (_) {
-            _loadRewardHistory();
-            _loadRewardStats();
-          },
-        )
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'coupon_usages',
+      filter: PostgresChangeFilter(
+        column: 'user_id',
+        type: PostgresChangeFilterType.eq,
+        value: user.id,
+      ),
+      callback: (_) {
+        _loadRewardHistory();
+        _loadRewardStats();
+      },
+    )
         .subscribe();
 
     // user_tasks(任务进度)
     _taskChannel = client
         .channel('rewards-tasks-${user.id}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'user_tasks',
-          filter: PostgresChangeFilter(
-            column: 'user_id',
-            type: PostgresChangeFilterType.eq,
-            value: user.id,
-          ),
-          callback: (_) async {
-            await _loadTasks();
-            await _loadRewardStats();
-          },
-        )
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'user_tasks',
+      filter: PostgresChangeFilter(
+        column: 'user_id',
+        type: PostgresChangeFilterType.eq,
+        value: user.id,
+      ),
+      callback: (_) async {
+        await _loadTasks();
+        await _loadRewardStats();
+      },
+    )
         .subscribe();
 
     // referrals(邀请关系状态变化 -> 刷新统计/奖励券/历史)
     _referralChannel = client
         .channel('rewards-referrals-${user.id}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'referrals',
-          filter: PostgresChangeFilter(
-            column: 'inviter_id',
-            type: PostgresChangeFilterType.eq,
-            value: user.id,
-          ),
-          callback: (_) async {
-            await _loadRewardStats();
-            await _loadRewardCoupons();
-            await _loadRewardHistory();
-            await _loadRewardState(); // ✅ 新增
-          },
-        )
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'referrals',
+      filter: PostgresChangeFilter(
+        column: 'inviter_id',
+        type: PostgresChangeFilterType.eq,
+        value: user.id,
+      ),
+      callback: (_) async {
+        await _loadRewardStats();
+        await _loadRewardCoupons();
+        await _loadRewardHistory();
+        await _loadRewardState(); // ✅ 新增
+      },
+    )
         .subscribe();
 
     // ✅ Reward State(Points / Spins)
     _rewardStateChannel = client
         .channel('reward-state-${user.id}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'user_reward_state',
-          filter: PostgresChangeFilter(
-            column: 'user_id',
-            type: PostgresChangeFilterType.eq,
-            value: user.id,
-          ),
-          callback: (_) {
-            _loadRewardState();
-          },
-        )
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'user_reward_state',
+      filter: PostgresChangeFilter(
+        column: 'user_id',
+        type: PostgresChangeFilterType.eq,
+        value: user.id,
+      ),
+      callback: (_) {
+        _loadRewardState();
+      },
+    )
         .subscribe();
   }
 
@@ -399,7 +404,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       usages = await supabase
           .from('coupon_usages')
           .select(
-              'id,coupon_id,user_id,listing_id,used_at,created_at,note,context')
+          'id,coupon_id,user_id,listing_id,used_at,created_at,note,context')
           .eq('user_id', user.id)
           .order('used_at', ascending: false);
     } catch (_) {
@@ -639,15 +644,15 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                   child: IconButton(
                     icon: _isRefreshing
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                         : const Icon(Icons.refresh,
-                            color: Colors.white, size: 24),
+                        color: Colors.white, size: 24),
                     onPressed: _isRefreshing ? null : _refreshData,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -706,13 +711,13 @@ class _RewardCenterPageState extends State<RewardCenterPage>
           alignment: Alignment.center,
           child: _isRefreshing
               ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
               : const Icon(Icons.refresh, color: Colors.white, size: 18),
         ),
       ),
@@ -799,16 +804,16 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             child: isInitialLoading
                 ? _buildLoadingState()
                 : FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildActiveTasksTab(),
-                        _buildRewardCouponsTab(),
-                        _buildHistoryTab(),
-                      ],
-                    ),
-                  ),
+              opacity: _fadeAnimation,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildActiveTasksTab(),
+                  _buildRewardCouponsTab(),
+                  _buildHistoryTab(),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -964,7 +969,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                     value: progress,
                     backgroundColor: Colors.white.withOpacity(0.3),
                     valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.white),
+                    const AlwaysStoppedAnimation<Color>(Colors.white),
                     minHeight: 4.h,
                   ),
                 ),
@@ -984,23 +989,23 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             ),
             child: _isRedeeming
                 ? SizedBox(
-                    width: 16.r,
-                    height: 16.r,
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF4CAF50),
-                    ),
-                  )
+              width: 16.r,
+              height: 16.r,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF4CAF50),
+              ),
+            )
                 : Text(
-                    'Redeem',
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      color: canRedeem
-                          ? const Color(0xFF4CAF50)
-                          : Colors.white.withOpacity(0.7),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              'Redeem',
+              style: TextStyle(
+                fontSize: 13.sp,
+                color: canRedeem
+                    ? const Color(0xFF4CAF50)
+                    : Colors.white.withOpacity(0.7),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -1093,21 +1098,21 @@ class _RewardCenterPageState extends State<RewardCenterPage>
             ),
             child: _isSpinning
                 ? SizedBox(
-                    width: 16.r,
-                    height: 16.r,
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF1976D2),
-                    ),
-                  )
+              width: 16.r,
+              height: 16.r,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF1976D2),
+              ),
+            )
                 : Text(
-                    'Spin Now',
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      color: const Color(0xFF2196F3),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              'Spin Now',
+              style: TextStyle(
+                fontSize: 13.sp,
+                color: const Color(0xFF2196F3),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -1210,7 +1215,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
                   child: const CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+                    AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
                   ),
                 ),
                 SizedBox(height: 16.h),
@@ -1238,22 +1243,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: activeTasks.isEmpty
           ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(20.r),
-              children: [
-                _buildEmptyState(
-                  icon: Icons.assignment_outlined,
-                  title: 'No Active Tasks',
-                  subtitle: 'Complete daily activities to earn rewards',
-                ),
-              ],
-            )
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(20.r),
+        children: [
+          _buildEmptyState(
+            icon: Icons.assignment_outlined,
+            title: 'No Active Tasks',
+            subtitle: 'Complete daily activities to earn rewards',
+          ),
+        ],
+      )
           : ListView.builder(
-              padding: EdgeInsets.all(20.r),
-              itemCount: activeTasks.length,
-              itemBuilder: (context, index) =>
-                  _buildTaskCard(activeTasks[index], index),
-            ),
+        padding: EdgeInsets.all(20.r),
+        itemCount: activeTasks.length,
+        itemBuilder: (context, index) =>
+            _buildTaskCard(activeTasks[index], index),
+      ),
     );
   }
 
@@ -1263,22 +1268,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: _rewardCoupons.isEmpty
           ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(20.r),
-              children: [
-                _buildEmptyState(
-                  icon: Icons.card_giftcard_outlined,
-                  title: 'No Reward Coupons',
-                  subtitle: 'Complete tasks to earn reward coupons',
-                ),
-              ],
-            )
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(20.r),
+        children: [
+          _buildEmptyState(
+            icon: Icons.card_giftcard_outlined,
+            title: 'No Reward Coupons',
+            subtitle: 'Complete tasks to earn reward coupons',
+          ),
+        ],
+      )
           : ListView.builder(
-              padding: EdgeInsets.all(20.r),
-              itemCount: _rewardCoupons.length,
-              itemBuilder: (context, index) =>
-                  _buildRewardCouponCard(_rewardCoupons[index], index),
-            ),
+        padding: EdgeInsets.all(20.r),
+        itemCount: _rewardCoupons.length,
+        itemBuilder: (context, index) =>
+            _buildRewardCouponCard(_rewardCoupons[index], index),
+      ),
     );
   }
 
@@ -1288,22 +1293,22 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       color: const Color(0xFF4CAF50),
       child: _rewardHistory.isEmpty
           ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(20.r),
-              children: [
-                _buildEmptyState(
-                  icon: Icons.history_outlined,
-                  title: 'No History Records',
-                  subtitle: 'Your reward history will appear here',
-                ),
-              ],
-            )
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(20.r),
+        children: [
+          _buildEmptyState(
+            icon: Icons.history_outlined,
+            title: 'No History Records',
+            subtitle: 'Your reward history will appear here',
+          ),
+        ],
+      )
           : ListView.builder(
-              padding: EdgeInsets.all(20.r),
-              itemCount: _rewardHistory.length,
-              itemBuilder: (context, index) =>
-                  _buildHistoryCard(_rewardHistory[index], index),
-            ),
+        padding: EdgeInsets.all(20.r),
+        itemCount: _rewardHistory.length,
+        itemBuilder: (context, index) =>
+            _buildHistoryCard(_rewardHistory[index], index),
+      ),
     );
   }
 
@@ -1428,7 +1433,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
   Widget _buildRewardCouponCard(CouponModel coupon, int index) {
     final fixedTitle = _normalizeSeparators(_fixUtf8Mojibake(coupon.title));
     final fixedDesc =
-        _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
+    _normalizeSeparators(_fixUtf8Mojibake(coupon.description));
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -1555,7 +1560,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
     );
 
     final rawReason =
-        (reward['reward_reason'] ?? '').toString().trim().toLowerCase();
+    (reward['reward_reason'] ?? '').toString().trim().toLowerCase();
 
     String prettyReason(String raw, String? type) {
       if (raw.isEmpty || raw == 'app' || raw == 'system' || raw == 'auto') {
@@ -1756,7 +1761,7 @@ class _RewardCenterPageState extends State<RewardCenterPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content:
-              const Text('✅ Redemption submitted! We will contact you soon.'),
+          const Text('✅ Redemption submitted! We will contact you soon.'),
           backgroundColor: Colors.green[700],
         ),
       );
@@ -1960,8 +1965,10 @@ class _RewardCenterPageState extends State<RewardCenterPage>
 }
 
 // ============================================================
-// ✅ 独立 SpinSheet(接入真实 reward-spin Edge Function，完全对齐后端返回)
-// ✅ GPT修复1: 添加本地状态管理，支持连续抽取，Sheet内数字实时更新
+// ✅ 独立 SpinSheet: 集成 flutter_fortune_wheel 转盘动画
+// ✅ 严格匹配 SQL 奖池配置 (6个扇区)
+// ============================================================
+// ✅ 简洁清晰转盘 - 去除所有图标，文字优先显示
 // ============================================================
 class _SpinSheet extends StatefulWidget {
   final int airtimePoints;
@@ -1971,6 +1978,7 @@ class _SpinSheet extends StatefulWidget {
   final Future<void> Function() onAfterSpin;
 
   const _SpinSheet({
+    super.key,
     required this.airtimePoints,
     required this.spins,
     required this.qualifiedCount,
@@ -1982,242 +1990,624 @@ class _SpinSheet extends StatefulWidget {
   State<_SpinSheet> createState() => _SpinSheetState();
 }
 
-class _SpinSheetState extends State<_SpinSheet> {
-  bool _busy = false;
-
-  // ✅ GPT修复1: 添加本地状态
+class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
+  final StreamController<int> _selected = BehaviorSubject<int>();
+  bool _isSpinning = false;
   late int _localSpins;
   late int _localPoints;
-  late int _localQualified;
-  late String _localLoopText;
+  String? _pendingTitle;
+  String? _pendingMessage;
+
+  // 🎨 配色方案
+  static const Color kPrimaryGreen = Color(0xFF4CAF50);
+  static const Color kDarkGreen = Color(0xFF2E7D32);
+  static const Color kAccentGreen = Color(0xFF66BB6A);
+
+  // 转盘扇区配色
+  static const List<List<Color>> kSliceGradients = [
+    [Color(0xFF4CAF50), Color(0xFF66BB6A)], // 5 Points
+    [Color(0xFF2196F3), Color(0xFF42A5F5)], // Category
+    [Color(0xFF43A047), Color(0xFF66BB6A)], // 10 Points
+    [Color(0xFFFF6F00), Color(0xFFFF8F00)], // Search
+    [Color(0xFF616161), Color(0xFF9E9E9E)], // Try Again
+    [Color(0xFFD81B60), Color(0xFFEC407A)], // Trending
+  ];
+
+  // 🎯 奖品配置 - 只保留文字
+  final List<_WheelItem> _items = [
+    _WheelItem(mainText: '5', subText: 'POINTS', type: 'points', value: 5),
+    _WheelItem(mainText: 'CAT', subText: 'BOOST', type: 'boost', scope: 'category'),
+    _WheelItem(mainText: '10', subText: 'POINTS', type: 'points', value: 10),
+    _WheelItem(mainText: 'SEARCH', subText: 'BOOST', type: 'boost', scope: 'search'),
+    _WheelItem(mainText: 'TRY', subText: 'AGAIN', type: 'none', value: 0),
+    _WheelItem(mainText: 'TREND', subText: 'BOOST', type: 'boost', scope: 'trending'),
+  ];
 
   @override
   void initState() {
     super.initState();
-    // ✅ GPT修复1: 初始化本地状态
     _localSpins = widget.spins;
     _localPoints = widget.airtimePoints;
-    _localQualified = widget.qualifiedCount;
-    _localLoopText = widget.loopProgressText;
+  }
+
+  @override
+  void dispose() {
+    _selected.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottom),
-        child: Container(
-          margin: EdgeInsets.all(12.w),
-          padding: EdgeInsets.all(16.w),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
+    return Container(
+      height: 650.h,
+      margin: EdgeInsets.only(bottom: bottom),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32.r)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          SizedBox(height: 12.h),
+
+          // 顶部把手
+          Container(
+            width: 40.w,
+            height: 5.h,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(3.r),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          SizedBox(height: 20.h),
+
+          // 标题栏
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // handle
+              SizedBox(width: 48.w),
               Container(
-                width: 44.w,
-                height: 4.h,
-                margin: EdgeInsets.only(bottom: 12.h),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(999),
+                  color: kPrimaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(color: kPrimaryGreen.withOpacity(0.3)),
+                ),
+                child: Text(
+                  'SPIN & WIN',
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900,
+                    color: kPrimaryGreen,
+                    letterSpacing: 2.0,
+                  ),
                 ),
               ),
-              Row(
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Container(
+                  padding: EdgeInsets.all(6.r),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, color: Colors.grey[700], size: 20.r),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 16.h),
+
+          // 状态卡片
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 24.w),
+              decoration: BoxDecoration(
+                color: kPrimaryGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(color: kPrimaryGreen.withOpacity(0.2), width: 1.5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Text(
-                    'Spin & Win',
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                  _buildStatCard('AVAILABLE SPINS', '$_localSpins', kPrimaryGreen),
+                  Container(
+                    width: 1.5,
+                    height: 30.h,
+                    color: kPrimaryGreen.withOpacity(0.3),
+                  ),
+                  _buildStatCard('AIRTIME POINTS', '$_localPoints', const Color(0xFFFF6F00)),
+                ],
+              ),
+            ),
+          ),
+
+          if (widget.loopProgressText.trim().isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: 12.h),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: kAccentGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(color: kAccentGreen.withOpacity(0.3)),
+                ),
+                child: Text(
+                  widget.loopProgressText.trim(),
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    color: kDarkGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
+          SizedBox(height: 20.h),
+
+          // 🎯 转盘区域 - 纯文字，无遮挡
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 30.r),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 外圈装饰
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: kPrimaryGreen.withOpacity(0.2),
+                        width: 4.r,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
+
+                  // 转盘主体
+                  Container(
+                    margin: EdgeInsets.all(8.r),
+                    child: FortuneWheel(
+                      selected: _selected.stream,
+                      animateFirst: false,
+                      physics: CircularPanPhysics(
+                        duration: const Duration(milliseconds: 4500),
+                        curve: Curves.decelerate,
+                      ),
+                      onAnimationEnd: _handleAnimationEnd,
+                      indicators: <FortuneIndicator>[
+                        FortuneIndicator(
+                          alignment: Alignment.topCenter,
+                          child: Transform.translate(
+                            offset: const Offset(0, -10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kPrimaryGreen.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: TriangleIndicator(
+                                color: kPrimaryGreen,
+                                width: 28,
+                                height: 32,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      items: List.generate(_items.length, (index) {
+                        final item = _items[index];
+                        final gradient = kSliceGradients[index];
+
+                        return FortuneItem(
+                          child: Container(
+                            padding: EdgeInsets.only(bottom: 20.r),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // 主文字 - 加大字号，确保清晰
+                                Text(
+                                  item.mainText,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 20.sp,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: 1.0,
+                                    height: 1.1,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 4.h),
+                                // 副文字
+                                Text(
+                                  item.subText,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white.withOpacity(0.95),
+                                    letterSpacing: 0.8,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          style: FortuneItemStyle(
+                            color: gradient[0],
+                            borderColor: Colors.white,
+                            borderWidth: 3.r,
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+
+                  // 中心按钮
+                  GestureDetector(
+                    onTap: _isSpinning ? null : _spinLogic,
+                    child: Container(
+                      width: 85.r,
+                      height: 85.r,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: _isSpinning
+                              ? [Colors.grey[300]!, Colors.grey[400]!]
+                              : [kAccentGreen, kPrimaryGreen, kDarkGreen],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _isSpinning
+                                ? Colors.grey.withOpacity(0.3)
+                                : kPrimaryGreen.withOpacity(0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Container(
+                        margin: EdgeInsets.all(3.r),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: Container(
+                          margin: EdgeInsets.all(6.r),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: _isSpinning
+                                  ? [Colors.grey[300]!, Colors.grey[400]!]
+                                  : [kPrimaryGreen, kDarkGreen],
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: _isSpinning
+                              ? SizedBox(
+                            width: 28.r,
+                            height: 28.r,
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3.5,
+                            ),
+                          )
+                              : Text(
+                            'SPIN',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15.sp,
+                              color: Colors.white,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 6.h),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  // ✅ GPT修复1: 使用本地状态显示
-                  'Spins: $_localSpins  •  Points: $_localPoints',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (_localLoopText.trim().isNotEmpty) ...[
-                SizedBox(height: 6.h),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _localLoopText.trim(),
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ),
-              ],
-              SizedBox(height: 20.h),
-
-              // Spin action
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _busy ? null : _spinOnce,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2196F3),
-                    padding: EdgeInsets.symmetric(vertical: 14.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
-                  child: _busy
-                      ? SizedBox(
-                          width: 20.r,
-                          height: 20.r,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          'Spin Now',
-                          style: TextStyle(
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
-
-              SizedBox(height: 10.h),
-              Text(
-                'Tap to spin and win rewards!',
-                style: TextStyle(fontSize: 11.sp, color: Colors.grey[600]),
-              ),
-              SizedBox(height: 6.h),
-            ],
+            ),
           ),
-        ),
+
+          SizedBox(height: 16.h),
+
+          // 底部按钮
+          Padding(
+            padding: EdgeInsets.fromLTRB(24.r, 0, 24.r, 24.r),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: kPrimaryGreen.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: _isSpinning ? null : _spinLogic,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                ),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _isSpinning
+                          ? [Colors.grey[300]!, Colors.grey[400]!]
+                          : [kPrimaryGreen, kDarkGreen],
+                    ),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: EdgeInsets.symmetric(vertical: 18.h),
+                    child: _isSpinning
+                        ? SizedBox(
+                      width: 24.r,
+                      height: 24.r,
+                      child: const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                        : Text(
+                      'SPIN NOW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17.sp,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ✅ 接入真实的 reward-spin Edge Function（对齐你现在的后端：spins_left/airtime_points/qualified_count/reward）
-  // ✅ GPT修复1: spin成功后立即更新本地状态
-  Future<void> _spinOnce() async {
-    if (_busy) return;
-    setState(() => _busy = true);
+  Widget _buildStatCard(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey[600],
+            letterSpacing: 0.5,
+          ),
+        ),
+        SizedBox(height: 6.h),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===== 核心逻辑保持不变 =====
+  Future<void> _spinLogic() async {
+    if (_isSpinning) return;
+    if (_localSpins <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No spins left!'),
+          backgroundColor: Colors.orange[700],
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSpinning = true);
 
     try {
       final supabase = Supabase.instance.client;
-
-      // ✅ 幂等 request_id:一次点击一个
       final requestId = const Uuid().v4();
 
       final res = await supabase.functions.invoke(
         'reward-spin',
-        body: {
-          'campaign_code': 'launch_v1',
-          'request_id': requestId,
-          // listing_id / device_id 可选：Reward Center 场景可不传
-        },
+        body: {'campaign_code': 'launch_v1', 'request_id': requestId},
       );
 
-      final data = (res.data is Map)
-          ? Map<String, dynamic>.from(res.data as Map)
-          : <String, dynamic>{};
+      final data = (res.data is Map) ? Map<String, dynamic>.from(res.data as Map) : <String, dynamic>{};
 
-      // 后端在 no_spins 时会返回 ok:false reason:no_spins status=200
-      final ok = data['ok'] == true;
-      if (!ok) {
-        final reason =
-            (data['reason'] ?? data['error'] ?? 'spin failed').toString();
-        throw Exception(reason);
+      if (data['ok'] != true) {
+        throw Exception(data['reason'] ?? data['error'] ?? 'Spin failed');
       }
-
-      // ✅ GPT修复1: 用后端回包即时更新 Sheet 内显示（关键）
-      final spinsLeft = (data['spins_left'] as num?)?.toInt();
-      final points = (data['airtime_points'] as num?)?.toInt();
-      final qualified = (data['qualified_count'] as num?)?.toInt();
 
       if (mounted) {
         setState(() {
-          if (spinsLeft != null) _localSpins = spinsLeft;
-          if (points != null) _localPoints = points;
-          if (qualified != null) _localQualified = qualified;
+          _localSpins = (data['spins_left'] as num?)?.toInt() ?? _localSpins;
+          _localPoints = (data['airtime_points'] as num?)?.toInt() ?? _localPoints;
         });
       }
 
-      final reward = (data['reward'] is Map)
-          ? Map<String, dynamic>.from(data['reward'] as Map)
-          : <String, dynamic>{};
-
-      // 后端 rewardPayload 一定带 result_type
-      final resultType = (reward['result_type'] ?? 'none').toString();
-
-      String title;
-      String message;
+      final reward = Map<String, dynamic>.from(data['reward'] ?? {});
+      final resultType = reward['result_type']?.toString() ?? 'none';
+      int targetIndex = 4;
 
       if (resultType == 'airtime_points') {
-        final pts = reward['points'] ?? 0;
-        final newPts = reward['new_points'] ?? _localPoints;
-        title = '🎉 Airtime Points';
-        message = '+$pts points (now: $newPts)';
+        final pts = (reward['points'] as num?)?.toInt() ?? 0;
+        final idx = _items.indexWhere((item) => item.type == 'points' && item.value == pts);
+        if (idx != -1) targetIndex = idx;
+        _pendingTitle = 'Points Earned!';
+        _pendingMessage = 'You earned +$pts Airtime Points!';
       } else if (resultType == 'boost_coupon') {
-        // 你后端返回：pin_scope / pin_days / coupon_id
-        final pinDays = reward['pin_days'] ?? '';
-        final scope = reward['pin_scope'] ?? '';
-        title = '🎁 Boost Coupon';
-        message = '$pinDays days • $scope';
+        final scope = (reward['pin_scope'] ?? '').toString();
+        final days = (reward['pin_days'] as num?)?.toInt() ?? 3;
+        final idx = _items.indexWhere((item) => item.type == 'boost' && item.scope == scope);
+        if (idx != -1) targetIndex = idx;
+        _pendingTitle = 'Boost Unlocked!';
+        _pendingMessage = 'You got $days Days ${scope.toUpperCase()} Boost!';
       } else {
-        title = 'No reward';
-        message = 'Better luck next time!';
+        final idx = _items.indexWhere((item) => item.type == 'none');
+        if (idx != -1) targetIndex = idx;
+        _pendingTitle = 'Try Again';
+        _pendingMessage = 'Better luck next time!';
       }
 
-      if (!mounted) return;
+      _selected.add(targetIndex);
+    } catch (e) {
+      setState(() => _isSpinning = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Spin failed: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
 
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+  void _handleAnimationEnd() async {
+    setState(() => _isSpinning = false);
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+        backgroundColor: Colors.white,
+        contentPadding: EdgeInsets.all(24.r),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16.r),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kAccentGreen, kPrimaryGreen],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _pendingTitle!.contains('Earned') || _pendingTitle!.contains('Unlocked')
+                    ? Icons.celebration_outlined
+                    : Icons.refresh,
+                color: Colors.white,
+                size: 36.r,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Text(
+              _pendingTitle ?? '',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 20.sp,
+                color: kDarkGreen,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              _pendingMessage ?? '',
+              style: TextStyle(
+                fontSize: 15.sp,
+                height: 1.5,
+                color: Colors.grey[700],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24.h),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kAccentGreen, kPrimaryGreen, kDarkGreen],
+                ),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'AWESOME!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16.sp,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
-      );
+      ),
+    );
 
-      // ✅ 刷新 Reward Center:points / spins / coupons / history / stats
-      await widget.onAfterSpin();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Spin failed: $e'),
-          backgroundColor: Colors.red[700],
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await widget.onAfterSpin();
   }
+}
+
+class _WheelItem {
+  final String mainText;
+  final String subText;
+  final String type;
+  final int? value;
+  final String? scope;
+
+  _WheelItem({
+    required this.mainText,
+    required this.subText,
+    required this.type,
+    this.value,
+    this.scope,
+  });
 }

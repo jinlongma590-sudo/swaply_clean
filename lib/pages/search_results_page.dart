@@ -131,7 +131,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
       final pinnedCount = _items.where((item) => item['pinned'] == true).length;
       debugPrint(
-          '[SearchResults] ✅ Final list: ${_items.length} items (${pinnedCount} pinned)');
+          '[SearchResults] ✅ Final list: ${_items.length} items ($pinnedCount pinned)');
     } catch (e, stackTrace) {
       debugPrint('[SearchResults] ❌ ERROR: $e');
       debugPrint('[SearchResults] ❌ Stack: $stackTrace');

@@ -184,43 +184,36 @@ serve(async (req) => {
 
     // -------------------- helpers --------------------
 
-    // ✅ CAS 安全加 spin：重试避免并发丢更新
-    async function addSpinsCAS(add: number): Promise<number> {
-      const maxRetry = 6;
-
-      for (let i = 0; i < maxRetry; i++) {
-        const { data: st, error: stErr } = await supabase
-          .from("user_reward_state")
-          .select("spins_balance")
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
-          .maybeSingle();
-
-        if (stErr) throw new Error(`Failed to read spins: ${stErr.message}`);
-
-        const oldSpins = Number(st?.spins_balance ?? 0);
-        const nextSpins = oldSpins + add;
-
-        const { data: upd, error: updErr } = await supabase
-          .from("user_reward_state")
-          .update({ spins_balance: nextSpins, updated_at: new Date().toISOString() })
-          .eq("user_id", user.id)
-          .eq("campaign_code", campaign.code)
-          .eq("spins_balance", oldSpins)
-          .select("spins_balance")
-          .maybeSingle();
-
-        if (!updErr && upd?.spins_balance != null) return Number(upd.spins_balance);
+    // ✅ 原子增加 spins：调用数据库原子 RPC，失败抛异常
+    async function addSpinsAtomic(delta: number, reason: string): Promise<number> {
+      const { data, error } = await supabase.rpc("reward_add_spins", {
+        p_user: user.id,
+        p_campaign: campaign.code,
+        p_add: delta,
+      });
+      
+      if (error) {
+        console.error("[addSpinsAtomic] FAIL", {
+          userId: user.id,
+          campaign: campaign.code,
+          delta,
+          reason,
+          error
+        });
+        throw new Error(`addSpinsAtomic failed: ${error.message}`);
       }
+      
+      if (data == null) {
+        throw new Error("addSpinsAtomic returned null");
+      }
+      
+      return Number(data);
+    }
 
-      const { data: finalSt } = await supabase
-        .from("user_reward_state")
-        .select("spins_balance")
-        .eq("user_id", user.id)
-        .eq("campaign_code", campaign.code)
-        .maybeSingle();
-
-      return Number(finalSt?.spins_balance ?? 0);
+    // ❌ 废弃的 CAS 函数，保留引用但标记为弃用
+    async function addSpinsCAS(add: number): Promise<number> {
+      console.error(`[DEPRECATED] addSpinsCAS called, use addSpinsAtomic instead`);
+      return await addSpinsAtomic(add, "legacy_addSpinsCAS");
     }
 
     async function issueCoupon(scope: "category" | "search" | "trending", pinDays: number, triggerN: number) {
@@ -317,7 +310,7 @@ serve(async (req) => {
           trigger_n: triggerN,
           listing_id,
           result_type: "spin", // ✅ 必须是 spin
-          result_payload: { spins: add, reason },
+          result_payload: { spins: add, reason, status: "pending" }, // 标记为pending
         })
         .select("id")
         .maybeSingle();
@@ -331,14 +324,35 @@ serve(async (req) => {
       }
 
       if (entryRow?.id) {
-        const newSpins = await addSpinsCAS(add);
-        // 可选：把 new_spins 写回 entry 便于审计
-        await supabase
-          .from("reward_entries")
-          .update({ result_payload: { spins: add, new_spins: newSpins, reason } })
-          .eq("id", entryRow.id);
+        try {
+          const newSpins = await addSpinsAtomic(add, reason);
+          // 更新为成功状态
+          await supabase
+            .from("reward_entries")
+            .update({ 
+              result_payload: { spins: add, new_spins: newSpins, reason, status: "completed" }
+            })
+            .eq("id", entryRow.id);
 
-        return { granted: true, spins_added: add, trigger_n: triggerN, spins_balance_after: newSpins };
+          return { granted: true, spins_added: add, trigger_n: triggerN, spins_balance_after: newSpins };
+        } catch (spinError) {
+          // addSpinsAtomic失败，标记reward_entries记录为失败
+          console.error(`[grantSpinOnce] Failed to add spins after inserting entry: ${spinError}`, {
+            userId: user.id,
+            campaign: campaign.code,
+            triggerN,
+            entryId: entryRow.id
+          });
+          
+          await supabase
+            .from("reward_entries")
+            .update({ 
+              result_payload: { spins: add, reason, status: "failed", error: String(spinError) }
+            })
+            .eq("id", entryRow.id);
+          
+          throw new Error(`Spin grant failed after entry recorded: ${spinError}`);
+        }
       }
 
       return { granted: false, spins_added: 0, trigger_n: triggerN };

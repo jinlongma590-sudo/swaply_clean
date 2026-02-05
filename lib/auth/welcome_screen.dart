@@ -11,9 +11,6 @@ import 'package:swaply/router/root_nav.dart';
 // ✅ 通过 Service 统一处理欢迎优惠券弹窗（内部会构造 couponData / 去重等）
 import 'package:swaply/services/welcome_dialog_service.dart';
 
-import 'login_screen.dart';
-import 'register_screen.dart';
-
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 

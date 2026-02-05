@@ -15,7 +15,7 @@ class CouponPinningApi {
     if (res is List && res.isNotEmpty) {
       final first = res.first;
       if (first is Map) {
-        return Map<String, dynamic>.from(first as Map);
+        return Map<String, dynamic>.from(first);
       }
     }
 
@@ -76,12 +76,9 @@ class CouponPinningApi {
           .gte('expires_at', now)
           .order('created_at', ascending: false);
 
-      if (response is! List) return [];
-
       final valid = <Map<String, dynamic>>[];
 
       for (final coupon in response) {
-        if (coupon is! Map) continue; // ✅ 类型保护
         final m = Map<String, dynamic>.from(coupon);
 
         final usedCount = (m['used_count'] as int?) ?? 0;
