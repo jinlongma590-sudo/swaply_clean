@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 class EmailVerificationService {
   final SupabaseClient _sb = Supabase.instance.client;
@@ -106,7 +107,7 @@ class EmailVerificationService {
       if (ok) {
         final nowIso = DateTime.now().toUtc().toIso8601String();
         try {
-          final rpc = await _sb.rpc('upsert_user_verification', params: {
+          final rpc = await EdgeFunctionsClient.instance.rpcProxy('upsert_user_verification', params: {
             'p_user_id': uid,
             'p_email': email.trim(),
             'p_verified_at': nowIso,
@@ -146,7 +147,7 @@ class EmailVerificationService {
   }
 
   // ---------------- 查询认证行 ----------------
-  /// 读取“本人”的 user_verifications 单行（RLS：仅本人可读）
+  /// 读取"本人"的 user_verifications 单行（RLS：仅本人可读）
   Future<Map<String, dynamic>?> fetchVerificationRow() async {
     final uid = _sb.auth.currentUser?.id;
     if (uid == null) return null;
@@ -169,23 +170,17 @@ class EmailVerificationService {
     }
   }
 
-  /// 公开读取“任意用户（卖家）”的认证展示字段（通过 SECURITY DEFINER RPC）
+  /// 公开读取"任意用户（卖家）"的认证展示字段（通过 Edge Function RPC 代理）
   Future<Map<String, dynamic>?> fetchPublicVerification(String userId) async {
     try {
-      final dynamic row = await _sb.rpc('get_user_verification_public',
-          params: {'target': userId}).maybeSingle();
-
-      return _asMap(row);
-    } catch (_) {
-      try {
-        final dynamic row = await _sb.rpc('get_user_verification_public',
-            params: {'target': userId}).single();
-        return _asMap(row);
-      } catch (e) {
-        // ignore: avoid_print
-        print('[EV] fetchPublicVerification error: $e');
-        return null;
-      }
+      final dynamic result = await EdgeFunctionsClient.instance.rpcProxy('get_user_verification_public',
+          params: {'target': userId});
+      // rpcProxy 返回的是 RPC 的直接结果，可能是 null、Map 或 List
+      return _asMap(result);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[EV] fetchPublicVerification error: $e');
+      return null;
     }
   }
 

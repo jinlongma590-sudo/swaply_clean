@@ -5,6 +5,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/models/offer.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 /// ===== 顶层声明：屏蔽状态 =====
 class BlockStatus {
@@ -432,17 +433,16 @@ class OfferService {
         try {
           final buyerId = offerMap['buyer_id'];
           if (buyerId != null) {
-            final profile = await _client
-                .from('profiles')
-                .select('full_name, avatar_url, phone')
-                .eq('id', buyerId)
-                .maybeSingle();
-            if (profile != null) {
-              offerMap['buyer_profiles'] = profile;
+            final response = await EdgeFunctionsClient.instance.call(
+              'get-user-contact',
+              body: {'user_id': buyerId},
+            );
+            if (response is Map && response['ok'] == true && response['data'] != null) {
+              offerMap['buyer_profiles'] = response['data'];
             }
           }
         } catch (e) {
-          _debugPrint('Error fetching buyer profile: $e');
+          _debugPrint('Error fetching buyer profile via Edge Function: $e');
         }
 
         enrichedOffers.add(offerMap);
@@ -508,17 +508,16 @@ class OfferService {
         try {
           final sellerId = offerMap['seller_id'];
           if (sellerId != null) {
-            final profile = await _client
-                .from('profiles')
-                .select('full_name, avatar_url, phone')
-                .eq('id', sellerId)
-                .maybeSingle();
-            if (profile != null) {
-              offerMap['seller_profiles'] = profile;
+            final response = await EdgeFunctionsClient.instance.call(
+              'get-user-contact',
+              body: {'user_id': sellerId},
+            );
+            if (response is Map && response['ok'] == true && response['data'] != null) {
+              offerMap['seller_profiles'] = response['data'];
             }
           }
         } catch (e) {
-          _debugPrint('Error fetching seller profile: $e');
+          _debugPrint('Error fetching seller profile via Edge Function: $e');
         }
 
         enrichedOffers.add(offerMap);
@@ -584,18 +583,17 @@ class OfferService {
         try {
           final buyerId = offerMap['buyer_id'];
           if (buyerId != null) {
-            final profile = await _client
-                .from('profiles')
-                .select('full_name, avatar_url, phone')
-                .eq('id', buyerId)
-                .maybeSingle();
-            if (profile != null) {
-              offerMap['buyer_profiles'] = profile;
+            final response = await EdgeFunctionsClient.instance.call(
+              'get-user-contact',
+              body: {'user_id': buyerId},
+            );
+            if (response is Map && response['ok'] == true && response['data'] != null) {
+              offerMap['buyer_profiles'] = response['data'];
             }
           }
         } catch (e) {
           _debugPrint(
-              'Error fetching buyer profile for offer ${offerMap['id']}: $e');
+              'Error fetching buyer profile for offer ${offerMap['id']} via Edge Function: $e');
         }
 
         enrichedData.add(offerMap);
@@ -644,33 +642,31 @@ class OfferService {
       try {
         final buyerId = result['buyer_id'];
         if (buyerId != null) {
-          final buyerProfile = await _client
-              .from('profiles')
-              .select('full_name, avatar_url, phone')
-              .eq('id', buyerId)
-              .maybeSingle();
-          if (buyerProfile != null) {
-            result['buyer_profiles'] = buyerProfile;
+          final response = await EdgeFunctionsClient.instance.call(
+            'get-user-contact',
+            body: {'user_id': buyerId},
+          );
+          if (response is Map && response['ok'] == true && response['data'] != null) {
+            result['buyer_profiles'] = response['data'];
           }
         }
       } catch (e) {
-        _debugPrint('Error fetching buyer profile: $e');
+        _debugPrint('Error fetching buyer profile via Edge Function: $e');
       }
 
       try {
         final sellerId = result['seller_id'];
         if (sellerId != null) {
-          final sellerProfile = await _client
-              .from('profiles')
-              .select('full_name, avatar_url, phone')
-              .eq('id', sellerId)
-              .maybeSingle();
-          if (sellerProfile != null) {
-            result['seller_profiles'] = sellerProfile;
+          final response = await EdgeFunctionsClient.instance.call(
+            'get-user-contact',
+            body: {'user_id': sellerId},
+          );
+          if (response is Map && response['ok'] == true && response['data'] != null) {
+            result['seller_profiles'] = response['data'];
           }
         }
       } catch (e) {
-        _debugPrint('Error fetching seller profile: $e');
+        _debugPrint('Error fetching seller profile via Edge Function: $e');
       }
 
       _debugPrint('Fetched offer details successfully');

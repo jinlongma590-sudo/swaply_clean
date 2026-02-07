@@ -14,6 +14,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/models/coupon.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 import 'dart:math';
 
 // 开关：是否打印缓存命中/完成日志（默认 false 关闭）
@@ -325,7 +326,7 @@ class CouponService {
     required String listingId,
   }) async {
     try {
-      final res = await _client.rpc('redeem_search_popular_coupon', params: {
+      final res = await EdgeFunctionsClient.instance.rpcProxy('redeem_search_popular_coupon', params: {
         'in_coupon_id': couponId,
         'in_listing_id': listingId,
       });
@@ -350,7 +351,7 @@ class CouponService {
     _pinInflightKeys.add(key);
 
     try {
-      final res = await _client.rpc('use_coupon_for_pinning', params: {
+      final res = await EdgeFunctionsClient.instance.rpcProxy('use_coupon_for_pinning', params: {
         // ❗ 修正：使用 in_* 参数名，和后端函数签名一致
         'in_coupon_id': couponId,
         'in_listing_id': listingId,
@@ -650,14 +651,14 @@ class CouponService {
 
       bool ok = false;
       if (isSearchPopular) {
-        final res = await _client.rpc('redeem_search_popular_coupon', params: {
+        final res = await EdgeFunctionsClient.instance.rpcProxy('redeem_search_popular_coupon', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
         });
         ok = _rpcOk(res);
         _debugPrint('redeem_search_popular_coupon => $res');
       } else {
-        final res = await _client.rpc('use_coupon_for_pinning', params: {
+        final res = await EdgeFunctionsClient.instance.rpcProxy('use_coupon_for_pinning', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
           'in_note': 'app',
@@ -737,7 +738,7 @@ class CouponService {
       if (isSearchPopular) {
         _debugPrint('🚀 Step 4: Calling redeem_search_popular_coupon RPC...');
 
-        final res = await _client.rpc('redeem_search_popular_coupon', params: {
+        final res = await EdgeFunctionsClient.instance.rpcProxy('redeem_search_popular_coupon', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
         });
@@ -760,7 +761,7 @@ class CouponService {
       } else {
         _debugPrint('🚀 Step 4: Calling use_coupon_for_pinning RPC...');
 
-        final res = await _client.rpc('use_coupon_for_pinning', params: {
+        final res = await EdgeFunctionsClient.instance.rpcProxy('use_coupon_for_pinning', params: {
           'in_coupon_id': couponId,
           'in_listing_id': listingId,
           'in_note': 'app',

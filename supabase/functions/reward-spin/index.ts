@@ -90,28 +90,19 @@ serve(async (req) => {
     // helpers
     // ------------------------------------------------------------
     async function addSpinsAtomic(delta: number, reason: string): Promise<number> {
-      const { data, error } = await supabase.rpc("reward_add_spins", {
+      if (delta <= 0) throw new Error(`addSpinsAtomic: delta must be > 0, got ${delta}`);
+      const { data, error } = await supabase.rpc("reward_grant_spins_v2", {
         p_user: user.id,
         p_campaign: campaignCode,
         p_add: delta,
+        p_reason: reason,
+        p_ref: requestId ?? null,
       });
-      
-      if (error) {
-        console.error("[addSpinsAtomic] FAIL", {
-          userId: user.id,
-          campaign: campaignCode,
-          delta,
-          reason,
-          error
-        });
-        throw new Error(`addSpinsAtomic failed: ${error.message}`);
-      }
-      
-      if (data == null) {
-        throw new Error("addSpinsAtomic returned null");
-      }
-      
-      return Number(data);
+      if (error) throw new Error(`addSpinsAtomic failed: ${error.message}`);
+      if (!data || data.length === 0) throw new Error("addSpinsAtomic returned empty");
+      const row = data[0];
+      if (!row.ok) throw new Error(`addSpinsAtomic rejected: ${reason}`);
+      return Number(row.spins_balance);
     }
 
     // ❌ 废弃的 CAS 函数，保留引用但标记为弃用
@@ -195,9 +186,10 @@ serve(async (req) => {
     // ✅ Step 2: Atomically consume 1 spin (RPC)
     // 你即将创建的函数：reward_consume_spin(p_user uuid, p_campaign text) -> table(spins_left int)
     // ------------------------------------------------------------
-    const { data: consumed, error: consumeErr } = await supabase.rpc("reward_consume_spin", {
+    const { data: consumed, error: consumeErr } = await supabase.rpc("reward_consume_spin_v2", {
       p_user: user.id,
       p_campaign: campaignCode,
+      p_ref: requestId,
     });
 
     if (consumeErr) {
@@ -206,19 +198,15 @@ serve(async (req) => {
       throw new Error(`consume spin rpc failed: ${consumeErr.message}`);
     }
 
-    const spinsLeft = Array.isArray(consumed) && consumed.length > 0
-      ? Number(consumed[0]?.spins_left ?? 0)
-      : 0;
-
-    if (spinsLeft < 0 || (Array.isArray(consumed) && consumed.length === 0)) {
-      // 没有可用 spins（RPC 返回空集）
+    const noSpins = consumeErr || !consumed || consumed.length === 0 || consumed[0]?.ok === false || Number(consumed[0]?.spins_left ?? -1) < 0;
+    if (noSpins) {
       await finalizeRequest("none", { result_type: "none", reason: "no_spins" });
-
       return new Response(JSON.stringify({ ok: false, reason: "no_spins", spins_left: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
+    let spinsLeft = Number(consumed[0].spins_left);
 
     // ------------------------------------------------------------
     // ✅ Step 3: Read state for response fields (points/qualified_count)
@@ -233,7 +221,15 @@ serve(async (req) => {
     if (st2Err) {
       // 这里已经扣了 spin，为避免用户“被扣但没结果”，尽量退款 + finalize
       try {
-        await addSpinsAtomic(1, "refund:state_read_error");
+        const { data: refunded, error: refundErr } = await supabase.rpc("reward_grant_spins_v2", {
+          p_user: user.id,
+          p_campaign: campaignCode,
+          p_add: 1,
+          p_reason: "refund",
+          p_ref: requestId,
+        });
+        if (refundErr) throw new Error(`refund failed: ${refundErr.message}`);
+        if (!refunded || refunded.length === 0 || refunded[0]?.ok !== true) throw new Error("refund rejected/empty");
         await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refunded" });
       } catch (refundErr: any) {
         await finalizeRequest("none", { result_type: "none", reason: "state_read_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
@@ -259,7 +255,16 @@ serve(async (req) => {
     if (poolErr) {
       // refund spin
       try {
-        latestSpins = await addSpinsAtomic(1, "refund:pool_error");
+        const { data: refunded, error: refundErr } = await supabase.rpc("reward_grant_spins_v2", {
+          p_user: user.id,
+          p_campaign: campaignCode,
+          p_add: 1,
+          p_reason: "refund",
+          p_ref: requestId,
+        });
+        if (refundErr) throw new Error(`refund failed: ${refundErr.message}`);
+        if (!refunded || refunded.length === 0 || refunded[0]?.ok !== true) throw new Error("refund rejected/empty");
+        latestSpins = Number(refunded[0].spins_balance);
         await finalizeRequest("none", { result_type: "none", reason: "pool_error_refunded" });
       } catch (refundErr: any) {
         await finalizeRequest("none", { result_type: "none", reason: "pool_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
@@ -272,7 +277,16 @@ serve(async (req) => {
     if (!pool.length) {
       // refund spin
       try {
-        latestSpins = await addSpinsAtomic(1, "refund:no_pool");
+        const { data: refunded, error: refundErr } = await supabase.rpc("reward_grant_spins_v2", {
+          p_user: user.id,
+          p_campaign: campaignCode,
+          p_add: 1,
+          p_reason: "refund",
+          p_ref: requestId,
+        });
+        if (refundErr) throw new Error(`refund failed: ${refundErr.message}`);
+        if (!refunded || refunded.length === 0 || refunded[0]?.ok !== true) throw new Error("refund rejected/empty");
+        latestSpins = Number(refunded[0].spins_balance);
         await finalizeRequest("none", { result_type: "none", reason: "no_pool_refunded" });
       } catch (refundErr: any) {
         await finalizeRequest("none", { result_type: "none", reason: "no_pool_refund_failed", error: String(refundErr?.message ?? refundErr) });
@@ -301,7 +315,15 @@ serve(async (req) => {
 
         if (ptsErr) {
           try {
-            await addSpinsAtomic(1, "refund:points_error");
+            const { data: refunded, error: refundErr } = await supabase.rpc("reward_grant_spins_v2", {
+              p_user: user.id,
+              p_campaign: campaignCode,
+              p_add: 1,
+              p_reason: "refund",
+              p_ref: requestId,
+            });
+            if (refundErr) throw new Error(`refund failed: ${refundErr.message}`);
+            if (!refunded || refunded.length === 0 || refunded[0]?.ok !== true) throw new Error("refund rejected/empty");
             await finalizeRequest("none", { result_type: "none", reason: "points_error_refunded" });
           } catch (refundErr: any) {
             await finalizeRequest("none", { result_type: "none", reason: "points_error_refund_failed", error: String(refundErr?.message ?? refundErr) });
@@ -349,7 +371,16 @@ serve(async (req) => {
       if (cErr || !couponId || typeof couponId !== "string") {
         // refund spin
         try {
-          latestSpins = await addSpinsAtomic(1, "refund:coupon_error");
+          const { data: refunded, error: refundErr } = await supabase.rpc("reward_grant_spins_v2", {
+            p_user: user.id,
+            p_campaign: campaignCode,
+            p_add: 1,
+            p_reason: "refund",
+            p_ref: requestId,
+          });
+          if (refundErr) throw new Error(`refund failed: ${refundErr.message}`);
+          if (!refunded || refunded.length === 0 || refunded[0]?.ok !== true) throw new Error("refund rejected/empty");
+          latestSpins = Number(refunded[0].spins_balance);
           await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refunded" });
         } catch (refundErr: any) {
           await finalizeRequest("none", { result_type: "none", reason: "coupon_error_refund_failed", error: String(refundErr?.message ?? refundErr) });

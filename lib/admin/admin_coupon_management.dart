@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/models/coupon.dart';
 import 'package:swaply/services/coupon_service.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 class AdminCouponManagement extends StatefulWidget {
   const AdminCouponManagement({super.key});
@@ -60,8 +61,8 @@ class _AdminCouponManagementState extends State<AdminCouponManagement>
   Future<void> _loadRecentUsers() async {
     try {
       final response = await Supabase.instance.client
-          .from('profiles')
-          .select('id, email, created_at')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, created_at')
           .order('created_at', ascending: false)
           .limit(20);
 
@@ -69,7 +70,8 @@ class _AdminCouponManagementState extends State<AdminCouponManagement>
         _recentUsers = response
             .map<Map<String, dynamic>>((user) => {
                   'id': user['id'],
-                  'email': user['email'] ?? 'No email',
+                  'name': user['full_name'] ?? 'User',
+                  'avatar': user['avatar_url'],
                   'created_at': user['created_at'],
                 })
             .toList();
@@ -111,7 +113,7 @@ class _AdminCouponManagementState extends State<AdminCouponManagement>
           await Supabase.instance.client.from('pinned_ads').select('status');
 
       final usersResponse =
-          await Supabase.instance.client.from('profiles').select('id');
+          await Supabase.instance.client.from('public_profiles').select('id');
 
       final coupons = couponsResponse
           .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
@@ -630,7 +632,7 @@ class _AdminCouponManagementState extends State<AdminCouponManagement>
     setState(() => _processing = true);
     try {
       final usersResponse =
-          await Supabase.instance.client.from('profiles').select('id');
+          await Supabase.instance.client.from('public_profiles').select('id');
 
       final userIds =
           usersResponse.map<String>((u) => u['id'] as String).toList();
@@ -689,14 +691,17 @@ class _AdminCouponManagementState extends State<AdminCouponManagement>
       final userIds = <String>[];
 
       for (final email in emails) {
-        final userResponse = await Supabase.instance.client
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-        if (userResponse != null) {
-          userIds.add(userResponse['id'] as String);
+        try {
+          final response = await EdgeFunctionsClient.instance.rpcProxy(
+            'admin_find_user_by_email',
+            params: {'email': email},
+          );
+          if (response != null && response['id'] != null) {
+            userIds.add(response['id'] as String);
+          }
+        } catch (e) {
+          debugPrint('Failed to find user by email $email: $e');
+          // 静默跳过无效邮箱
         }
       }
 

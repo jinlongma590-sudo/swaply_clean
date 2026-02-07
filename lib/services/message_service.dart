@@ -2,6 +2,7 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 /// 消息服务类 - 处理与 offer 相关的对话消息
 class MessageService {
@@ -110,7 +111,7 @@ class MessageService {
       }
 
       // 仅传一个 jsonb 参数，交由函数内部强转
-      final result = await _client.rpc('send_offer_message_v2', params: {
+      final result = await EdgeFunctionsClient.instance.rpcProxy('send_offer_message_v2', params: {
         'p_data': {
           'offer_id': offerId.toString(),
           'sender_id': senderId,
@@ -188,7 +189,7 @@ class MessageService {
           final sid = map['sender_id'];
           if (sid != null) {
             final p = await _client
-                .from('profiles')
+                .from('public_profiles')
                 .select('full_name, avatar_url')
                 .eq('id', sid)
                 .maybeSingle();
@@ -203,7 +204,7 @@ class MessageService {
           final rid = map['receiver_id'];
           if (rid != null) {
             final p = await _client
-                .from('profiles')
+                .from('public_profiles')
                 .select('full_name, avatar_url')
                 .eq('id', rid)
                 .maybeSingle();

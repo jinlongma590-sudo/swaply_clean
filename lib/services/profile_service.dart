@@ -705,7 +705,7 @@ class ProfileService {
 
     try {
       final profile = await _sb
-          .from('profiles')
+          .from('public_profiles')
           .select('verification_type, is_official')
           .eq('id', targetId)
           .maybeSingle();
@@ -734,7 +734,7 @@ class ProfileService {
 
     try {
       final profile = await _sb
-          .from('profiles')
+          .from('public_profiles')
           .select('*, verification_type, is_official')
           .eq('id', targetId)
           .maybeSingle();

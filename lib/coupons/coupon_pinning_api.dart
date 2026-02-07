@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 class CouponPinningApi {
   CouponPinningApi(this._client);
@@ -28,7 +29,7 @@ class CouponPinningApi {
     String note = 'app',
   }) async {
     try {
-      final res = await _client.rpc(
+      final res = await EdgeFunctionsClient.instance.rpcProxy(
         'use_coupon_for_pinning',
         params: {
           'in_coupon_id': couponId,

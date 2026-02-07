@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 class RewardRedeemService {
   RewardRedeemService._();
@@ -22,13 +23,14 @@ class RewardRedeemService {
     }
 
     try {
-      final resp = await _sb.rpc('reward_redeem_airtime', params: {
+      // 迁移到 Edge Function（原 rpc 'reward_redeem_airtime'）
+      final resp = await EdgeFunctionsClient.instance.call('airtime-redeem', body: {
         'p_user': userId,
         'p_campaign': campaignCode,
         'p_points': points,
       });
 
-      // supabase rpc 可能返回 List 或 Map，做兼容
+      // Edge Function 返回格式可能不同，做兼容处理
       if (resp is List && resp.isNotEmpty) {
         final row = resp.first;
         if (row is Map) return Map<String, dynamic>.from(row);

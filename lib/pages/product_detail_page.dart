@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -359,7 +360,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       if (kDebugMode) print('🔍 正在加载卖家信息，sellerId: $sellerId');
 
       final profile = await Supabase.instance.client
-          .from('profiles')
+          .from('public_profiles')
           .select('id, full_name, avatar_url, created_at')
           .eq('id', sellerId)
           .maybeSingle();
@@ -465,10 +466,10 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       if (productId == null) return;
 
       final fp = await _getOrCreateDeviceId();
-      await Supabase.instance.client.rpc('increment_listing_views', params: {
+      await EdgeFunctionsClient.instance.rpcProxy('increment_listing_views', params: {
         'p_listing_id': productId,
         'p_fp': fp,
-      });
+      }, requireAuth: false);
 
       if (kDebugMode) {
         print('Views incremented via RPC for product: $productId');
@@ -876,7 +877,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       String? userName;
       try {
         final profile = await Supabase.instance.client
-            .from('profiles')
+            .from('public_profiles')
             .select('full_name')
             .eq('id', user.id)
             .maybeSingle();

@@ -186,28 +186,19 @@ serve(async (req) => {
 
     // ✅ 原子增加 spins：调用数据库原子 RPC，失败抛异常
     async function addSpinsAtomic(delta: number, reason: string): Promise<number> {
-      const { data, error } = await supabase.rpc("reward_add_spins", {
+      if (delta <= 0) throw new Error(`addSpinsAtomic: delta must be > 0, got ${delta}`);
+      const { data, error } = await supabase.rpc("reward_grant_spins_v2", {
         p_user: user.id,
         p_campaign: campaign.code,
         p_add: delta,
+        p_reason: reason,
+        p_ref: listing_id ?? null,
       });
-      
-      if (error) {
-        console.error("[addSpinsAtomic] FAIL", {
-          userId: user.id,
-          campaign: campaign.code,
-          delta,
-          reason,
-          error
-        });
-        throw new Error(`addSpinsAtomic failed: ${error.message}`);
-      }
-      
-      if (data == null) {
-        throw new Error("addSpinsAtomic returned null");
-      }
-      
-      return Number(data);
+      if (error) throw new Error(`addSpinsAtomic failed: ${error.message}`);
+      if (!data || data.length === 0) throw new Error("addSpinsAtomic returned empty");
+      const row = data[0];
+      if (!row.ok) throw new Error(`addSpinsAtomic rejected: ${reason}`);
+      return Number(row.spins_balance);
     }
 
     // ❌ 废弃的 CAS 函数，保留引用但标记为弃用

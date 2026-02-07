@@ -92,7 +92,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
 
       if (_fullSellerInfo == null) {
         final profileResponse = await Supabase.instance.client
-            .from('profiles')
+            .from('public_profiles')
             .select('id, full_name, avatar_url, created_at')
             .eq('id', widget.sellerId)
             .maybeSingle();

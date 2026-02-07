@@ -160,6 +160,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     try {
       final sb = Supabase.instance.client;
 
+      // 🔐 游客降级：search_pins 表仅允许 authenticated 读取
+      final currentUser = sb.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('[SearchResults] 未登录用户，跳过置顶查询');
+        return <String>{};
+      }
+
       // ✅ 查询所有有效的置顶（视图已经过滤了时间范围）
       final data = await sb
           .from('search_pins_active')
