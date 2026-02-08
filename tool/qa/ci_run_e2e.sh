@@ -1,28 +1,68 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "✅ [ci_run_e2e] Emulator booted, devices:"
+echo "✅ [ci_run_e2e] Bootstrapping ADB..."
 adb start-server >/dev/null 2>&1 || true
-adb devices -l || true
+
+print_devices() {
+  echo "🔎 [ci_run_e2e] adb devices -l:"
+  adb devices -l || true
+}
+
+adb_self_heal() {
+  local out
+  out="$(adb devices 2>/dev/null || true)"
+
+  if echo "$out" | grep -q "offline"; then
+    echo "⚠️ [ci_run_e2e] Detected device offline. Restarting adb..."
+    adb kill-server || true
+    sleep 2
+    adb start-server || true
+    sleep 2
+  fi
+
+  if echo "$out" | grep -q "unauthorized"; then
+    echo "⚠️ [ci_run_e2e] Detected device unauthorized. Restarting adb (best-effort)..."
+    adb kill-server || true
+    sleep 2
+    adb start-server || true
+    sleep 2
+  fi
+}
+
+print_devices
+adb_self_heal
+print_devices
 
 echo "⏳ [ci_run_e2e] Waiting for device..."
 adb wait-for-device || true
 
-# 等系统真正 ready（避免偶发 offline/半启动）
-echo "⏳ [ci_run_e2e] Waiting for sys.boot_completed=1 ..."
-BOOT_OK="0"
-for i in $(seq 1 90); do
-  BOOT="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-  if [[ "$BOOT" == "1" ]]; then
-    BOOT_OK="1"
-    echo "✅ [ci_run_e2e] boot_completed=1"
+echo "⏳ [ci_run_e2e] Waiting for emulator to be fully ready..."
+READY="0"
+for i in $(seq 1 120); do
+  adb_self_heal
+
+  BOOT1="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  BOOT2="$(adb shell getprop dev.bootcomplete 2>/dev/null | tr -d '\r' || true)"
+  BOOTANIM="$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
+
+  if [[ "$BOOT1" == "1" && "$BOOT2" == "1" && "$BOOTANIM" == "stopped" ]]; then
+    READY="1"
+    echo "✅ [ci_run_e2e] Emulator ready (sys.boot_completed=1, dev.bootcomplete=1, bootanim=stopped)"
     break
   fi
+
+  if (( i % 10 == 0 )); then
+    echo "… [ci_run_e2e] still waiting (attempt=$i) sys=$BOOT1 dev=$BOOT2 bootanim=$BOOTANIM"
+    print_devices
+  fi
+
   sleep 2
 done
 
-if [[ "$BOOT_OK" != "1" ]]; then
-  echo "⚠️ [ci_run_e2e] boot_completed not reached, continue anyway (best effort)"
+if [[ "$READY" != "1" ]]; then
+  echo "⚠️ [ci_run_e2e] Emulator readiness not fully confirmed, continue anyway (best effort)"
+  print_devices
 fi
 
 # suite：workflow_dispatch 有输入就用输入；push/PR 没输入就 smoke
@@ -32,7 +72,7 @@ if [[ -z "$SUITE" ]]; then
 fi
 echo "🚀 [ci_run_e2e] Running suite=$SUITE"
 
-# 可选：Gradle stop（存在才执行，避免 not found）
+# Gradle stop（存在才执行）
 if [[ -f "./android/gradlew" ]]; then
   chmod +x ./android/gradlew || true
   (cd android && ./gradlew --stop) || true
@@ -40,13 +80,12 @@ fi
 
 chmod +x ./tool/qa/run_all_integration.sh
 
-# ✅ 关键：先预热 Debug APK 构建（避免 integration test 阶段卡 assembleDebug 直到超时）
 echo "🔥 [ci_run_e2e] Prebuilding debug APK to warm Gradle/Flutter..."
 flutter --version
 flutter pub get
 flutter clean || true
 
-# 预热构建（这一步可能慢，但它会输出详细进度，并且不会被你 run_all 的 6min/15min kill）
+# 预热构建（可能较慢，但避免 integration 阶段 assembleDebug 卡住导致误判/超时）
 flutter build apk --debug -v
 
 echo "✅ [ci_run_e2e] Prebuild done. Start integration suite..."

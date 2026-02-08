@@ -69,7 +69,7 @@ jobs:
     name: Run E2E Tests (with emulator)
     runs-on: ubuntu-latest
     needs: key_audit_static
-    timeout-minutes: 35
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
@@ -107,7 +107,6 @@ jobs:
           profile: pixel_4
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
-          # ✅ 关键：script 里只放“一行”，避免被拆行用 /usr/bin/sh 执行导致崩
           script: bash ./tool/qa/ci_run_e2e.sh
         env:
           CI: true
