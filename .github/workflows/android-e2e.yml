@@ -104,29 +104,34 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
-            bash -lc '
-              set -euo pipefail
+            set -e
 
-              echo "✅ Emulator booted, devices:"
-              adb devices -l
+            cat > /tmp/ci_run_e2e.sh <<'BASH'
+            set -euo pipefail
 
-              # ✅ gradlew 在 android/，并确保可执行
-              if [ -f "./android/gradlew" ]; then
-                chmod +x ./android/gradlew
-                ./android/gradlew --stop || true
-              fi
+            echo "✅ Emulator booted, devices:"
+            adb devices -l
 
-              chmod +x ./tool/qa/run_all_integration.sh
+            # gradlew 在 android/ 目录
+            if [ -f "./android/gradlew" ]; then
+              chmod +x ./android/gradlew
+              ./android/gradlew --stop || true
+            fi
 
-              # ✅ 兼容 push/PR（无 inputs）和 workflow_dispatch（有 inputs）
-              SUITE="${{ github.event.inputs.suite }}"
-              if [ -z "$SUITE" ]; then SUITE="smoke"; fi
-              echo "🚀 Running suite=$SUITE"
+            chmod +x ./tool/qa/run_all_integration.sh
 
-              ./tool/qa/run_all_integration.sh "$SUITE"
-            '
+            # suite：workflow_dispatch 用输入；push/PR 没输入就默认 smoke
+            SUITE="${SUITE_INPUT:-}"
+            if [ -z "$SUITE" ]; then SUITE="smoke"; fi
+            echo "🚀 Running suite=$SUITE"
+
+            ./tool/qa/run_all_integration.sh "$SUITE"
+            BASH
+
+            bash /tmp/ci_run_e2e.sh
         env:
           CI: true
+          SUITE_INPUT: ${{ github.event.inputs.suite }}
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
           QA_PASS: ${{ secrets.QA_PASS }}
 
