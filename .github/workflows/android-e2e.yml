@@ -107,12 +107,13 @@ jobs:
             set -e
 
             cat > /tmp/ci_run_e2e.sh <<'BASH'
+            #!/usr/bin/env bash
             set -euo pipefail
 
             echo "✅ Emulator booted, devices:"
             adb devices -l
 
-            # gradlew 在 android/ 目录
+            # gradlew 在 android/ 目录（存在才 stop）
             if [ -f "./android/gradlew" ]; then
               chmod +x ./android/gradlew
               ./android/gradlew --stop || true
@@ -128,6 +129,7 @@ jobs:
             ./tool/qa/run_all_integration.sh "$SUITE"
             BASH
 
+            chmod +x /tmp/ci_run_e2e.sh
             bash /tmp/ci_run_e2e.sh
         env:
           CI: true
