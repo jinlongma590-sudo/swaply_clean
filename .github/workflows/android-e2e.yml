@@ -10,7 +10,7 @@ on:
       suite:
         description: "Which suite to run"
         required: true
-        default: "smoke"  # 默认跑 smoke，不跑 all（避免超时）
+        default: "smoke"
         type: choice
         options:
           - key_audit
@@ -28,7 +28,7 @@ jobs:
   key_audit_static:
     name: Static Key Audit (no emulator)
     runs-on: macos-latest
-    timeout-minutes: 4  # ✅ 建议从 2 提到 4，避免偶发 pub get 慢导致误杀
+    timeout-minutes: 4
 
     steps:
       - name: Checkout code
@@ -40,7 +40,6 @@ jobs:
           flutter-version: "3.38.1"
           channel: "stable"
 
-      # ✅ 关键修复：先 pub get，避免 --no-pub 导致依赖缺失
       - name: Flutter pub get
         run: |
           flutter --version
@@ -49,6 +48,7 @@ jobs:
       - name: Run static key audit
         run: |
           echo "🔍 Running static key audit (no emulator needed)..."
+          # ✅ 这里已经 pub get 了，所以 --no-pub 可以保留
           flutter test test/qa/key_audit_static_test.dart --no-pub -r expanded
 
       - name: Upload static audit logs
@@ -63,9 +63,9 @@ jobs:
 
   e2e:
     name: Run E2E Tests (with emulator)
-    runs-on: macos-latest
-    needs: key_audit_static  # 必须先通过静态 Key 审计
-    timeout-minutes: 15
+    runs-on: macos-13     # ✅ 关键：Intel runner，x86_64 模拟器最稳
+    needs: key_audit_static
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -78,7 +78,7 @@ jobs:
           java-version: "17"
 
       - name: Cache Gradle
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -93,52 +93,31 @@ jobs:
           flutter-version: "3.38.1"
           channel: "stable"
 
+      - name: Flutter pub get
+        run: |
+          flutter --version
+          flutter pub get
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Cache Android SDK and AVD
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.android/avd
-            ~/.android/cache
-            ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}
-          key: android-sdk-api30-googleapis-x86_64-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            android-sdk-api30-googleapis-x86_64-${{ runner.os }}-
-
-      - name: Install Android SDK components (explicit)
-        run: |
-          echo "Installing required Android SDK components..."
-          ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager \
-            --install \
-            "platform-tools" \
-            "emulator" \
-            "platforms;android-30" \
-            "system-images;android-30;google_apis;x86_64" \
-            <<< "y" || {
-              echo "❌ SDK component installation failed"
-              exit 1
-            }
-          echo "✅ SDK components installed successfully"
-
-      - name: Start Android Emulator
+      # ✅ 核心修复：模拟器 + 运行测试必须在同一步里完成，否则模拟器会被关掉
+      - name: Start Emulator and Run E2E
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30  # 固定 API 30，镜像最小最稳
+          api-level: 30
           target: google_apis
           arch: x86_64
           profile: pixel_4
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
-            echo "Emulator started successfully"
+            echo "✅ Emulator booted. Listing devices:"
+            adb devices -l
 
-      - name: Run E2E Tests
-        run: |
-          ./gradlew --stop || true
-          chmod +x ./tool/qa/run_all_integration.sh
-          ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
+            ./gradlew --stop || true
+            chmod +x ./tool/qa/run_all_integration.sh
+            ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
         env:
           CI: true
 
@@ -159,7 +138,7 @@ jobs:
           df -h
 
           echo "=== Android SDK info ==="
-          ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager --list | tail -n 200 || true
+          sdkmanager --list | tail -n 200 || true
           emulator -version || true
 
           echo "=== ADB devices ==="
