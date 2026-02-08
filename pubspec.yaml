@@ -60,6 +60,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  test: any
   flutter_lints:
   flutter_launcher_icons: ^0.13.1
   patrol: ^4.1.0
