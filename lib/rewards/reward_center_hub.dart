@@ -15,6 +15,8 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import 'package:rxdart/rxdart.dart';
 import 'reward_wallet_page.dart';
+import 'package:swaply/pages/reward_rules_page.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class RewardCenterHub extends StatefulWidget {
   final int initialTab;
@@ -659,17 +661,28 @@ class _RewardCenterHubState extends State<RewardCenterHub>
         ),
         SizedBox(height: 12.h),
         _buildNavCard(
+          key: const Key(QaKeys.rewardCenterHistory),
           icon: Icons.history,
           title: 'History',
           subtitle: '$_historyCount records',
           color: const Color(0xFF2196F3),
           onTap: () => _navigateToWallet(1),
         ),
+        SizedBox(height: 12.h),
+        _buildNavCard(
+          key: const Key(QaKeys.rewardCenterRulesCard),
+          icon: Icons.info_outline,
+          title: 'Rules & Odds',
+          subtitle: 'How spins work, prize pool, odds, eligibility',
+          color: const Color(0xFF9C27B0),
+          onTap: _navigateToRules,
+        ),
       ],
     );
   }
 
   Widget _buildNavCard({
+    Key? key,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -677,6 +690,7 @@ class _RewardCenterHubState extends State<RewardCenterHub>
     required VoidCallback onTap,
   }) {
     return Material(
+      key: key,
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -782,6 +796,14 @@ class _RewardCenterHubState extends State<RewardCenterHub>
     SafeNavigator.push(
       MaterialPageRoute(
         builder: (context) => RewardWalletPage(initialTab: initialTab),
+      ),
+    );
+  }
+
+  void _navigateToRules() {
+    SafeNavigator.push(
+      MaterialPageRoute(
+        builder: (context) => const RewardRulesPage(),
       ),
     );
   }
@@ -1131,7 +1153,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
 
                         return FortuneItem(
                           child: Container(
-                            padding: EdgeInsets.only(bottom: 20.r),
+                            // ✅ 调整 padding，确保文字在扇叶内
+                            padding: EdgeInsets.only(top: 30.r, bottom: 10.r),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -1139,11 +1162,11 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                                   item.mainText,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    fontSize: 20.sp,
+                                    fontSize: 16.sp, // ✅ 统一主文字大小为 16.sp
                                     fontWeight: FontWeight.w900,
                                     color: Colors.white,
-                                    letterSpacing: 1.0,
-                                    height: 1.1,
+                                    letterSpacing: 0.5, // ✅ 减小字母间距
+                                    height: 1.0, // ✅ 减小行高
                                     shadows: [
                                       Shadow(
                                         color: Colors.black.withOpacity(0.3),
@@ -1152,16 +1175,19 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                                       ),
                                     ],
                                   ),
+                                  maxLines: 1, // ✅ 限制单行显示
+                                  overflow: TextOverflow.ellipsis, // ✅ 超出显示省略号
                                 ),
-                                SizedBox(height: 4.h),
+                                SizedBox(height: 2.h), // ✅ 减小间距
                                 Text(
                                   item.subText,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    fontSize: 10.sp,
+                                    fontSize: 9.sp, // ✅ 统一副文字大小为 9.sp
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white.withOpacity(0.95),
-                                    letterSpacing: 0.8,
+                                    letterSpacing: 0.5, // ✅ 减小字母间距
+                                    height: 1.0, // ✅ 减小行高
                                     shadows: [
                                       Shadow(
                                         color: Colors.black.withOpacity(0.2),
@@ -1169,6 +1195,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                                       ),
                                     ],
                                   ),
+                                  maxLines: 1, // ✅ 限制单行显示
+                                  overflow: TextOverflow.ellipsis, // ✅ 超出显示省略号
                                 ),
                               ],
                             ),

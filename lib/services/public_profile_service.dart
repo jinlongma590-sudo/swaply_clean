@@ -38,7 +38,7 @@ class PublicProfileService {
       final response = await _sb
           .from('public_profiles')
           .select()
-          .in_('id', userIds);
+          .in('id', userIds);
       return (response as List<dynamic>).cast<Map<String, dynamic>>();
     } catch (e) {
       print('[PublicProfileService] Error fetching public profiles: $e');

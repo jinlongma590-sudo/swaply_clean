@@ -35,6 +35,8 @@ function mapScopeToType(scope: "category" | "search" | "trending"): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const requestId = crypto.randomUUID();
+
   try {
     const url = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";

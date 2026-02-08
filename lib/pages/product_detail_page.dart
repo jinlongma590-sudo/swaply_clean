@@ -28,6 +28,7 @@ import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/offer_service.dart';
 import 'package:swaply/services/message_service.dart';
+import 'package:swaply/core/qa_keys.dart';
 import 'package:swaply/services/favorites_update_service.dart';
 import 'package:swaply/pages/seller_profile_page.dart';
 import 'package:swaply/services/verification_guard.dart';
@@ -38,6 +39,7 @@ import 'package:swaply/services/email_verification_service.dart';
 import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/rewards/reward_bottom_sheet.dart';
 import 'package:swaply/services/reward_after_publish.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
@@ -1514,6 +1516,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: CustomScrollView(
+        key: const Key(QaKeys.listingDetailRoot),
         slivers: [
           SliverAppBar(
             expandedHeight: _imageAreaHeight(context),
@@ -1550,6 +1553,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       ),
                     )
                   : IconButton(
+                      key: const Key(QaKeys.favoriteToggle),
                       icon: Icon(
                         _isInFavorites ? Icons.favorite : Icons.favorite_border,
                         color: _isInFavorites ? Colors.red : Colors.grey[800],

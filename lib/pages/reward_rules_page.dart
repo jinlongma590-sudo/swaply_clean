@@ -11,6 +11,7 @@ class RewardRulesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        key: const Key('reward_rules_title'),
         title: const Text('Rewards Rules & Odds'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -120,12 +121,14 @@ class RewardRulesPage extends StatelessWidget {
     return Card(
       elevation: 2,
       child: ExpansionTile(
+        key: const Key('reward_rules_pool_tile'),
         title: const Text(
           'Prize Pool & Probability',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         children: [
           Padding(
+            key: const Key('reward_rules_pool_scroll'),
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: pool.map((item) {

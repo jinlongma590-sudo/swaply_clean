@@ -14,6 +14,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/services/listing_service.dart';
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/core/qa_keys.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final String keyword;
@@ -336,6 +337,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     final title = 'Results for "${widget.keyword}"';
 
     return Scaffold(
+      key: const Key(QaKeys.searchResultsRoot),
       backgroundColor: Colors.grey[50],
       appBar: _buildStandardAppBar(context, title),
       body: _loading

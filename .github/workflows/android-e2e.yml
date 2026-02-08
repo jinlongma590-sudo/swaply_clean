@@ -66,32 +66,60 @@ jobs:
     
     - name: Start Emulator
       run: |
-        emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-        # Wait for device with timeout (2 minutes)
-        echo "Waiting for device (max 120 seconds)..."
-        for i in {1..120}; do
-          if adb devices | grep -q "device$"; then
-            echo "✅ Device detected at $i seconds"
-            break
-          fi
-          sleep 1
-        done
-        # Wait for boot complete with timeout (3 minutes)
-        echo "Waiting for boot complete (max 180 seconds)..."
-        for i in {1..180}; do
-          if adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; then
-            echo "✅ Boot completed at $i seconds"
-            break
-          fi
-          sleep 1
-        done
-        sleep 5
-        adb shell settings put global window_animation_scale 0
-        adb shell settings put global transition_animation_scale 0
-        adb shell settings put global animator_duration_scale 0
-        adb shell settings put global window_animation_scale 0
-        adb shell settings put global transition_animation_scale 0
-        adb shell settings put global animator_duration_scale 0
+        echo "🚀 Starting emulator with hard timeout (6 minutes)..."
+        timeout 360 bash -c '
+          emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+          EMULATOR_PID=$!
+          
+          # Wait for device with timeout (2 minutes)
+          echo "Waiting for device (max 120 seconds)..."
+          for i in {1..120}; do
+            if adb devices | grep -q "device$"; then
+              echo "✅ Device detected at $i seconds"
+              break
+            fi
+            sleep 1
+          done
+          
+          # Wait for boot complete with timeout (3 minutes)
+          echo "Waiting for boot complete (max 180 seconds)..."
+          for i in {1..180}; do
+            if adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; then
+              echo "✅ Boot completed at $i seconds"
+              break
+            fi
+            sleep 1
+          done
+          
+          sleep 5
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          
+          wait $EMULATOR_PID
+        '
+        
+        # Check if emulator started successfully
+        if ! adb devices | grep -q "device$"; then
+          echo "❌ Emulator failed to start within timeout. Printing diagnostics..."
+          echo "=== adb devices -l ==="
+          adb devices -l
+          echo "=== sys.boot_completed ==="
+          adb shell getprop sys.boot_completed
+          echo "=== init.svc.bootanim ==="
+          adb shell getprop init.svc.bootanim
+          echo "=== dumpsys systemui (head) ==="
+          adb shell dumpsys activity service com.android.systemui 2>/dev/null | head -20
+          echo "=== logcat tail (300 lines) ==="
+          adb logcat -d 2>/dev/null | tail -n 300
+          
+          echo "🧹 Cleaning up stuck emulator processes..."
+          adb emu kill 2>/dev/null || true
+          pkill -f emulator 2>/dev/null || true
+          pkill -f qemu 2>/dev/null || true
+          
+          exit 1
+        fi
     
     - name: Run E2E Tests
       run: |

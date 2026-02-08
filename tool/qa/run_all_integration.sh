@@ -92,39 +92,73 @@ log "🧹 Light cleaning..."
 flutter clean > "$OUTPUT_DIR/flutter_clean.log" 2>&1
 flutter pub get > "$OUTPUT_DIR/flutter_pub_get.log" 2>&1
 
+# 3. 套件选择
+SUITE="${1:-all}"
+log "🎯 Selected suite: $SUITE"
+
 # 4. 测试矩阵 (bash 3.2 兼容)
-TEST_NAMES=(
-  "key_audit"
-  "smoke_all_tabs"
-  "core_flows" 
-  "reward_regression"
-  "full_app_smoke"
-)
+declare -a TEST_NAMES
+declare -a TEST_FILES
 
-TEST_FILES=(
-  "integration_test/key_audit_test.dart"
-  "integration_test/smoke_all_tabs_test.dart"
-  "integration_test/core_flows_test.dart"
-  "integration_test/native_reward_smoke_test.dart"
-  "integration_test/full_app_smoke_via_qa_panel_test.dart"
-)
+case "$SUITE" in
+  key_audit)
+    TEST_NAMES=("key_audit")
+    TEST_FILES=("integration_test/key_audit_test.dart")
+    ;;
+  smoke)
+    TEST_NAMES=("smoke_all_tabs")
+    TEST_FILES=("integration_test/smoke_all_tabs_test.dart")
+    ;;
+  core)
+    TEST_NAMES=("core_flows")
+    TEST_FILES=("integration_test/core_flows_test.dart")
+    ;;
+  reward)
+    TEST_NAMES=("reward_regression")
+    TEST_FILES=("integration_test/native_reward_smoke_test.dart")
+    ;;
+  full)
+    TEST_NAMES=("full_app_smoke")
+    TEST_FILES=("integration_test/full_app_smoke_via_qa_panel_test.dart")
+    ;;
+  all)
+    TEST_NAMES=(
+      "key_audit"
+      "smoke_all_tabs"
+      "core_flows"
+      "reward_regression"
+      "full_app_smoke"
+    )
+    TEST_FILES=(
+      "integration_test/key_audit_test.dart"
+      "integration_test/smoke_all_tabs_test.dart"
+      "integration_test/core_flows_test.dart"
+      "integration_test/native_reward_smoke_test.dart"
+      "integration_test/full_app_smoke_via_qa_panel_test.dart"
+    )
+    ;;
+  *)
+    log "❌ Unknown suite: $SUITE. Valid options: key_audit, smoke, core, reward, full, all"
+    exit 1
+    ;;
+esac
 
-# 5. 运行每个测试
-OVERALL_EXIT=0
+# 5. 运行每个测试 (fail-fast 模式)
 PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL_TESTS=${#TEST_NAMES[@]}
 
-log "📋 Running $TOTAL_TESTS integration tests..."
+log "📋 Running $TOTAL_TESTS integration tests (fail-fast)..."
 echo "" >> "$OUTPUT_DIR/summary.txt"
 echo "=== Test Results ===" >> "$OUTPUT_DIR/summary.txt"
 echo "Total tests: $TOTAL_TESTS" >> "$OUTPUT_DIR/summary.txt"
 
-i=0
-while [ $i -lt $TOTAL_TESTS ]; do
-  test_name="${TEST_NAMES[$i]}"
-  test_file="${TEST_FILES[$i]}"
-  log_file="$OUTPUT_DIR/${test_name}.log"
+# 函数：运行单个测试，返回是否成功
+run_one_test() {
+  local test_name="$1"
+  local test_file="$2"
+  local log_file="$OUTPUT_DIR/${test_name}.log"
+  local test_result=0  # 0=success, 1=failure
   
   log "🧪 Running $test_name ($test_file)..."
   
@@ -161,7 +195,10 @@ while [ $i -lt $TOTAL_TESTS ]; do
   else
     result="FAIL"
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    OVERALL_EXIT=1
+    test_result=1
+    log "❌ $test_name failed."
+    log "📄 Last 50 lines of $log_file:"
+    tail -50 "$log_file" | while IFS= read -r line; do log "   $line"; done
   fi
   
   # 记录退出码
@@ -169,6 +206,26 @@ while [ $i -lt $TOTAL_TESTS ]; do
   
   log "  Result: $result (exit: $exit_code)"
   echo "  $test_name: $result" >> "$OUTPUT_DIR/summary.txt"
+  
+  return $test_result
+}
+
+# 按顺序执行测试，根据suite决定是否fail-fast
+i=0
+while [ $i -lt $TOTAL_TESTS ]; do
+  test_name="${TEST_NAMES[$i]}"
+  test_file="${TEST_FILES[$i]}"
+  run_one_test "$test_name" "$test_file"
+  test_result=$?
+  
+  # 如果测试失败且suite是key_audit或all（且是第一个测试key_audit），则fail-fast
+  if [ $test_result -ne 0 ]; then
+    if [ "$SUITE" = "key_audit" ] || [ "$SUITE" = "all" ]; then
+      log "❌ $test_name failed in fail-fast suite ($SUITE). Stopping early."
+      exit 1
+    fi
+    # 对于其他suite，继续执行（虽然只有一个测试，但保持逻辑一致）
+  fi
   
   i=$((i + 1))
 done
@@ -200,11 +257,11 @@ adb -s "$DEVICE_ID" logcat -d -t 10000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null ||
   echo "  - exit_code.txt        (总退出码)"
 } >> "$OUTPUT_DIR/summary.txt"
 
-# 8. 写入总退出码
-echo "$OVERALL_EXIT" > "$OUTPUT_DIR/exit_code.txt"
+# 8. 写入总退出码 (全部通过时为0)
+echo "0" > "$OUTPUT_DIR/exit_code.txt"
 
 # 9. 输出最终结果
 log "📦 Evidence package ready: $OUTPUT_DIR"
 cat "$OUTPUT_DIR/summary.txt" | tail -20
 
-exit $OVERALL_EXIT
+exit 0

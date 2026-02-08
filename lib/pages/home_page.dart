@@ -20,6 +20,7 @@ import 'package:swaply/services/listing_events_bus.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -456,6 +457,7 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
+        key: const Key(QaKeys.pageHomeRoot),
         children: [
           if (_isBackgroundRefreshing)
             Positioned(
@@ -919,6 +921,7 @@ class _HomePageState extends State<HomePage>
           Expanded(
             flex: 3,
             child: GestureDetector(
+              key: const Key(QaKeys.searchInput),
               onTap: () {
                 debugPrint('[HomePage] Search field tapped');
                 _navigateToSearchWithFocus();
@@ -949,6 +952,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     GestureDetector(
+                      key: const Key(QaKeys.searchButton),
                       onTap: () {
                         debugPrint('[HomePage] Search icon tapped');
                         _navigateToSearchWithFocus();
@@ -1000,6 +1004,7 @@ class _HomePageState extends State<HomePage>
           return SizedBox(
             height: gridTotalHeight,
             child: GridView.builder(
+              key: const Key(QaKeys.categoryGrid),
               padding:
                   EdgeInsets.fromLTRB(padHLeft, padVTop, padHRight, padVBottom),
               primary: false,
@@ -1022,6 +1027,7 @@ class _HomePageState extends State<HomePage>
                 const double gap = 8.0;
 
                 return GestureDetector(
+                  key: Key('category_item_${cat['id']}'),
                   onTap: () => _navigateToCategory(cat['id']!, cat['label']!),
                   child: Container(
                     decoration: BoxDecoration(

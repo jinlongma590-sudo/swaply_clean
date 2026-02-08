@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:swaply/core/l10n/app_localizations.dart';
 import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/theme/constants.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
+import 'package:swaply/core/qa_mode.dart'; // kQaMode
 
 class SellPage extends StatefulWidget {
   final bool isGuest;
@@ -81,12 +83,65 @@ class _SellPageState extends State<SellPage> with TickerProviderStateMixin {
       ),
       // ✅ Body 依然使用 CustomScrollView 以支持 SliverFillRemaining (空态)
       body: CustomScrollView(
+        key: const Key(QaKeys.pageSellRoot),
         slivers: [
           // ❌ 已移除 _buildFixedHeader，由 Scaffold AppBar 接管
           if (myListings.isEmpty)
             _buildEmptyState(l10n)
           else
             _buildListingsContent(myListings, l10n),
+          if (kQaMode) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(20.w),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: Colors.orange, width: 1.5),
+                  ),
+                  child: ElevatedButton(
+                    key: const Key(QaKeys.qaMockPublishButton),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          key: const Key(QaKeys.qaMockPublishSuccess),
+                          content: const Text('QA: Mock publish success'),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.construction, color: Colors.orange, size: 18.r),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'QA: Mock Publish',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -124,6 +179,7 @@ class _SellPageState extends State<SellPage> with TickerProviderStateMixin {
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: Center(
+            key: const Key(QaKeys.pageSellRoot),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 22.w),
               child: Column(
@@ -338,6 +394,53 @@ class _SellPageState extends State<SellPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                  if (kQaMode) ...[
+                    SizedBox(height: 20.h),
+                    Container(
+                      width: double.infinity,
+                      height: 46.h,
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.orange, width: 1.5),
+                      ),
+                      child: ElevatedButton(
+                        key: const Key(QaKeys.qaMockPublishButton),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              key: const Key(QaKeys.qaMockPublishSuccess),
+                              content: const Text('QA: Mock publish success'),
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.construction, color: Colors.orange, size: 18.r),
+                            SizedBox(width: 8.w),
+                            Text(
+                              'QA: Mock Publish',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

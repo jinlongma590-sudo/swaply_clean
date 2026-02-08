@@ -23,6 +23,9 @@ import 'package:swaply/services/oauth_entry.dart';
 // 引入你的 App 入口
 import 'package:swaply/core/app.dart';
 
+// QA Mode for automation testing
+const bool kQaMode = bool.fromEnvironment('QA_MODE', defaultValue: false);
+
 // ✅ 前台通知实例
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
@@ -385,6 +388,10 @@ void _initPushNotificationsLazy() {
 }
 
 Future<void> main() async {
+  // ✅ 0. 调试日志：当前运行模式
+  debugPrint('QA_MODE define = ${const bool.fromEnvironment("QA_MODE")}');
+  debugPrint('kDebugMode = $kDebugMode');
+  
   // ✅ 1. 确保绑定初始化
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
 

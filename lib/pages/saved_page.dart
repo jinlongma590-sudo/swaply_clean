@@ -15,6 +15,8 @@ import '../services/deep_link_service.dart'; // ✅ [热启动修复] 添加导�
 
 // === 全局常量 ===
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
+import 'package:swaply/core/qa_mode.dart'; // kQaMode
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class SavedPage extends StatefulWidget {
   final bool isGuest;
@@ -149,6 +151,10 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
   // ========== 周期刷新 ==========
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
+    if (kQaMode) {
+      if (kDebugMode) debugPrint('[QA_MODE] Skip periodic refresh for tests');
+      return;
+    }
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!widget.isGuest && mounted && !_isRefreshing) {
         _loadFavorites();
@@ -405,6 +411,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
   // ========== 空态 / 错态 ==========
   Widget _buildEmptyState() {
     return Center(
+      key: const Key(QaKeys.savedEmptyState),
       child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
@@ -871,6 +878,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
           automaticallyImplyLeading: false, // ❌ 无返回按钮
         ),
         body: Center(
+          key: const Key(QaKeys.pageSavedRoot),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1002,45 +1010,48 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
             ),
         ],
       ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 24.w,
-                    height: 24.w,
-                    child: CircularProgressIndicator(
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(kPrimaryBlue),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'Loading favorites...',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 11.sp),
-                  ),
-                ],
-              ),
-            )
-          : _errorMessage != null
-              ? _buildErrorState()
-              : _favoriteItems.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
-                      onRefresh: _refreshFavorites,
-                      color: kPrimaryBlue,
-                      backgroundColor: Colors.white,
-                      strokeWidth: 2,
-                      child: ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.symmetric(vertical: 6.h),
-                        itemCount: _favoriteItems.length,
-                        itemBuilder: (context, index) =>
-                            _buildFavoriteCard(_favoriteItems[index], index),
+      body: Container(
+        key: const Key(QaKeys.pageSavedRoot),
+        child: _isLoading
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 24.w,
+                      height: 24.w,
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                        strokeWidth: 2,
                       ),
                     ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Loading favorites...',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11.sp),
+                    ),
+                  ],
+                ),
+              )
+            : _errorMessage != null
+                ? _buildErrorState()
+                : _favoriteItems.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        onRefresh: _refreshFavorites,
+                        color: kPrimaryBlue,
+                        backgroundColor: Colors.white,
+                        strokeWidth: 2,
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.symmetric(vertical: 6.h),
+                          itemCount: _favoriteItems.length,
+                          itemBuilder: (context, index) =>
+                              _buildFavoriteCard(_favoriteItems[index], index),
+                        ),
+                      ),
+      ),
     );
   }
 }

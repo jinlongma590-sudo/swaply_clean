@@ -109,7 +109,7 @@ class QaPanelPage extends StatelessWidget {
             text: 'Open Search Results',
             onPressed: () {
               SafeNavigator.push(
-                MaterialPageRoute(builder: (_) => SearchResultsPage(query: 'test')),
+                MaterialPageRoute(builder: (_) => SearchResultsPage(keyword: 'test')),
               );
             },
           ),
@@ -118,7 +118,7 @@ class QaPanelPage extends StatelessWidget {
             text: 'Open Category Products',
             onPressed: () {
               SafeNavigator.push(
-                MaterialPageRoute(builder: (_) => CategoryProductsPage(categorySlug: 'vehicles')),
+                MaterialPageRoute(builder: (_) => CategoryProductsPage(categoryId: 'vehicles', categoryName: 'Vehicles')),
               );
             },
           ),

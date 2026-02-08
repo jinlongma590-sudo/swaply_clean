@@ -15,6 +15,7 @@ import 'package:swaply/listing_api.dart';
 import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/widgets/pinned_ad_card.dart';
 import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class CategoryProductsPage extends StatefulWidget {
   final String categoryId;

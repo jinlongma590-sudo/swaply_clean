@@ -21,6 +21,10 @@ import 'package:swaply/providers/language_provider.dart';
 import 'package:swaply/pages/home_page.dart' as swaply;
 import 'package:swaply/pages/sell_page.dart';
 import 'package:swaply/pages/profile_page.dart';
+import 'package:swaply/qa/qa_panel_page.dart'; // for QA Panel
+import 'package:swaply/router/safe_navigator.dart'; // for SafeNavigator
+import 'package:swaply/core/qa_mode.dart'; // for kQaMode
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 import 'package:swaply/services/welcome_dialog_service.dart';
 import 'package:swaply/services/auth_flow_observer.dart';
@@ -278,6 +282,11 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   Widget build(BuildContext context) {
+    // 调试日志：当前运行模式
+    if (kDebugMode) {
+      debugPrint('MainNavigationPage build, show qa_fab = $kDebugMode');
+    }
+    
     // ✅ [最终方案] 智能Loading逻辑
     // - 首次冷启动（未登录）：显示Loading动画，避免闪过主页
     // - OAuth登录：不显示Loading，避免"Welcome → Loading → Home"闪烁
@@ -456,6 +465,17 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             ),
           ),
         ),
+        floatingActionButton: kDebugMode
+            ? FloatingActionButton(
+                key: const Key(QaKeys.qaFab),
+                onPressed: () {
+                  SafeNavigator.push(
+                    MaterialPageRoute(builder: (_) => const QaPanelPage()),
+                  );
+                },
+                child: const Icon(Icons.bug_report),
+              )
+            : null,
       ),
     );
   }
@@ -468,7 +488,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     required BuildContext context,
   }) {
     final bool isSelected = _selectedIndex == index;
+    const Map<int, String> keyNames = {
+      0: QaKeys.tabHome,
+      1: QaKeys.tabSaved,
+      2: QaKeys.tabSell,
+      3: QaKeys.tabNotifications,
+      4: QaKeys.tabProfile,
+    };
     return GestureDetector(
+      key: Key(keyNames[index] ?? 'tab_$index'),
       onTap: () {
         if (Supabase.instance.client.auth.currentSession == null &&
             index == 1) {
@@ -534,7 +562,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     required BuildContext context,
   }) {
     final bool isSelected = _selectedIndex == index;
+    const Map<int, String> keyNames = {
+      0: 'tab_home',
+      1: 'tab_saved',
+      2: 'tab_sell',
+      3: 'tab_notifications',
+      4: 'tab_profile',
+    };
     return GestureDetector(
+      key: Key(keyNames[index] ?? 'tab_$index'),
       onTap: () {
         if (Supabase.instance.client.auth.currentSession == null) {
           _showLoginRequired(
@@ -646,6 +682,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     final bool isSelected = _selectedIndex == 2;
 
     return GestureDetector(
+      key: const Key('tab_sell'),
       onTapDown: (_) => _sellButtonController.forward(),
       onTapUp: (_) => _sellButtonController.reverse(),
       onTapCancel: () => _sellButtonController.reverse(),

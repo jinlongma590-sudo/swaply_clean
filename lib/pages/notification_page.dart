@@ -10,6 +10,7 @@ import 'package:swaply/router/root_nav.dart'; // navPush / navReplaceAll
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
 import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/offer_detail_cache.dart'; // 🚀 新增缓存预取
+import 'package:swaply/core/qa_keys.dart';
 
 // ⬇️ 统一配置：Offer 详情页的路由名 —— 与 AppRouter 保持一致
 const String _kOfferDetailRoute = '/offer-detail';
@@ -535,6 +536,7 @@ class _NotificationPageState extends State<NotificationPage> {
           ),
           // ✅ 使用嵌套的 ValueListenableBuilder 监听 loading 和 list
           body: ValueListenableBuilder<bool>(
+            key: const Key(QaKeys.pageNotificationsRoot),
             valueListenable: NotificationService.loadingNotifier,
             builder: (context, isLoading, _) {
               if (isLoading) {
