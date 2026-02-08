@@ -28,7 +28,7 @@ jobs:
   key_audit_static:
     name: Static Key Audit (no emulator)
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -65,7 +65,7 @@ jobs:
     name: Run E2E Tests (with emulator)
     runs-on: ubuntu-latest
     needs: key_audit_static
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout code
@@ -103,34 +103,8 @@ jobs:
           profile: pixel_4
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
-          script: |
-            set -e
-
-            cat > /tmp/ci_run_e2e.sh <<'BASH'
-            #!/usr/bin/env bash
-            set -euo pipefail
-
-            echo "✅ Emulator booted, devices:"
-            adb devices -l
-
-            # gradlew 在 android/ 目录（存在才 stop）
-            if [ -f "./android/gradlew" ]; then
-              chmod +x ./android/gradlew
-              ./android/gradlew --stop || true
-            fi
-
-            chmod +x ./tool/qa/run_all_integration.sh
-
-            # suite：workflow_dispatch 用输入；push/PR 没输入就默认 smoke
-            SUITE="${SUITE_INPUT:-}"
-            if [ -z "$SUITE" ]; then SUITE="smoke"; fi
-            echo "🚀 Running suite=$SUITE"
-
-            ./tool/qa/run_all_integration.sh "$SUITE"
-            BASH
-
-            chmod +x /tmp/ci_run_e2e.sh
-            bash /tmp/ci_run_e2e.sh
+          # ✅ 关键：script 里只放“一行”，避免被拆行用 /usr/bin/sh 执行导致崩
+          script: bash ./tool/qa/ci_run_e2e.sh
         env:
           CI: true
           SUITE_INPUT: ${{ github.event.inputs.suite }}
