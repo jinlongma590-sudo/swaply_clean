@@ -1,0 +1,85 @@
+name: Android E2E Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+jobs:
+  e2e:
+    name: Run E2E Tests
+    runs-on: macos-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.1'
+        channel: 'stable'
+    
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Create Android Emulator
+      run: |
+        echo "y" | sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64"
+        echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;x86_64" -d "pixel_4"
+    
+    - name: Start Emulator
+      run: |
+        emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        adb wait-for-device
+        # Wait for boot complete
+        adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
+        sleep 10
+        adb shell settings put global window_animation_scale 0
+        adb shell settings put global transition_animation_scale 0
+        adb shell settings put global animator_duration_scale 0
+    
+    - name: Run E2E Tests
+      run: |
+        chmod +x ./tool/qa/run_all_integration.sh
+        ./tool/qa/run_all_integration.sh
+      env:
+        # 避免某些 Flutter 分析警告
+        CI: true
+    
+    - name: Upload Evidence Package
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-evidence-${{ github.run_id }}
+        path: /tmp/qa_*/
+        retention-days: 7
+    
+    - name: Print failure logs
+      if: failure()
+      run: |
+        echo "❌ E2E tests failed. Printing last 120 lines of each test log..."
+        # 找到最新的证据目录
+        latest_dir=$(ls -td /tmp/qa_* 2>/dev/null | head -1)
+        if [ -n "$latest_dir" ]; then
+          echo "Evidence directory: $latest_dir"
+          for log in "$latest_dir"/*.log; do
+            if [ -f "$log" ]; then
+              echo "=== $(basename "$log") ==="
+              tail -n 120 "$log"
+              echo ""
+            fi
+          done
+        else
+          echo "No evidence directory found."
+        fi
+        exit 1
