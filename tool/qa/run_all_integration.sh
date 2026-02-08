@@ -112,9 +112,9 @@ flutter pub get > "$OUTPUT_DIR/flutter_pub_get.log" 2>&1
 SUITE="${1:-smoke}"
 
 case "$SUITE" in
-  key_audit|smoke|core|reward|full|all) ;;
+  key_audit|smoke|core|reward|full|deeplink|real_publish|invite|deep_full|all) ;;
   *)
-    log "❌ Unknown suite: $SUITE. Valid options: key_audit, smoke, core, reward, full, all"
+    log "❌ Unknown suite: $SUITE. Valid options: key_audit, smoke, core, reward, full, deeplink, real_publish, invite, deep_full, all"
     exit 1
     ;;
 esac
