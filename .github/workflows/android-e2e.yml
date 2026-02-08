@@ -57,12 +57,31 @@ jobs:
     
     - name: Create Android Emulator
       run: |
-        # Install platform with timeout (5 minutes)
-        echo "Installing Android platform (timeout 300 seconds)..."
-        timeout 300 sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64" <<< "y"
+        echo "🔄 Trying Android API 34 first (recommended)..."
+        # Try API 34 with timeout (3 minutes)
+        if timeout 180 sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64" <<< "y" 2>/dev/null; then
+          echo "✅ API 34 installed successfully"
+          API_LEVEL="34"
+          SYSTEM_IMAGE="system-images;android-34;google_apis;x86_64"
+        else
+          echo "⚠️  API 34 installation failed, trying API 30 (fallback)..."
+          # Try API 30 with timeout (3 minutes)
+          if timeout 180 sdkmanager "platforms;android-30" "system-images;android-30;google_apis;x86_64" <<< "y" 2>/dev/null; then
+            echo "✅ API 30 installed successfully (fallback)"
+            API_LEVEL="30"
+            SYSTEM_IMAGE="system-images;android-30;google_apis;x86_64"
+          else
+            echo "❌ Both API 34 and API 30 installation failed"
+            exit 1
+          fi
+        fi
+        
         # Create AVD with timeout (1 minute)
-        echo "Creating Android emulator (timeout 60 seconds)..."
-        timeout 60 avdmanager create avd -n test -k "system-images;android-34;google_apis;x86_64" -d "pixel_4" <<< "no"
+        echo "Creating Android emulator (API $API_LEVEL, timeout 60 seconds)..."
+        timeout 60 avdmanager create avd -n test -k "$SYSTEM_IMAGE" -d "pixel_4" <<< "no" || {
+          echo "❌ Failed to create AVD"
+          exit 1
+        }
     
     - name: Start Emulator
       run: |
