@@ -344,6 +344,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   ),
                   SizedBox(height: 28.h),
                   _input(
+                    key: const Key('login_email_input'),
                     controller: _emailController,
                     label: 'Email Address',
                     hint: 'Enter your email',
@@ -361,6 +362,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   ),
                   SizedBox(height: 14.h),
                   _input(
+                    key: const Key('login_password_input'),
                     controller: _passwordController,
                     label: 'Password',
                     hint: 'Enter your password',
@@ -464,6 +466,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                 ],
                         ),
                         child: InkWell(
+                          key: const Key('login_submit_btn'),
                           onTap: _busy || isOAuthInFlight
                               ? null
                               : _loginEmailPassword,
@@ -577,6 +580,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     TextInputType? keyboardType,
     bool obscureText = false,
     Widget? suffixIcon,
+    Key? key,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -589,6 +593,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         ],
       ),
       child: TextFormField(
+        key: key,
         controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
