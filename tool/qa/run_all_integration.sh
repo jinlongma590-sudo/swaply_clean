@@ -168,6 +168,7 @@ PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL_TESTS=${#TEST_NAMES[@]}
 
+# 这里保持你原来的“all/key_audit fail-fast”，其它 suite 不中断
 log "📋 Running $TOTAL_TESTS integration tests (fail-fast for suite=all/key_audit)..."
 echo "" >> "$OUTPUT_DIR/summary.txt"
 echo "=== Test Results ===" >> "$OUTPUT_DIR/summary.txt"
@@ -188,26 +189,24 @@ run_one_test() {
   local test_result=0  # 0=success, 1=failure
 
   log "🧪 Running $test_name ($test_file)..."
-
   echo "=== RUN: $test_name ($test_file) ===" >> "$OUTPUT_DIR/run.log"
 
-  # 根据测试名称设置超时（秒）
+  # ✅ 提高超时：CI 首次 assembleDebug 很慢，别 6 分钟就 kill
   case "$test_name" in
-    key_audit)         timeout_seconds=480 ;;  # ✅ 8分钟（你本地3m39s，CI更慢）
-    smoke_all_tabs)    timeout_seconds=360 ;;  # 6分钟
-    core_flows)        timeout_seconds=480 ;;  # 8分钟
-    reward_regression) timeout_seconds=420 ;;  # 7分钟
-    full_app_smoke)    timeout_seconds=600 ;;  # 10分钟
-    *)                 timeout_seconds=240 ;;  # 默认4分钟
+    key_audit)         timeout_seconds=900 ;;   # 15分钟
+    smoke_all_tabs)    timeout_seconds=900 ;;   # 15分钟
+    core_flows)        timeout_seconds=1200 ;;  # 20分钟
+    reward_regression) timeout_seconds=900 ;;   # 15分钟
+    full_app_smoke)    timeout_seconds=1500 ;;  # 25分钟
+    *)                 timeout_seconds=600 ;;   # 默认10分钟
   esac
 
   log "⏱️  Timeout set to ${timeout_seconds}s for $test_name"
 
-  # 运行测试（不指定 -d，单设备自动选择）
+  # ✅ 去掉 --no-pub：CI 环境更稳
   (
     flutter test "$test_file" \
       "${DART_DEFINES[@]}" \
-      --no-pub \
       -r expanded \
       > "$log_file" 2>&1
   ) &
@@ -225,7 +224,7 @@ run_one_test() {
   if kill -0 "$TEST_PID" 2>/dev/null; then
     log "⚠️  Test $test_name timed out after ${timeout_seconds}s, killing..."
     log "📱 Collecting diagnostic logs for timeout..."
-    adb logcat -d -t 500 2>/dev/null | tail -n 200 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
+    adb logcat -d -t 800 2>/dev/null | tail -n 300 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
     log "📄 ADB logcat saved to ${test_name}_logcat_timeout.txt"
 
     kill -9 "$TEST_PID" 2>/dev/null || true
@@ -248,7 +247,7 @@ run_one_test() {
     log "❌ $test_name failed."
 
     log "📱 Collecting diagnostic logs for failure..."
-    adb logcat -d -t 500 2>/dev/null | tail -n 200 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
+    adb logcat -d -t 800 2>/dev/null | tail -n 300 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
     log "📄 ADB logcat saved to ${test_name}_logcat_failure.txt"
 
     log "📄 Last 120 lines of $log_file:"
@@ -256,7 +255,6 @@ run_one_test() {
   fi
 
   echo "$test_name=$exit_code" >> "$OUTPUT_DIR/test_exit_codes.txt"
-
   log "  Result: $result (exit: $exit_code)"
   echo "  $test_name: $result" >> "$OUTPUT_DIR/summary.txt"
 
@@ -286,7 +284,7 @@ done
 
 # 收集最终 logcat
 log "📱 Collecting logcat..."
-adb -s "$DEVICE_ID" logcat -d -t 20000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null || true
+adb -s "$DEVICE_ID" logcat -d -t 30000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null || true
 
 # 结束摘要
 {
