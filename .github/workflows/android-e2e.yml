@@ -104,24 +104,27 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
-            set -e
-            echo "✅ Emulator booted, devices:"
-            adb devices -l
+            bash -lc '
+              set -euo pipefail
 
-            # ✅ gradlew 在 android/，且有些仓库没执行位
-            if [ -f "./android/gradlew" ]; then
-              chmod +x ./android/gradlew
-              ./android/gradlew --stop || true
-            fi
+              echo "✅ Emulator booted, devices:"
+              adb devices -l
 
-            chmod +x ./tool/qa/run_all_integration.sh
+              # ✅ gradlew 在 android/，并确保可执行
+              if [ -f "./android/gradlew" ]; then
+                chmod +x ./android/gradlew
+                ./android/gradlew --stop || true
+              fi
 
-            # ✅ 兼容 push/PR（无 inputs）和 workflow_dispatch（有 inputs）
-            SUITE="${{ github.event.inputs.suite }}"
-            if [ -z "$SUITE" ]; then SUITE="smoke"; fi
-            echo "🚀 Running suite=$SUITE"
+              chmod +x ./tool/qa/run_all_integration.sh
 
-            ./tool/qa/run_all_integration.sh "$SUITE"
+              # ✅ 兼容 push/PR（无 inputs）和 workflow_dispatch（有 inputs）
+              SUITE="${{ github.event.inputs.suite }}"
+              if [ -z "$SUITE" ]; then SUITE="smoke"; fi
+              echo "🚀 Running suite=$SUITE"
+
+              ./tool/qa/run_all_integration.sh "$SUITE"
+            '
         env:
           CI: true
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
