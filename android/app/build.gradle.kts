@@ -23,7 +23,7 @@ val resolvedMinSdk = max(flutter.minSdkVersion, 21)
 
 android {
     namespace = "cc.swaply.app"
-    compileSdk = resolvedCompileSdk
+    compileSdk = 36  // 显式设置为 36，满足依赖项的最低 compileSdk 要求
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -39,9 +39,14 @@ android {
     defaultConfig {
         applicationId = "cc.swaply.app"
         minSdk = resolvedMinSdk
-        targetSdk = resolvedTargetSdk
+        targetSdk = 36  // 显式设置为 36，与 compileSdk 保持一致
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    testOptions {
+        animationsDisabled = true
     }
 
     // 签名配置
