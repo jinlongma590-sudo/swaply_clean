@@ -27,8 +27,8 @@ concurrency:
 jobs:
   key_audit_static:
     name: Static Key Audit (no emulator)
-    runs-on: macos-latest
-    timeout-minutes: 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
 
     steps:
       - name: Checkout code
@@ -39,6 +39,7 @@ jobs:
         with:
           flutter-version: "3.38.1"
           channel: "stable"
+          cache: true
 
       - name: Flutter pub get
         run: |
@@ -48,8 +49,7 @@ jobs:
       - name: Run static key audit
         run: |
           echo "🔍 Running static key audit (no emulator needed)..."
-          # ✅ 这里已经 pub get 了，所以 --no-pub 可以保留
-          flutter test test/qa/key_audit_static_test.dart --no-pub -r expanded
+          flutter test test/qa/key_audit_static_test.dart -r expanded
 
       - name: Upload static audit logs
         if: always()
@@ -63,9 +63,9 @@ jobs:
 
   e2e:
     name: Run E2E Tests (with emulator)
-    runs-on: macos-13     # ✅ 关键：Intel runner，x86_64 模拟器最稳
+    runs-on: ubuntu-latest
     needs: key_audit_static
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout code
@@ -77,32 +77,27 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.38.1"
           channel: "stable"
+          cache: true
 
       - name: Flutter pub get
+        run: flutter pub get
+
+      # ✅ ubuntu 需要 KVM 权限（android-emulator-runner 官方推荐）
+      - name: Enable KVM (Linux)
         run: |
-          flutter --version
-          flutter pub get
+          sudo apt-get update
+          sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+          sudo adduser $USER kvm || true
+          sudo chown $USER /dev/kvm || true
+          ls -al /dev/kvm || true
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      # ✅ 核心修复：模拟器 + 运行测试必须在同一步里完成，否则模拟器会被关掉
-      - name: Start Emulator and Run E2E
+      # ✅ 关键：把测试跑在 emulator-runner 的 script 里
+      - name: Start emulator + Run E2E
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -112,14 +107,23 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
-            echo "✅ Emulator booted. Listing devices:"
+            echo "✅ Emulator booted, devices:"
             adb devices -l
 
             ./gradlew --stop || true
             chmod +x ./tool/qa/run_all_integration.sh
-            ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
+
+            # 这里决定跑哪个 suite（workflow_dispatch 有输入就用输入，否则 smoke）
+            SUITE="${{ github.event.inputs.suite }}"
+            if [ -z "$SUITE" ]; then SUITE="smoke"; fi
+
+            echo "🚀 Running suite=$SUITE"
+            ./tool/qa/run_all_integration.sh "$SUITE"
         env:
           CI: true
+          # ✅ 建议你把账号密码放到 GitHub Secrets：QA_EMAIL / QA_PASS
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASS: ${{ secrets.QA_PASS }}
 
       - name: Upload Evidence Package
         if: always()
@@ -128,48 +132,3 @@ jobs:
           name: e2e-evidence-${{ github.run_id }}
           path: /tmp/qa_*/
           retention-days: 7
-
-      - name: Print failure logs and diagnostics
-        if: failure()
-        run: |
-          echo "❌ E2E tests failed. Printing system diagnostics..."
-
-          echo "=== System resources ==="
-          df -h
-
-          echo "=== Android SDK info ==="
-          sdkmanager --list | tail -n 200 || true
-          emulator -version || true
-
-          echo "=== ADB devices ==="
-          adb devices -l || true
-
-          echo "=== Emulator properties ==="
-          adb -e shell getprop sys.boot_completed 2>/dev/null || true
-          adb -e shell getprop ro.build.version.sdk 2>/dev/null || true
-          adb -e shell getprop init.svc.bootanim 2>/dev/null || true
-
-          echo "=== Logcat tail ==="
-          adb -e logcat -d -t 200 2>/dev/null | tail -n 100 || true
-
-          echo "=== Test logs (last 120 lines each) ==="
-          latest_dir=$(ls -td /tmp/qa_* 2>/dev/null | head -1)
-          if [ -n "$latest_dir" ]; then
-            echo "Evidence directory: $latest_dir"
-            for log in "$latest_dir"/*.log; do
-              if [ -f "$log" ]; then
-                echo "=== $(basename "$log") ==="
-                tail -n 120 "$log"
-                echo ""
-              fi
-            done
-          else
-            echo "No evidence directory found."
-          fi
-
-          echo "🧹 Cleaning up stuck processes..."
-          adb emu kill 2>/dev/null || true
-          pkill -f emulator 2>/dev/null || true
-          pkill -f qemu 2>/dev/null || true
-
-          exit 1
