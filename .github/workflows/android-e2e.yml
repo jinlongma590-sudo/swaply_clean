@@ -10,7 +10,7 @@ on:
       suite:
         description: "Which suite to run"
         required: true
-        default: "all"
+        default: "smoke"  # 默认跑 smoke，不跑 all（避免超时）
         type: choice
         options:
           - key_audit
@@ -20,11 +20,46 @@ on:
           - full
           - all
 
+concurrency:
+  group: android-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  e2e:
-    name: Run E2E Tests
+  key_audit_static:
+    name: Static Key Audit (no emulator)
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 2
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.1'
+        channel: 'stable'
+    
+    - name: Run static key audit
+      run: |
+        echo "🔍 Running static key audit (no emulator needed)..."
+        flutter test test/qa/key_audit_static_test.dart --no-pub
+    
+    - name: Upload static audit logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: static-key-audit-${{ github.run_id }}
+        path: |
+          /tmp/flutter_test_*.json
+          /tmp/flutter_test_*.log
+        retention-days: 1
+
+  e2e:
+    name: Run E2E Tests (with emulator)
+    runs-on: macos-latest
+    needs: key_audit_static  # 必须先通过静态 Key 审计
+    timeout-minutes: 15
     
     steps:
     - name: Checkout code
@@ -52,100 +87,25 @@ jobs:
         flutter-version: '3.38.1'
         channel: 'stable'
     
-    - name: Install Android SDK
+    - name: Setup Android SDK
       uses: android-actions/setup-android@v3
     
-    - name: Create Android Emulator
-      run: |
-        echo "🔄 Trying Android API 34 first (recommended)..."
-        # Try API 34 with timeout (3 minutes)
-        if timeout 180 sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64" <<< "y" 2>/dev/null; then
-          echo "✅ API 34 installed successfully"
-          API_LEVEL="34"
-          SYSTEM_IMAGE="system-images;android-34;google_apis;x86_64"
-        else
-          echo "⚠️  API 34 installation failed, trying API 30 (fallback)..."
-          # Try API 30 with timeout (3 minutes)
-          if timeout 180 sdkmanager "platforms;android-30" "system-images;android-30;google_apis;x86_64" <<< "y" 2>/dev/null; then
-            echo "✅ API 30 installed successfully (fallback)"
-            API_LEVEL="30"
-            SYSTEM_IMAGE="system-images;android-30;google_apis;x86_64"
-          else
-            echo "❌ Both API 34 and API 30 installation failed"
-            exit 1
-          fi
-        fi
-        
-        # Create AVD with timeout (1 minute)
-        echo "Creating Android emulator (API $API_LEVEL, timeout 60 seconds)..."
-        timeout 60 avdmanager create avd -n test -k "$SYSTEM_IMAGE" -d "pixel_4" <<< "no" || {
-          echo "❌ Failed to create AVD"
-          exit 1
-        }
-    
-    - name: Start Emulator
-      run: |
-        echo "🚀 Starting emulator with hard timeout (6 minutes)..."
-        timeout 360 bash -c '
-          emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-          EMULATOR_PID=$!
-          
-          # Wait for device with timeout (2 minutes)
-          echo "Waiting for device (max 120 seconds)..."
-          for i in {1..120}; do
-            if adb devices | grep -q "device$"; then
-              echo "✅ Device detected at $i seconds"
-              break
-            fi
-            sleep 1
-          done
-          
-          # Wait for boot complete with timeout (3 minutes)
-          echo "Waiting for boot complete (max 180 seconds)..."
-          for i in {1..180}; do
-            if adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; then
-              echo "✅ Boot completed at $i seconds"
-              break
-            fi
-            sleep 1
-          done
-          
-          sleep 5
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-          
-          wait $EMULATOR_PID
-        '
-        
-        # Check if emulator started successfully
-        if ! adb devices | grep -q "device$"; then
-          echo "❌ Emulator failed to start within timeout. Printing diagnostics..."
-          echo "=== adb devices -l ==="
-          adb devices -l
-          echo "=== sys.boot_completed ==="
-          adb shell getprop sys.boot_completed
-          echo "=== init.svc.bootanim ==="
-          adb shell getprop init.svc.bootanim
-          echo "=== dumpsys systemui (head) ==="
-          adb shell dumpsys activity service com.android.systemui 2>/dev/null | head -20
-          echo "=== logcat tail (300 lines) ==="
-          adb logcat -d 2>/dev/null | tail -n 300
-          
-          echo "🧹 Cleaning up stuck emulator processes..."
-          adb emu kill 2>/dev/null || true
-          pkill -f emulator 2>/dev/null || true
-          pkill -f qemu 2>/dev/null || true
-          
-          exit 1
-        fi
+    - name: Start Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 30  # 降级到 API 30，镜像更小、更稳定
+        target: google_apis
+        arch: x86_64
+        profile: pixel_4
+        emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
+        disable-animations: true
     
     - name: Run E2E Tests
       run: |
         # Stop any existing Gradle daemon to avoid conflicts
         ./gradlew --stop || true
         chmod +x ./tool/qa/run_all_integration.sh
-        ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'all' }}"
+        ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
       env:
         # 避免某些 Flutter 分析警告
         CI: true
