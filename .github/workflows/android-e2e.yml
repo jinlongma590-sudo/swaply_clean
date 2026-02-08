@@ -28,7 +28,7 @@ jobs:
   key_audit_static:
     name: Static Key Audit (no emulator)
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
 
     steps:
       - name: Checkout code
@@ -71,7 +71,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
@@ -87,22 +87,13 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # ✅ Ubuntu 跑 emulator-runner：开启 KVM
       - name: Enable KVM (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-kvm
-<<<<<<< Updated upstream
           sudo chown $USER /dev/kvm || true
           ls -al /dev/kvm || true
 
-      # ✅ 关键：测试必须跑在 emulator-runner 的 script 里
-=======
-          sudo chmod 666 /dev/kvm || true
-          ls -al /dev/kvm || true
-
-      # ✅ 关键：把所有命令放进同一个 bash -lc，避免每行被拆开导致变量丢失
->>>>>>> Stashed changes
       - name: Start emulator + Run E2E
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -113,14 +104,15 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
-<<<<<<< Updated upstream
             set -e
-
             echo "✅ Emulator booted, devices:"
             adb devices -l
 
-            # ✅ 修复：gradlew 在 android/ 目录
-            ./android/gradlew --stop || true
+            # ✅ gradlew 在 android/，且有些仓库没执行位
+            if [ -f "./android/gradlew" ]; then
+              chmod +x ./android/gradlew
+              ./android/gradlew --stop || true
+            fi
 
             chmod +x ./tool/qa/run_all_integration.sh
 
@@ -130,23 +122,6 @@ jobs:
             echo "🚀 Running suite=$SUITE"
 
             ./tool/qa/run_all_integration.sh "$SUITE"
-=======
-            bash -lc '
-              set -e
-
-              echo "✅ Emulator booted, devices:"
-              adb devices -l
-
-              chmod +x ./tool/qa/run_all_integration.sh
-
-              # ✅ push/PR 没有 inputs：默认 smoke
-              SUITE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.suite || 'smoke' }}"
-              if [ -z "$SUITE" ]; then SUITE="smoke"; fi
-
-              echo "🚀 Running suite=$SUITE"
-              ./tool/qa/run_all_integration.sh "$SUITE"
-            '
->>>>>>> Stashed changes
         env:
           CI: true
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
