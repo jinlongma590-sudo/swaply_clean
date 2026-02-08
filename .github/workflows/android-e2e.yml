@@ -28,169 +28,169 @@ jobs:
   key_audit_static:
     name: Static Key Audit (no emulator)
     runs-on: macos-latest
-    timeout-minutes: 2
-    
+    timeout-minutes: 4  # ✅ 建议从 2 提到 4，避免偶发 pub get 慢导致误杀
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.38.1'
-        channel: 'stable'
-    
-    - name: Run static key audit
-      run: |
-        echo "🔍 Running static key audit (no emulator needed)..."
-        flutter test test/qa/key_audit_static_test.dart --no-pub
-    
-    - name: Upload static audit logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: static-key-audit-${{ github.run_id }}
-        path: |
-          /tmp/flutter_test_*.json
-          /tmp/flutter_test_*.log
-        retention-days: 1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.1"
+          channel: "stable"
+
+      # ✅ 关键修复：先 pub get，避免 --no-pub 导致依赖缺失
+      - name: Flutter pub get
+        run: |
+          flutter --version
+          flutter pub get
+
+      - name: Run static key audit
+        run: |
+          echo "🔍 Running static key audit (no emulator needed)..."
+          flutter test test/qa/key_audit_static_test.dart --no-pub -r expanded
+
+      - name: Upload static audit logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-key-audit-${{ github.run_id }}
+          path: |
+            /tmp/flutter_test_*.json
+            /tmp/flutter_test_*.log
+          retention-days: 1
 
   e2e:
     name: Run E2E Tests (with emulator)
     runs-on: macos-latest
     needs: key_audit_static  # 必须先通过静态 Key 审计
     timeout-minutes: 15
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-    
-    - name: Cache Gradle
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          gradle-${{ runner.os }}-
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.38.1'
-        channel: 'stable'
-    
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-    
-    - name: Cache Android SDK and AVD
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.android/avd
-          ~/.android/cache
-          ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}
-        key: android-sdk-api30-googleapis-x86_64-${{ runner.os }}-${{ github.sha }}
-        restore-keys: |
-          android-sdk-api30-googleapis-x86_64-${{ runner.os }}-
-    
-    - name: Install Android SDK components (explicit)
-      run: |
-        echo "Installing required Android SDK components..."
-        ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager \
-          --install \
-          "platform-tools" \
-          "emulator" \
-          "platforms;android-30" \
-          "system-images;android-30;google_apis;x86_64" \
-          <<< "y" || {
-            echo "❌ SDK component installation failed"
-            exit 1
-          }
-        echo "✅ SDK components installed successfully"
-    
-    - name: Start Android Emulator
-      uses: reactivecircus/android-emulator-runner@v2
-      with:
-        api-level: 30  # 固定 API 30，镜像最小最稳
-        target: google_apis
-        arch: x86_64
-        profile: pixel_4
-        emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
-        disable-animations: true
-        script: |
-          # This script runs inside the emulator environment
-          echo "Emulator started successfully"
-          # The actual test script will be called by the workflow
-    
-    - name: Run E2E Tests
-      run: |
-        # Stop any existing Gradle daemon to avoid conflicts
-        ./gradlew --stop || true
-        chmod +x ./tool/qa/run_all_integration.sh
-        ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
-      env:
-        # 避免某些 Flutter 分析警告
-        CI: true
-    
-    - name: Upload Evidence Package
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: e2e-evidence-${{ github.run_id }}
-        path: /tmp/qa_*/
-        retention-days: 7
-    
-    - name: Print failure logs and diagnostics
-      if: failure()
-      run: |
-        echo "❌ E2E tests failed. Printing system diagnostics..."
-        
-        echo "=== System resources ==="
-        df -h
-        free -h
-        
-        echo "=== Android SDK info ==="
-        ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager --list | tail -n 200 || true
-        emulator -version || true
-        
-        echo "=== ADB devices ==="
-        adb devices -l || true
-        
-        echo "=== Emulator properties ==="
-        adb -e shell getprop sys.boot_completed 2>/dev/null || true
-        adb -e shell getprop ro.build.version.sdk 2>/dev/null || true
-        adb -e shell getprop init.svc.bootanim 2>/dev/null || true
-        
-        echo "=== Logcat tail ==="
-        adb -e logcat -d -t 200 2>/dev/null | tail -n 100 || true
-        
-        echo "=== Test logs (last 120 lines each) ==="
-        latest_dir=$(ls -td /tmp/qa_* 2>/dev/null | head -1)
-        if [ -n "$latest_dir" ]; then
-          echo "Evidence directory: $latest_dir"
-          for log in "$latest_dir"/*.log; do
-            if [ -f "$log" ]; then
-              echo "=== $(basename "$log") ==="
-              tail -n 120 "$log"
-              echo ""
-            fi
-          done
-        else
-          echo "No evidence directory found."
-        fi
-        
-        # Kill any stuck emulator processes
-        echo "🧹 Cleaning up stuck processes..."
-        adb emu kill 2>/dev/null || true
-        pkill -f emulator 2>/dev/null || true
-        pkill -f qemu 2>/dev/null || true
-        
-        exit 1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.1"
+          channel: "stable"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Android SDK and AVD
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd
+            ~/.android/cache
+            ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}
+          key: android-sdk-api30-googleapis-x86_64-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            android-sdk-api30-googleapis-x86_64-${{ runner.os }}-
+
+      - name: Install Android SDK components (explicit)
+        run: |
+          echo "Installing required Android SDK components..."
+          ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager \
+            --install \
+            "platform-tools" \
+            "emulator" \
+            "platforms;android-30" \
+            "system-images;android-30;google_apis;x86_64" \
+            <<< "y" || {
+              echo "❌ SDK component installation failed"
+              exit 1
+            }
+          echo "✅ SDK components installed successfully"
+
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30  # 固定 API 30，镜像最小最稳
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
+          disable-animations: true
+          script: |
+            echo "Emulator started successfully"
+
+      - name: Run E2E Tests
+        run: |
+          ./gradlew --stop || true
+          chmod +x ./tool/qa/run_all_integration.sh
+          ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'smoke' }}"
+        env:
+          CI: true
+
+      - name: Upload Evidence Package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-evidence-${{ github.run_id }}
+          path: /tmp/qa_*/
+          retention-days: 7
+
+      - name: Print failure logs and diagnostics
+        if: failure()
+        run: |
+          echo "❌ E2E tests failed. Printing system diagnostics..."
+
+          echo "=== System resources ==="
+          df -h
+
+          echo "=== Android SDK info ==="
+          ${{ env.ANDROID_SDK_ROOT || '/usr/local/lib/android/sdk' }}/cmdline-tools/latest/bin/sdkmanager --list | tail -n 200 || true
+          emulator -version || true
+
+          echo "=== ADB devices ==="
+          adb devices -l || true
+
+          echo "=== Emulator properties ==="
+          adb -e shell getprop sys.boot_completed 2>/dev/null || true
+          adb -e shell getprop ro.build.version.sdk 2>/dev/null || true
+          adb -e shell getprop init.svc.bootanim 2>/dev/null || true
+
+          echo "=== Logcat tail ==="
+          adb -e logcat -d -t 200 2>/dev/null | tail -n 100 || true
+
+          echo "=== Test logs (last 120 lines each) ==="
+          latest_dir=$(ls -td /tmp/qa_* 2>/dev/null | head -1)
+          if [ -n "$latest_dir" ]; then
+            echo "Evidence directory: $latest_dir"
+            for log in "$latest_dir"/*.log; do
+              if [ -f "$log" ]; then
+                echo "=== $(basename "$log") ==="
+                tail -n 120 "$log"
+                echo ""
+              fi
+            done
+          else
+            echo "No evidence directory found."
+          fi
+
+          echo "🧹 Cleaning up stuck processes..."
+          adb emu kill 2>/dev/null || true
+          pkill -f emulator 2>/dev/null || true
+          pkill -f qemu 2>/dev/null || true
+
+          exit 1
