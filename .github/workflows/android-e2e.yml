@@ -36,6 +36,16 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
     
+    - name: Cache Gradle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-
+    
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -47,8 +57,12 @@ jobs:
     
     - name: Create Android Emulator
       run: |
-        echo "y" | sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64"
-        echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;x86_64" -d "pixel_4"
+        # Install platform with timeout (5 minutes)
+        echo "Installing Android platform (timeout 300 seconds)..."
+        timeout 300 sdkmanager "platforms;android-34" "system-images;android-34;google_apis;x86_64" <<< "y"
+        # Create AVD with timeout (1 minute)
+        echo "Creating Android emulator (timeout 60 seconds)..."
+        timeout 60 avdmanager create avd -n test -k "system-images;android-34;google_apis;x86_64" -d "pixel_4" <<< "no"
     
     - name: Start Emulator
       run: |
@@ -81,6 +95,8 @@ jobs:
     
     - name: Run E2E Tests
       run: |
+        # Stop any existing Gradle daemon to avoid conflicts
+        ./gradlew --stop || true
         chmod +x ./tool/qa/run_all_integration.sh
         ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'all' }}"
       env:
