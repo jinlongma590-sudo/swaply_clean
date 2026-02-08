@@ -87,16 +87,15 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # ✅ ubuntu 需要 KVM 权限（android-emulator-runner 官方推荐）
+      # ✅ Ubuntu 跑 emulator-runner：开启 KVM
       - name: Enable KVM (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
-          sudo adduser $USER kvm || true
+          sudo apt-get install -y qemu-kvm
           sudo chown $USER /dev/kvm || true
           ls -al /dev/kvm || true
 
-      # ✅ 关键：把测试跑在 emulator-runner 的 script 里
+      # ✅ 关键：测试必须跑在 emulator-runner 的 script 里
       - name: Start emulator + Run E2E
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -107,21 +106,24 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
+            set -e
+
             echo "✅ Emulator booted, devices:"
             adb devices -l
 
-            ./gradlew --stop || true
+            # ✅ 修复：gradlew 在 android/ 目录
+            ./android/gradlew --stop || true
+
             chmod +x ./tool/qa/run_all_integration.sh
 
-            # 这里决定跑哪个 suite（workflow_dispatch 有输入就用输入，否则 smoke）
+            # ✅ 兼容 push/PR（无 inputs）和 workflow_dispatch（有 inputs）
             SUITE="${{ github.event.inputs.suite }}"
             if [ -z "$SUITE" ]; then SUITE="smoke"; fi
-
             echo "🚀 Running suite=$SUITE"
+
             ./tool/qa/run_all_integration.sh "$SUITE"
         env:
           CI: true
-          # ✅ 建议你把账号密码放到 GitHub Secrets：QA_EMAIL / QA_PASS
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
           QA_PASS: ${{ secrets.QA_PASS }}
 
