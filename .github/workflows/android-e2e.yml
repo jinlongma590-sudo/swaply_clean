@@ -5,7 +5,20 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Which suite to run"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - key_audit
+          - smoke
+          - core
+          - reward
+          - full
+          - all
 
 jobs:
   e2e:
@@ -40,10 +53,28 @@ jobs:
     - name: Start Emulator
       run: |
         emulator -avd test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
-        adb wait-for-device
-        # Wait for boot complete
-        adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
-        sleep 10
+        # Wait for device with timeout (2 minutes)
+        echo "Waiting for device (max 120 seconds)..."
+        for i in {1..120}; do
+          if adb devices | grep -q "device$"; then
+            echo "✅ Device detected at $i seconds"
+            break
+          fi
+          sleep 1
+        done
+        # Wait for boot complete with timeout (3 minutes)
+        echo "Waiting for boot complete (max 180 seconds)..."
+        for i in {1..180}; do
+          if adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; then
+            echo "✅ Boot completed at $i seconds"
+            break
+          fi
+          sleep 1
+        done
+        sleep 5
+        adb shell settings put global window_animation_scale 0
+        adb shell settings put global transition_animation_scale 0
+        adb shell settings put global animator_duration_scale 0
         adb shell settings put global window_animation_scale 0
         adb shell settings put global transition_animation_scale 0
         adb shell settings put global animator_duration_scale 0
@@ -51,7 +82,7 @@ jobs:
     - name: Run E2E Tests
       run: |
         chmod +x ./tool/qa/run_all_integration.sh
-        ./tool/qa/run_all_integration.sh
+        ./tool/qa/run_all_integration.sh "${{ github.event.inputs.suite || 'all' }}"
       env:
         # 避免某些 Flutter 分析警告
         CI: true
