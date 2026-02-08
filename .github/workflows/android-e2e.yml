@@ -65,7 +65,7 @@ jobs:
     name: Run E2E Tests (with emulator)
     runs-on: ubuntu-latest
     needs: key_audit_static
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -92,10 +92,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-kvm
+<<<<<<< Updated upstream
           sudo chown $USER /dev/kvm || true
           ls -al /dev/kvm || true
 
       # ✅ 关键：测试必须跑在 emulator-runner 的 script 里
+=======
+          sudo chmod 666 /dev/kvm || true
+          ls -al /dev/kvm || true
+
+      # ✅ 关键：把所有命令放进同一个 bash -lc，避免每行被拆开导致变量丢失
+>>>>>>> Stashed changes
       - name: Start emulator + Run E2E
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -106,6 +113,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: |
+<<<<<<< Updated upstream
             set -e
 
             echo "✅ Emulator booted, devices:"
@@ -122,6 +130,23 @@ jobs:
             echo "🚀 Running suite=$SUITE"
 
             ./tool/qa/run_all_integration.sh "$SUITE"
+=======
+            bash -lc '
+              set -e
+
+              echo "✅ Emulator booted, devices:"
+              adb devices -l
+
+              chmod +x ./tool/qa/run_all_integration.sh
+
+              # ✅ push/PR 没有 inputs：默认 smoke
+              SUITE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.suite || 'smoke' }}"
+              if [ -z "$SUITE" ]; then SUITE="smoke"; fi
+
+              echo "🚀 Running suite=$SUITE"
+              ./tool/qa/run_all_integration.sh "$SUITE"
+            '
+>>>>>>> Stashed changes
         env:
           CI: true
           QA_EMAIL: ${{ secrets.QA_EMAIL }}

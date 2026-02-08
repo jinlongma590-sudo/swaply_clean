@@ -5,6 +5,8 @@
 # 输出：/tmp/qa_<timestamp>/ 证据包
 # ============================================
 
+set -u
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_DIR"
@@ -38,7 +40,7 @@ get_device_id() {
       fi
     fi
   fi
-  
+
   # 回退：使用 adb devices
   local adb_device
   adb_device=$(adb devices | grep -E '^[0-9a-zA-Z]' | grep -v 'List of devices' | head -1 | cut -f1)
@@ -46,10 +48,20 @@ get_device_id() {
     echo "$adb_device"
     return 0
   fi
-  
+
   # 最后回退：模拟器默认
   echo "emulator-5554"
 }
+
+# ========= 0) 强制要求登录凭据（你现在的SavedPage/审计都需要登录） =========
+QA_EMAIL_ENV="${QA_EMAIL:-}"
+QA_PASS_ENV="${QA_PASS:-}"
+
+if [ -z "$QA_EMAIL_ENV" ] || [ -z "$QA_PASS_ENV" ]; then
+  log "❌ Missing QA credentials. Please set env vars: QA_EMAIL and QA_PASS"
+  log "   Example: QA_EMAIL='xxx@gmail.com' QA_PASS='***' ./tool/qa/run_all_integration.sh smoke"
+  exit 3
+fi
 
 # 1. 设备检测 - 单设备原则
 log "🔍 Detecting Android device..."
@@ -85,27 +97,38 @@ log "📊 Collecting environment info..."
   echo "--- Android SDK ---"
   adb version
   echo ""
+  echo "--- QA ENV ---"
+  echo "QA_EMAIL: ${QA_EMAIL_ENV%%@*}@***"
+  echo "QA_PASS: (set)"
+  echo ""
 } > "$OUTPUT_DIR/summary.txt"
 
-# 3. 轻量清理
+# 3. 轻量清理（CI里也可跑，最多慢一点）
 log "🧹 Light cleaning..."
-flutter clean > "$OUTPUT_DIR/flutter_clean.log" 2>&1
+flutter clean > "$OUTPUT_DIR/flutter_clean.log" 2>&1 || true
 flutter pub get > "$OUTPUT_DIR/flutter_pub_get.log" 2>&1
 
-# 3. 套件选择
-SUITE="${1:-all}"
+# 4. 套件选择（✅ 默认 smoke，而不是 all）
+SUITE="${1:-smoke}"
+
+case "$SUITE" in
+  key_audit|smoke|core|reward|full|all) ;;
+  *)
+    log "❌ Unknown suite: $SUITE. Valid options: key_audit, smoke, core, reward, full, all"
+    exit 1
+    ;;
+esac
+
 log "🎯 Selected suite: $SUITE"
 
-# 4. 测试矩阵 (bash 3.2 兼容)
+# 5. 测试矩阵 (bash 3.2 兼容)
 declare -a TEST_NAMES
 declare -a TEST_FILES
 
 case "$SUITE" in
   key_audit)
-    # 静态 Key 审计已在单独的 job 中完成
-    # 这里只需验证设备就绪，然后返回成功
-    TEST_NAMES=("device_check")
-    TEST_FILES=("")  # 空文件，特殊处理
+    TEST_NAMES=("key_audit")
+    TEST_FILES=("integration_test/key_audit_test.dart")
     ;;
   smoke)
     TEST_NAMES=("smoke_all_tabs")
@@ -139,21 +162,23 @@ case "$SUITE" in
       "integration_test/full_app_smoke_via_qa_panel_test.dart"
     )
     ;;
-  *)
-    log "❌ Unknown suite: $SUITE. Valid options: key_audit, smoke, core, reward, full, all"
-    exit 1
-    ;;
 esac
 
-# 5. 运行每个测试 (fail-fast 模式)
 PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL_TESTS=${#TEST_NAMES[@]}
 
-log "📋 Running $TOTAL_TESTS integration tests (fail-fast)..."
+log "📋 Running $TOTAL_TESTS integration tests (fail-fast for suite=all/key_audit)..."
 echo "" >> "$OUTPUT_DIR/summary.txt"
 echo "=== Test Results ===" >> "$OUTPUT_DIR/summary.txt"
 echo "Total tests: $TOTAL_TESTS" >> "$OUTPUT_DIR/summary.txt"
+
+# 统一注入 dart-define（让 integration test 能读取 QA_EMAIL/QA_PASS）
+DART_DEFINES=(
+  "--dart-define=QA_MODE=true"
+  "--dart-define=QA_EMAIL=$QA_EMAIL_ENV"
+  "--dart-define=QA_PASS=$QA_PASS_ENV"
+)
 
 # 函数：运行单个测试，返回是否成功
 run_one_test() {
@@ -161,126 +186,121 @@ run_one_test() {
   local test_file="$2"
   local log_file="$OUTPUT_DIR/${test_name}.log"
   local test_result=0  # 0=success, 1=failure
-  
+
   log "🧪 Running $test_name ($test_file)..."
-  
-  # 记录开始时间
+
   echo "=== RUN: $test_name ($test_file) ===" >> "$OUTPUT_DIR/run.log"
-  
-  # 特殊处理：空文件（用于 key_audit 套件，静态审计已在单独 job 完成）
-  if [ -z "$test_file" ]; then
-    log "📋 Static key audit already passed in separate job. Checking device readiness..."
-    echo "✅ Static key audit passed, device ready for UI tests" > "$log_file"
+
+  # 根据测试名称设置超时（秒）
+  case "$test_name" in
+    key_audit)         timeout_seconds=480 ;;  # ✅ 8分钟（你本地3m39s，CI更慢）
+    smoke_all_tabs)    timeout_seconds=360 ;;  # 6分钟
+    core_flows)        timeout_seconds=480 ;;  # 8分钟
+    reward_regression) timeout_seconds=420 ;;  # 7分钟
+    full_app_smoke)    timeout_seconds=600 ;;  # 10分钟
+    *)                 timeout_seconds=240 ;;  # 默认4分钟
+  esac
+
+  log "⏱️  Timeout set to ${timeout_seconds}s for $test_name"
+
+  # 运行测试（不指定 -d，单设备自动选择）
+  (
+    flutter test "$test_file" \
+      "${DART_DEFINES[@]}" \
+      --no-pub \
+      -r expanded \
+      > "$log_file" 2>&1
+  ) &
+  TEST_PID=$!
+
+  # 等待测试完成（按超时）
+  for _ in $(seq 1 "$timeout_seconds"); do
+    if ! kill -0 "$TEST_PID" 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+
+  # 超时 kill
+  if kill -0 "$TEST_PID" 2>/dev/null; then
+    log "⚠️  Test $test_name timed out after ${timeout_seconds}s, killing..."
+    log "📱 Collecting diagnostic logs for timeout..."
+    adb logcat -d -t 500 2>/dev/null | tail -n 200 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
+    log "📄 ADB logcat saved to ${test_name}_logcat_timeout.txt"
+
+    kill -9 "$TEST_PID" 2>/dev/null || true
+    echo "" >> "$log_file"
+    echo "TIMEOUT after ${timeout_seconds}s" >> "$log_file"
+    exit_code=124
+  else
+    wait "$TEST_PID"
+    exit_code=$?
+  fi
+
+  # 判定 PASS/FAIL（兼容 flutter test 的输出）
+  if grep -q "All tests passed" "$log_file"; then
     result="PASS"
     PASS_COUNT=$((PASS_COUNT + 1))
-    exit_code=0
   else
-    # 根据测试名称设置超时（秒）
-    case "$test_name" in
-      smoke_all_tabs)    timeout_seconds=360 ;;  # 6分钟
-      core_flows)        timeout_seconds=480 ;;  # 8分钟
-      reward_regression) timeout_seconds=360 ;;  # 6分钟
-      full_app_smoke)    timeout_seconds=600 ;;  # 10分钟
-      *)                 timeout_seconds=180 ;;  # 默认3分钟
-    esac
-    
-    log "⏱️  Timeout set to ${timeout_seconds}s for $test_name"
-    
-    # 运行测试（不指定 -d，单设备自动选择）
-    (flutter test "$test_file" --dart-define=QA_MODE=true --no-pub > "$log_file" 2>&1) &
-    TEST_PID=$!
-    
-    # 等待测试完成（按套件超时）
-    for _ in $(seq 1 "$timeout_seconds"); do
-      if ! kill -0 "$TEST_PID" 2>/dev/null; then
-        break
-      fi
-      sleep 1
-    done
-    
-    # 如果进程还在运行，杀掉它
-    if kill -0 "$TEST_PID" 2>/dev/null; then
-      log "⚠️  Test $test_name timed out after ${timeout_seconds}s, killing..."
-      
-      # 超时诊断：收集adb logcat
-      log "📱 Collecting diagnostic logs for timeout..."
-      adb logcat -d -t 200 2>/dev/null | tail -n 100 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
-      log "📄 ADB logcat saved to ${test_name}_logcat_timeout.txt"
-      
-      kill -9 "$TEST_PID" 2>/dev/null
-      echo "TIMEOUT after ${timeout_seconds}s" > "$log_file"
-      exit_code=124
-    else
-      wait "$TEST_PID"
-      exit_code=$?
-    fi
-    
-    # 检查结果
-    if grep -q "All tests passed" "$log_file"; then
-      result="PASS"
-      PASS_COUNT=$((PASS_COUNT + 1))
-    else
-      result="FAIL"
-      FAIL_COUNT=$((FAIL_COUNT + 1))
-      test_result=1
-      log "❌ $test_name failed."
-      
-      # 失败诊断：收集adb logcat和更多日志
-      log "📱 Collecting diagnostic logs for failure..."
-      adb logcat -d -t 200 2>/dev/null | tail -n 100 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
-      log "📄 ADB logcat saved to ${test_name}_logcat_failure.txt"
-      
-      log "📄 Last 120 lines of $log_file:"
-      tail -120 "$log_file" | while IFS= read -r line; do log "   $line"; done
-    fi
+    result="FAIL"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    test_result=1
+    log "❌ $test_name failed."
+
+    log "📱 Collecting diagnostic logs for failure..."
+    adb logcat -d -t 500 2>/dev/null | tail -n 200 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
+    log "📄 ADB logcat saved to ${test_name}_logcat_failure.txt"
+
+    log "📄 Last 120 lines of $log_file:"
+    tail -120 "$log_file" | while IFS= read -r line; do log "   $line"; done
   fi
-  
-  # 记录退出码
+
   echo "$test_name=$exit_code" >> "$OUTPUT_DIR/test_exit_codes.txt"
-  
+
   log "  Result: $result (exit: $exit_code)"
   echo "  $test_name: $result" >> "$OUTPUT_DIR/summary.txt"
-  
+
   return $test_result
 }
 
-# 按顺序执行测试，根据suite决定是否fail-fast
+# 执行测试
 i=0
 while [ $i -lt $TOTAL_TESTS ]; do
   test_name="${TEST_NAMES[$i]}"
   test_file="${TEST_FILES[$i]}"
+
   run_one_test "$test_name" "$test_file"
   test_result=$?
-  
-  # 如果测试失败且suite是key_audit或all（且是第一个测试key_audit），则fail-fast
+
+  # fail-fast：key_audit / all
   if [ $test_result -ne 0 ]; then
     if [ "$SUITE" = "key_audit" ] || [ "$SUITE" = "all" ]; then
       log "❌ $test_name failed in fail-fast suite ($SUITE). Stopping early."
+      echo "1" > "$OUTPUT_DIR/exit_code.txt"
       exit 1
     fi
-    # 对于其他suite，继续执行（虽然只有一个测试，但保持逻辑一致）
   fi
-  
+
   i=$((i + 1))
 done
 
-# 6. 收集 logcat（最后10秒）
+# 收集最终 logcat
 log "📱 Collecting logcat..."
-adb -s "$DEVICE_ID" logcat -d -t 10000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null || true
+adb -s "$DEVICE_ID" logcat -d -t 20000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null || true
 
-# 7. 完成摘要
+# 结束摘要
 {
   echo ""
   echo "Passed: $PASS_COUNT"
   echo "Failed: $FAIL_COUNT"
   echo ""
-  
+
   if [ $FAIL_COUNT -eq 0 ]; then
     echo "✅ ALL TESTS PASSED"
   else
     echo "❌ SOME TESTS FAILED"
   fi
-  
+
   echo ""
   echo "Evidence package: $OUTPUT_DIR"
   echo "  - summary.txt          (环境摘要)"
@@ -291,11 +311,15 @@ adb -s "$DEVICE_ID" logcat -d -t 10000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null ||
   echo "  - exit_code.txt        (总退出码)"
 } >> "$OUTPUT_DIR/summary.txt"
 
-# 8. 写入总退出码 (全部通过时为0)
-echo "0" > "$OUTPUT_DIR/exit_code.txt"
-
-# 9. 输出最终结果
-log "📦 Evidence package ready: $OUTPUT_DIR"
-cat "$OUTPUT_DIR/summary.txt" | tail -20
-
-exit 0
+# 写入总退出码 + 正确退出
+if [ $FAIL_COUNT -eq 0 ]; then
+  echo "0" > "$OUTPUT_DIR/exit_code.txt"
+  log "📦 Evidence package ready: $OUTPUT_DIR"
+  cat "$OUTPUT_DIR/summary.txt" | tail -20
+  exit 0
+else
+  echo "1" > "$OUTPUT_DIR/exit_code.txt"
+  log "📦 Evidence package ready: $OUTPUT_DIR"
+  cat "$OUTPUT_DIR/summary.txt" | tail -20
+  exit 1
+fi
