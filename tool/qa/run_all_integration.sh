@@ -175,12 +175,23 @@ run_one_test() {
     PASS_COUNT=$((PASS_COUNT + 1))
     exit_code=0
   else
+    # 根据测试名称设置超时（秒）
+    case "$test_name" in
+      smoke_all_tabs)    timeout_seconds=360 ;;  # 6分钟
+      core_flows)        timeout_seconds=480 ;;  # 8分钟
+      reward_regression) timeout_seconds=360 ;;  # 6分钟
+      full_app_smoke)    timeout_seconds=600 ;;  # 10分钟
+      *)                 timeout_seconds=180 ;;  # 默认3分钟
+    esac
+    
+    log "⏱️  Timeout set to ${timeout_seconds}s for $test_name"
+    
     # 运行测试（不指定 -d，单设备自动选择）
     (flutter test "$test_file" --dart-define=QA_MODE=true --no-pub > "$log_file" 2>&1) &
     TEST_PID=$!
     
-    # 等待测试完成（最多180秒）
-    for _ in $(seq 1 180); do
+    # 等待测试完成（按套件超时）
+    for _ in $(seq 1 "$timeout_seconds"); do
       if ! kill -0 "$TEST_PID" 2>/dev/null; then
         break
       fi
@@ -189,9 +200,15 @@ run_one_test() {
     
     # 如果进程还在运行，杀掉它
     if kill -0 "$TEST_PID" 2>/dev/null; then
-      log "⚠️  Test $test_name timed out, killing..."
+      log "⚠️  Test $test_name timed out after ${timeout_seconds}s, killing..."
+      
+      # 超时诊断：收集adb logcat
+      log "📱 Collecting diagnostic logs for timeout..."
+      adb logcat -d -t 200 2>/dev/null | tail -n 100 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
+      log "📄 ADB logcat saved to ${test_name}_logcat_timeout.txt"
+      
       kill -9 "$TEST_PID" 2>/dev/null
-      echo "TIMEOUT" > "$log_file"
+      echo "TIMEOUT after ${timeout_seconds}s" > "$log_file"
       exit_code=124
     else
       wait "$TEST_PID"
@@ -207,8 +224,14 @@ run_one_test() {
       FAIL_COUNT=$((FAIL_COUNT + 1))
       test_result=1
       log "❌ $test_name failed."
-      log "📄 Last 50 lines of $log_file:"
-      tail -50 "$log_file" | while IFS= read -r line; do log "   $line"; done
+      
+      # 失败诊断：收集adb logcat和更多日志
+      log "📱 Collecting diagnostic logs for failure..."
+      adb logcat -d -t 200 2>/dev/null | tail -n 100 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
+      log "📄 ADB logcat saved to ${test_name}_logcat_failure.txt"
+      
+      log "📄 Last 120 lines of $log_file:"
+      tail -120 "$log_file" | while IFS= read -r line; do log "   $line"; done
     fi
   fi
   
