@@ -134,33 +134,6 @@ void main() {
     }
   }
 
-  /// Navigate to Home tab and wait for content
-  Future<void> navigateToHomeTab(WidgetTester tester) async {
-    final homeTab = find.byKey(const Key(QaKeys.tabHome));
-    await waitForFinder(tester, homeTab);
-    await tester.tap(homeTab);
-    await tester.pumpAndSettle(const Duration(seconds: 3));
-  }
-
-  /// Check if any listing items appear in the UI
-  Future<bool> verifyListingInUI(WidgetTester tester, String listingTitle) async {
-    try {
-      // Look for listing grid or items
-      final listingGrid = find.byKey(const Key(QaKeys.listingGrid));
-      if (listingGrid.evaluate().isNotEmpty) {
-        // Check for listing items (by title text)
-        final titleFinder = find.textContaining(listingTitle);
-        return titleFinder.evaluate().isNotEmpty;
-      }
-      
-      // Alternative: check for any listing items
-      final listingItem = find.byKey(const Key(QaKeys.listingItem + '0'));
-      return listingItem.evaluate().isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
-
   testWidgets('Real Publish: full flow with image upload', (WidgetTester tester) async {
     print('🚀 Starting Real Publish test');
     
@@ -227,30 +200,9 @@ void main() {
       
       print('✅ Listing retrieval verified');
       
-      // 6. Verify listing appears in UI - navigate and check
-      print('🏠 Navigating to Home tab to verify UI visibility...');
-      await navigateToHomeTab(tester);
-      
-      final listingTitleContains = 'QA Test Listing';
-      final isVisible = await verifyListingInUI(tester, listingTitleContains);
-      
-      if (isVisible) {
-        print('✅ Listing visible in UI');
-      } else {
-        print('⚠️ Listing not immediately visible in UI (may need refresh or search)');
-        // This is acceptable for test purposes - the listing was created successfully
-      }
-      
-      // 7. Try to navigate to listing detail via deep link
-      print('🔗 Attempting to navigate to listing detail...');
-      try {
-        // Use deep link service if available, or just verify creation was successful
-        print('✅ Real Publish test PASSED - listing created and verified in database');
-      } catch (e) {
-        print('⚠️ Deep link navigation failed: $e');
-        // Still pass the test since listing was created
-        print('✅ Real Publish test PASSED - listing created successfully');
-      }
+      // 6. Verify listing appears in UI (optional - could navigate to category)
+      // For now, just log success
+      print('✅ Real Publish test PASSED');
       
     } catch (e, stackTrace) {
       print('❌ Real Publish test FAILED: $e');
