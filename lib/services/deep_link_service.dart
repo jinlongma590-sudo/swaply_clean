@@ -1046,7 +1046,226 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 5) 默认：不匹配的链接
+      // 5) Home 深链
+      // ✅ 导航到首页
+      // ============================================================
+      final isHomeByHost = host == 'home';
+      if (isHomeByHost) {
+        if (kDebugMode) {
+          debugPrint('🏠 Matched: Home Link');
+          debugPrint('🔒 Guard 保护已启动');
+        }
+
+        _guard.startHandling('/home');
+
+        // ✅ [iOS 热启动修复] 区分冷热启动的等待时间
+        Duration waitTime;
+        if (Platform.isIOS) {
+          waitTime = _isHotStart
+              ? const Duration(milliseconds: 1500) // iOS 热启动：1500ms
+              : const Duration(milliseconds: 800); // iOS 冷启动：800ms
+        } else {
+          waitTime = const Duration(milliseconds: 50); // Android：50ms
+        }
+
+        await Future.delayed(waitTime);
+
+        if (kDebugMode) {
+          debugPrint('🚀 Navigating to: /home');
+          debugPrint('');
+        }
+
+        await SchedulerBinding.instance.endOfFrame;
+        navReplaceAll('/home');
+
+        // ✅ 延长保护时间
+        await Future.delayed(
+            Duration(milliseconds: Platform.isIOS ? 1000 : 300));
+
+        // ✅ [方案2] 标记已成功导航
+        _hasNavigatedViaDeepLink = true;
+
+        // ✅ [热启动修复] 释放 Guard 保护
+        _guard.finishHandling();
+
+        if (kDebugMode) {
+          debugPrint('✅ Navigation completed');
+          debugPrint('🔓 Guard 保护已释放');
+          debugPrint(
+              '════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
+
+        _completeInitialLink();
+        return;
+      }
+
+      // ============================================================
+      // 6) Saved 深链
+      // ✅ 导航到收藏页
+      // ============================================================
+      final isSavedByHost = host == 'saved';
+      if (isSavedByHost) {
+        if (kDebugMode) {
+          debugPrint('💾 Matched: Saved Link');
+          debugPrint('🔒 Guard 保护已启动');
+        }
+
+        _guard.startHandling('/saved');
+
+        Duration waitTime;
+        if (Platform.isIOS) {
+          waitTime = _isHotStart
+              ? const Duration(milliseconds: 1500)
+              : const Duration(milliseconds: 800);
+        } else {
+          waitTime = const Duration(milliseconds: 50);
+        }
+
+        await Future.delayed(waitTime);
+
+        if (kDebugMode) {
+          debugPrint('🚀 Navigating to: /saved');
+          debugPrint('');
+        }
+
+        await SchedulerBinding.instance.endOfFrame;
+        navPush('/saved');
+
+        await Future.delayed(
+            Duration(milliseconds: Platform.isIOS ? 1000 : 300));
+
+        _hasNavigatedViaDeepLink = true;
+        _guard.finishHandling();
+
+        if (kDebugMode) {
+          debugPrint('✅ Navigation completed');
+          debugPrint('🔓 Guard 保护已释放');
+          debugPrint(
+              '════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
+
+        _completeInitialLink();
+        return;
+      }
+
+      // ============================================================
+      // 7) Category 深链
+      // ✅ 导航到分类页
+      // ============================================================
+      final isCategoryByHost = host == 'category';
+      if (isCategoryByHost) {
+        final slug = uri.queryParameters['slug'];
+        if (slug != null && slug.isNotEmpty) {
+          if (kDebugMode) {
+            debugPrint('📂 Matched: Category Link');
+            debugPrint('   slug: $slug');
+            debugPrint('🔒 Guard 保护已启动');
+          }
+
+          // Convert slug to category name (capitalize first letter)
+          final categoryName = slug[0].toUpperCase() + (slug.length > 1 ? slug.substring(1) : '');
+          
+          _guard.startHandling('/category', arguments: {
+            'categoryId': slug,
+            'categoryName': categoryName,
+          });
+
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)
+                : const Duration(milliseconds: 800);
+          } else {
+            waitTime = const Duration(milliseconds: 50);
+          }
+
+          await Future.delayed(waitTime);
+
+          if (kDebugMode) {
+            debugPrint('🚀 Navigating to: /category');
+            debugPrint('');
+          }
+
+          await SchedulerBinding.instance.endOfFrame;
+          navPush('/category', arguments: {
+            'categoryId': slug,
+            'categoryName': categoryName,
+          });
+
+          await Future.delayed(
+              Duration(milliseconds: Platform.isIOS ? 1000 : 300));
+
+          _hasNavigatedViaDeepLink = true;
+          _guard.finishHandling();
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation completed');
+            debugPrint('🔓 Guard 保护已释放');
+            debugPrint(
+                '════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
+          _completeInitialLink();
+          return;
+        }
+      }
+
+      // ============================================================
+      // 8) Reward Center 深链
+      // ✅ 导航到奖励中心页
+      // ============================================================
+      final isRewardCenterByHost = host == 'reward-center' || host == 'reward_center';
+      if (isRewardCenterByHost) {
+        if (kDebugMode) {
+          debugPrint('🎰 Matched: Reward Center Link');
+          debugPrint('🔒 Guard 保护已启动');
+        }
+
+        // RewardCenterPage doesn't have a named route, so we'll use direct navigation
+        // For now, we'll navigate to home and show a snackbar or use QA Panel
+        // This is a placeholder implementation
+        _guard.startHandling('/reward-center');
+
+        Duration waitTime;
+        if (Platform.isIOS) {
+          waitTime = _isHotStart
+              ? const Duration(milliseconds: 1500)
+              : const Duration(milliseconds: 800);
+        } else {
+          waitTime = const Duration(milliseconds: 50);
+        }
+
+        await Future.delayed(waitTime);
+
+        if (kDebugMode) {
+          debugPrint('🚀 Would navigate to Reward Center (no named route)');
+          debugPrint('⚠️  Reward Center deep link not fully implemented');
+          debugPrint('');
+        }
+
+        // For now, just complete the link without navigation
+        // In a real implementation, we would navigate to RewardCenterPage
+        
+        _hasNavigatedViaDeepLink = true;
+        _guard.finishHandling();
+
+        if (kDebugMode) {
+          debugPrint('✅ Link handled (placeholder)');
+          debugPrint('🔓 Guard 保护已释放');
+          debugPrint(
+              '════════════════════════════════════════════════════════════');
+          debugPrint('');
+        }
+
+        _completeInitialLink();
+        return;
+      }
+
+      // ============================================================
+      // 9) 默认：不匹配的链接
       // ============================================================
       if (kDebugMode) {
         debugPrint('❓ No matching route found');

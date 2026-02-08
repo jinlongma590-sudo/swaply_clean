@@ -18,6 +18,10 @@ on:
           - core
           - reward
           - full
+          - deeplink
+          - real_publish
+          - invite
+          - deep_full
           - all
 
 concurrency:

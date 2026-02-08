@@ -13,6 +13,7 @@ import 'package:swaply/pages/saved_page.dart';
 import 'package:swaply/pages/notification_page.dart';
 import 'package:swaply/pages/profile_page.dart';
 import 'package:swaply/pages/sell_page.dart';
+import 'package:swaply/services/deep_link_service.dart'; // For deep link testing
 
 class QaPanelPage extends StatelessWidget {
   const QaPanelPage({super.key});
@@ -180,6 +181,65 @@ class QaPanelPage extends StatelessWidget {
             },
           ),
           // Reward Center already has a button above
+          const SizedBox(height: 24),
+          _buildSection('Deep Link Testing (A1)'),
+          _buildButton(
+            key: const Key(QaKeys.qaDeeplinkHome),
+            text: 'Deep Link: Home',
+            onPressed: () {
+              // Trigger deep link via DeepLinkService
+              final uri = Uri.parse('cc.swaply.app://home');
+              DeepLinkService.instance.handle(uri.toString());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deep Link: Home triggered')),
+              );
+            },
+          ),
+          _buildButton(
+            key: const Key(QaKeys.qaDeeplinkSaved),
+            text: 'Deep Link: Saved',
+            onPressed: () {
+              final uri = Uri.parse('cc.swaply.app://saved');
+              DeepLinkService.instance.handle(uri.toString());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deep Link: Saved triggered')),
+              );
+            },
+          ),
+          _buildButton(
+            key: const Key(QaKeys.qaDeeplinkCategory),
+            text: 'Deep Link: Category (Vehicles)',
+            onPressed: () {
+              final uri = Uri.parse('cc.swaply.app://category?slug=vehicles');
+              DeepLinkService.instance.handle(uri.toString());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deep Link: Category triggered')),
+              );
+            },
+          ),
+          _buildButton(
+            key: const Key(QaKeys.qaDeeplinkRewardCenter),
+            text: 'Deep Link: Reward Center',
+            onPressed: () {
+              final uri = Uri.parse('cc.swaply.app://reward-center');
+              DeepLinkService.instance.handle(uri.toString());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deep Link: Reward Center triggered')),
+              );
+            },
+          ),
+          _buildButton(
+            key: const Key(QaKeys.qaDeeplinkListingDetail),
+            text: 'Deep Link: Listing Detail (Mock)',
+            onPressed: () {
+              // Use a known test listing ID if available
+              final uri = Uri.parse('cc.swaply.app://listing?id=test-listing-123');
+              DeepLinkService.instance.handle(uri.toString());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deep Link: Listing Detail triggered')),
+              );
+            },
+          ),
           const SizedBox(height: 24),
           _buildSection('Debug'),
           _buildButton(

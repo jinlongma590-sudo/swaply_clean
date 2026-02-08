@@ -98,4 +98,26 @@ class QaKeys {
   
   // ===== 辅助方法：生成带slug的Key =====
   static String categoryItemKeyBySlug(String slug) => '$categoryItem$slug';
+  
+  // ===== Deep Link 测试按钮（A1 需求） =====
+  static const String qaDeeplinkHome = 'qa_deeplink_home';
+  static const String qaDeeplinkListingDetail = 'qa_deeplink_listing_detail';
+  static const String qaDeeplinkCategory = 'qa_deeplink_category';
+  static const String qaDeeplinkSaved = 'qa_deeplink_saved';
+  static const String qaDeeplinkRewardCenter = 'qa_deeplink_reward_center';
+  
+  // ===== Deep Link 目标页面根Key =====
+  static const String deeplinkTargetHome = 'deeplink_target_home';
+  static const String deeplinkTargetListingDetail = 'deeplink_target_listing_detail';
+  static const String deeplinkTargetCategory = 'deeplink_target_category';
+  static const String deeplinkTargetSaved = 'deeplink_target_saved';
+  static const String deeplinkTargetRewardCenter = 'deeplink_target_reward_center';
+  
+  // ===== Real Publish 测试（A2 需求） =====
+  static const String qaRealPublishFlow = 'qa_real_publish_flow';
+  static const String qaRealPublishCleanup = 'qa_real_publish_cleanup';
+  
+  // ===== Invite/Referral 测试（A3 需求） =====
+  static const String qaInviteFlow = 'qa_invite_flow';
+  static const String qaInviteCleanup = 'qa_invite_cleanup';
 }

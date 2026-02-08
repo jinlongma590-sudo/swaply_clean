@@ -146,13 +146,28 @@ case "$SUITE" in
     TEST_NAMES=("full_app_smoke")
     TEST_FILES=("integration_test/full_app_smoke_via_qa_panel_test.dart")
     ;;
-  all)
+  deeplink)
+    TEST_NAMES=("deeplink_test")
+    TEST_FILES=("integration_test/deeplink_test.dart")
+    ;;
+  real_publish)
+    TEST_NAMES=("real_publish_test")
+    TEST_FILES=("integration_test/real_publish_test.dart")
+    ;;
+  invite)
+    TEST_NAMES=("invite_flow_test")
+    TEST_FILES=("integration_test/invite_flow_test.dart")
+    ;;
+  deep_full)
     TEST_NAMES=(
       "key_audit"
       "smoke_all_tabs"
       "core_flows"
       "reward_regression"
       "full_app_smoke"
+      "deeplink_test"
+      "real_publish_test"
+      "invite_flow_test"
     )
     TEST_FILES=(
       "integration_test/key_audit_test.dart"
@@ -160,6 +175,31 @@ case "$SUITE" in
       "integration_test/core_flows_test.dart"
       "integration_test/native_reward_smoke_test.dart"
       "integration_test/full_app_smoke_via_qa_panel_test.dart"
+      "integration_test/deeplink_test.dart"
+      "integration_test/real_publish_test.dart"
+      "integration_test/invite_flow_test.dart"
+    )
+    ;;
+  all)
+    TEST_NAMES=(
+      "key_audit"
+      "smoke_all_tabs"
+      "core_flows"
+      "reward_regression"
+      "full_app_smoke"
+      "deeplink_test"
+      "real_publish_test"
+      "invite_flow_test"
+    )
+    TEST_FILES=(
+      "integration_test/key_audit_test.dart"
+      "integration_test/smoke_all_tabs_test.dart"
+      "integration_test/core_flows_test.dart"
+      "integration_test/native_reward_smoke_test.dart"
+      "integration_test/full_app_smoke_via_qa_panel_test.dart"
+      "integration_test/deeplink_test.dart"
+      "integration_test/real_publish_test.dart"
+      "integration_test/invite_flow_test.dart"
     )
     ;;
 esac
@@ -198,6 +238,9 @@ run_one_test() {
     core_flows)        timeout_seconds=1200 ;;  # 20分钟
     reward_regression) timeout_seconds=900 ;;   # 15分钟
     full_app_smoke)    timeout_seconds=1500 ;;  # 25分钟
+    deeplink_test)     timeout_seconds=900 ;;   # 15分钟
+    real_publish_test) timeout_seconds=1800 ;;  # 30分钟（需要上传）
+    invite_flow_test)  timeout_seconds=1200 ;;  # 20分钟
     *)                 timeout_seconds=600 ;;   # 默认10分钟
   esac
 
