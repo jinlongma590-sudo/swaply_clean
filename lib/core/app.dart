@@ -11,15 +11,11 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // ✅ [P0 修复] 引入 FlutterNativeSplash
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/core/navigation/app_router.dart';
 import 'package:swaply/services/deep_link_service.dart';
-import 'package:swaply/services/welcome_dialog_service.dart';
-import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/providers/language_provider.dart';
 import 'package:swaply/services/auth_flow_observer.dart';
 import 'package:swaply/services/oauth_entry.dart';
@@ -35,7 +31,7 @@ class SwaplyApp extends StatefulWidget {
 
 class _SwaplyAppState extends State<SwaplyApp> {
   bool _booted = false;
-  bool _welcomeScheduled = false;
+  final bool _welcomeScheduled = false;
 
   // 确保 DeepLinkService.bootstrap() 全局只运行一次
   bool _dlBooted = false;

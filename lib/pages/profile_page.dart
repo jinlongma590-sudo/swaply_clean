@@ -24,7 +24,6 @@ import 'package:swaply/services/auth_service.dart';
 import 'package:swaply/services/oauth_entry.dart';
 
 import 'package:swaply/widgets/verified_avatar.dart';
-import 'package:swaply/widgets/my_rewards_tile.dart';
 
 import 'package:swaply/pages/my_listings_page.dart';
 import 'package:swaply/pages/wishlist_page.dart';
@@ -34,12 +33,10 @@ import 'package:swaply/pages/account_settings_page.dart';
 import 'package:swaply/pages/verification_page.dart';
 import 'package:swaply/pages/reward_center_page.dart';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:provider/provider.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 
 import 'package:swaply/core/l10n/app_localizations.dart';
-import 'package:swaply/providers/language_provider.dart';
+import 'package:swaply/core/qa_keys.dart';
 
 const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
 const _kDeleteUrl = 'https://www.swaply.cc/delete-account';
@@ -428,6 +425,7 @@ class _ProfilePageState extends State<ProfilePage>
         child: Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
           body: ScrollConfiguration(
+            key: const Key(QaKeys.pageProfileRoot),
             behavior: const ScrollBehavior(),
             child: CustomScrollView(
               slivers: [
@@ -462,6 +460,7 @@ class _ProfilePageState extends State<ProfilePage>
         extendBody: true,
         backgroundColor: const Color(0xFFF8F9FA),
         body: StreamBuilder<Map<String, dynamic>?>(
+          key: const Key(QaKeys.pageProfileRoot),
           // 监听 Profile Stream
           stream: _svc.profileStream,
           // 使用缓存作为初始值（避免加载闪烁）
@@ -574,6 +573,7 @@ class _ProfilePageState extends State<ProfilePage>
                                         letterSpacing: 0.5)),
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
+                                  key: const Key(QaKeys.profileRewardCenterEntry),
                                   icon: Icons.emoji_events_rounded,
                                   title: 'My Rewards',
                                   color: Colors.purple,
@@ -647,6 +647,7 @@ class _ProfilePageState extends State<ProfilePage>
                                         letterSpacing: 0.5)),
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
+                                  key: const Key(QaKeys.profileSettingsEntry),
                                   icon: Icons.manage_accounts,
                                   title: 'Account',
                                   subtitle: 'Password, devices, delete',
@@ -1086,6 +1087,7 @@ class _ProfileOptionEnhanced extends StatelessWidget {
   final String? subtitle;
   final Color color;
   final VoidCallback? onTap;
+  final Key? key;
 
   const _ProfileOptionEnhanced({
     required this.icon,
@@ -1093,6 +1095,7 @@ class _ProfileOptionEnhanced extends StatelessWidget {
     required this.color,
     this.subtitle,
     this.onTap,
+    this.key,
   });
 
   @override
@@ -1106,6 +1109,7 @@ class _ProfileOptionEnhanced extends StatelessWidget {
     final double subtitleFontSize = isIOS ? 12.5 : 13.5;
 
     return Material(
+      key: key,
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,

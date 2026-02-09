@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/models/coupon.dart';
 import 'package:swaply/services/coupon_service.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 import 'dart:math';
 
 /// 新增：统一承载 ensure_welcome_coupon 返回
@@ -86,7 +87,7 @@ class RewardService {
 
     // [原有逻辑]：仅在客户端检查不存在 'welcome' 券时才执行
     final res =
-        await _client.rpc('ensure_welcome_coupon', params: {'p_user': uid});
+        await EdgeFunctionsClient.instance.rpcProxy('ensure_welcome_coupon', params: {'p_user': uid});
     final map =
         (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
 
@@ -105,8 +106,8 @@ class RewardService {
 
     try {
       // 1) 调服务端幂等 RPC（内部已保障并发/唯一性/置位 profiles）
-      final res = await _client
-          .rpc('ensure_welcome_coupon', params: {'p_user': userId});
+      final res = await EdgeFunctionsClient.instance
+          .rpcProxy('ensure_welcome_coupon', params: {'p_user': userId});
       final map =
           (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
       final couponId = map['coupon_id'] as String?;
@@ -164,8 +165,8 @@ class RewardService {
   static Future<bool> ensureWelcomeGiftFor(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      final res = await _client
-          .rpc('ensure_welcome_coupon', params: {'p_user': userId});
+      final res = await EdgeFunctionsClient.instance
+          .rpcProxy('ensure_welcome_coupon', params: {'p_user': userId});
       final map =
           (res is Map) ? Map<String, dynamic>.from(res) : <String, dynamic>{};
       final granted = map['welcome_reward_granted'] == true;
@@ -641,7 +642,7 @@ class RewardService {
 
     try {
       // ⚠️ 正确的参数名：p_code / p_invitee
-      final res = await _client.rpc('link_referral', params: {
+      final res = await EdgeFunctionsClient.instance.rpcProxy('link_referral', params: {
         'p_code': c,
         'p_invitee': uid,
       });
@@ -682,7 +683,7 @@ class RewardService {
     }
     try {
       final res =
-          await _client.rpc('complete_referral', params: {'p_invitee': uid});
+          await EdgeFunctionsClient.instance.rpcProxy('complete_referral', params: {'p_invitee': uid});
 
       if (res is String && res.isNotEmpty) {
         final inviterId = res;
@@ -691,7 +692,7 @@ class RewardService {
         // 优先使用后端 RPC（单张里程碑券：1/5/10）
         try {
           final r =
-              await _client.rpc('issue_referral_milestone_reward', params: {
+              await EdgeFunctionsClient.instance.rpcProxy('issue_referral_milestone_reward', params: {
             'p_inviter': inviterId,
           });
           _debugPrint('issue_referral_milestone_reward: $r');

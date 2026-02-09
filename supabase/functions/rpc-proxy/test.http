@@ -1,0 +1,43 @@
+### rpc-proxy blackbox test cases (for local/dev environment)
+### Placeholders: replace with actual values when needed
+
+### 1) unknown action must 400
+POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+Content-Type: application/json
+
+{"action":"__unknown__","params":{}}
+
+### 2) auth-required without jwt must fail (400/401)
+POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+Content-Type: application/json
+
+{"action":"ensure_welcome_coupon","params":{"p_user":"00000000-0000-0000-0000-000000000000"}}
+
+### 3) anon action without jwt must pass/fail by function logic, but NOT auth error
+POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+Content-Type: application/json
+
+{"action":"increment_listing_views","params":{"p_listing_id":"00000000-0000-0000-0000-000000000000","p_fp":"test-fingerprint"}}
+
+### 4) admin action with regular user jwt must 403 (if admin check enabled)
+# Requires valid JWT of non-admin user
+# POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+# Authorization: Bearer <non-admin-jwt>
+# Content-Type: application/json
+# 
+# {"action":"admin_find_user_by_email","params":{"email":"test@example.com"}}
+
+### 5) valid auth action with jwt (example)
+# POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+# Authorization: Bearer <valid-jwt>
+# Content-Type: application/json
+# 
+# {"action":"ensure_welcome_coupon","params":{"p_user":"<user-id>"}}
+
+### 6) test user identity binding (should override client-provided user id)
+# POST http://127.0.0.1:54321/functions/v1/rpc-proxy
+# Authorization: Bearer <valid-jwt>
+# Content-Type: application/json
+# 
+# {"action":"link_referral","params":{"p_code":"REF123","p_invitee":"different-user-id"}}
+# Expect: p_invitee overwritten with token user id

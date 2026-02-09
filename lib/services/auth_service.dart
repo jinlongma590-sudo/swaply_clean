@@ -7,7 +7,6 @@ import 'package:crypto/crypto.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart' show LaunchMode;
 
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:swaply/services/apple_auth_service.dart';
@@ -297,8 +296,9 @@ class AuthService {
         'id': userId,
         'updated_at': DateTime.now().toIso8601String(),
       };
-      if (email?.isNotEmpty == true)
+      if (email?.isNotEmpty == true) {
         data['email'] = email!.trim().toLowerCase();
+      }
       if (fullName?.isNotEmpty == true) data['full_name'] = fullName;
       if (phone?.isNotEmpty == true) data['phone'] = phone;
       if (avatarUrl?.isNotEmpty == true) data['avatar_url'] = avatarUrl;

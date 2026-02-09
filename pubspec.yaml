@@ -51,16 +51,21 @@ dependencies:
   flutter_custom_tabs:
   # ✅ 新增：骨架屏动画（HomePage 性能优化）
   shimmer: ^3.0.0
-
+  flutter_fortune_wheel: ^1.2.0
+  rxdart: ^0.27.7
   cupertino_icons:
   cached_network_image: ^3.4.1
 
+  flutter_native_splash: ^2.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  test: any
   flutter_lints:
   flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.1
+  patrol: ^4.1.0
+  integration_test:
+    sdk: flutter
 
 flutter_launcher_icons:
   android: "adaptive"

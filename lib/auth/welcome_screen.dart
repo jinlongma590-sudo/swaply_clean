@@ -10,9 +10,8 @@ import 'package:swaply/router/root_nav.dart';
 
 // ✅ 通过 Service 统一处理欢迎优惠券弹窗（内部会构造 couponData / 去重等）
 import 'package:swaply/services/welcome_dialog_service.dart';
-
-import 'login_screen.dart';
-import 'register_screen.dart';
+import 'package:swaply/core/qa_mode.dart'; // kQaMode
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -52,7 +51,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     _floatController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
-    )..repeat(reverse: true);
+    );
+    if (!kQaMode) {
+      _floatController.repeat(reverse: true);
+    }
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -231,6 +233,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ],
                         ),
                         child: TextButton(
+                          key: const Key(QaKeys.welcomeContinueBtn),
                           onPressed: () async {
                             Navigator.of(context).pop();
                             if (!mounted) return;
@@ -486,6 +489,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
+                                            key: const Key(QaKeys.welcomeGetStartedBtn),
                                             onTap: _busy
                                                 ? null
                                                 : () {
@@ -549,6 +553,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
+                                            key: const Key(QaKeys.welcomeSignInBtn),
                                             onTap: _busy
                                                 ? null
                                                 : () {
@@ -582,6 +587,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                                       // -------- Browse as Guest --------
                                       TextButton(
+                                        key: const Key(QaKeys.welcomeGuestBtn),
                                         onPressed:
                                             _busy ? null : _continueAsGuest,
                                         style: TextButton.styleFrom(

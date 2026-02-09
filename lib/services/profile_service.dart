@@ -428,8 +428,9 @@ class ProfileService {
   /// ✅ [性能优化] 实际执行数据库查询的方法（从 getMyProfile 中提取）
   Future<Map<String, dynamic>?> _executeProfileQuery(String id) async {
     try {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[ProfileService] 🔍 Querying database for profile...');
+      }
 
       var data = await _sb
           .from('profiles')
@@ -448,9 +449,10 @@ class ProfileService {
 
       // ✅ 如果没有记录，自动创建
       if (data == null) {
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
               '[ProfileService] ⚠️ No profile found, attempting to create default...');
+        }
 
         try {
           final user = _sb.auth.currentUser;
@@ -485,8 +487,9 @@ class ProfileService {
             'updated_at': now,
           });
 
-          if (kDebugMode)
+          if (kDebugMode) {
             print('[ProfileService] ✅ Default profile created, re-querying...');
+          }
 
           data = await _sb
               .from('profiles')
@@ -702,7 +705,7 @@ class ProfileService {
 
     try {
       final profile = await _sb
-          .from('profiles')
+          .from('public_profiles')
           .select('verification_type, is_official')
           .eq('id', targetId)
           .maybeSingle();
@@ -731,7 +734,7 @@ class ProfileService {
 
     try {
       final profile = await _sb
-          .from('profiles')
+          .from('public_profiles')
           .select('*, verification_type, is_official')
           .eq('id', targetId)
           .maybeSingle();

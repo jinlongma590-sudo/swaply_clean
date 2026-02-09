@@ -33,8 +33,9 @@ class ListingApi {
   /// 统一规范化 Supabase 返回：无论是 List 还是 {data: List}
   static List _rowsOf(dynamic resp) {
     if (resp is List) return resp;
-    if (resp is Map && resp['data'] is List)
+    if (resp is Map && resp['data'] is List) {
       return List.from(resp['data'] as List);
+    }
     return const <dynamic>[];
   }
 
@@ -120,6 +121,23 @@ class ListingApi {
       'phone': finalPhone, // 若你的列名不同，改成对应字段
     }..removeWhere((k, v) => v == null);
 
+    print('[POST_AD] payload=$payload'); // ✅ 打印完整 map
+
+    // ✅ 硬校验 price 字段，杜绝 numeric 溢出
+    final rawPrice = payload['price'];
+    final priceValue = (rawPrice is num) ? rawPrice.toDouble() : double.tryParse('$rawPrice');
+    
+    if (priceValue == null) {
+      throw Exception('Price is invalid: $rawPrice');
+    }
+    
+    // 对应 numeric(12,2) 整数10位上限 (即使现在扩到15位，前端也保持严格校验)
+    if (priceValue.abs() >= 10000000000) { // 10^10
+      throw Exception('Price too large: $priceValue');
+    }
+    
+    payload['price'] = priceValue;
+
     final data = await _sb.from('listings').insert(payload).select().single();
     return Map<String, dynamic>.from(data);
   }
@@ -131,6 +149,24 @@ class ListingApi {
   }) async {
     final dataToUpdate = Map<String, dynamic>.from(fields ?? {})
       ..removeWhere((k, v) => v == null);
+
+    // ✅ 硬校验 price 字段，杜绝 numeric 溢出（如果更新中包含 price）
+    if (dataToUpdate.containsKey('price')) {
+      final rawPrice = dataToUpdate['price'];
+      final priceValue = (rawPrice is num) ? rawPrice.toDouble() : double.tryParse('$rawPrice');
+      
+      if (priceValue == null) {
+        throw Exception('Price is invalid: $rawPrice');
+      }
+      
+      // 对应 numeric(12,2) 整数10位上限 (即使现在扩到15位，前端也保持严格校验)
+      if (priceValue.abs() >= 10000000000) { // 10^10
+        throw Exception('Price too large: $priceValue');
+      }
+      
+      dataToUpdate['price'] = priceValue;
+    }
+
     final data = await _sb
         .from('listings')
         .update(dataToUpdate)

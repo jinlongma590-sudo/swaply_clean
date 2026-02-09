@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 class CouponPinningApi {
   CouponPinningApi(this._client);
@@ -15,7 +16,7 @@ class CouponPinningApi {
     if (res is List && res.isNotEmpty) {
       final first = res.first;
       if (first is Map) {
-        return Map<String, dynamic>.from(first as Map);
+        return Map<String, dynamic>.from(first);
       }
     }
 
@@ -28,7 +29,7 @@ class CouponPinningApi {
     String note = 'app',
   }) async {
     try {
-      final res = await _client.rpc(
+      final res = await EdgeFunctionsClient.instance.rpcProxy(
         'use_coupon_for_pinning',
         params: {
           'in_coupon_id': couponId,
@@ -76,12 +77,9 @@ class CouponPinningApi {
           .gte('expires_at', now)
           .order('created_at', ascending: false);
 
-      if (response is! List) return [];
-
       final valid = <Map<String, dynamic>>[];
 
       for (final coupon in response) {
-        if (coupon is! Map) continue; // ✅ 类型保护
         final m = Map<String, dynamic>.from(coupon);
 
         final usedCount = (m['used_count'] as int?) ?? 0;

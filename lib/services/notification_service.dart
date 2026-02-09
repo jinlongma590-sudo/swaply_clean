@@ -9,6 +9,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kDebugMode, ValueNotifier;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 
 typedef NotificationEventCallback = void Function(
   Map<String, dynamic> notification,
@@ -401,7 +402,7 @@ class NotificationService {
 
       final String payload = buildListingPayload(listingId: listingId);
 
-      final res = await _client.rpc(
+      final res = await EdgeFunctionsClient.instance.rpcProxy(
         'notify_favorite',
         params: {
           'p_recipient_id': sellerId,

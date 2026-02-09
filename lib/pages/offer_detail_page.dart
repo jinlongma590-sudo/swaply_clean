@@ -579,7 +579,7 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
                       TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700)),
               SizedBox(height: 12.h),
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 items: const [
                   DropdownMenuItem(value: 'Spam', child: Text('Spam')),
                   DropdownMenuItem(value: 'Scam', child: Text('Scam/Fraud')),

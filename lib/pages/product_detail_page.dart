@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:swaply/services/edge_functions_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -27,6 +28,7 @@ import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/offer_service.dart';
 import 'package:swaply/services/message_service.dart';
+import 'package:swaply/core/qa_keys.dart';
 import 'package:swaply/services/favorites_update_service.dart';
 import 'package:swaply/pages/seller_profile_page.dart';
 import 'package:swaply/services/verification_guard.dart';
@@ -35,9 +37,9 @@ import 'package:swaply/widgets/verified_avatar.dart';
 import 'package:swaply/utils/share_utils.dart';
 import 'package:swaply/services/email_verification_service.dart';
 import 'package:swaply/router/root_nav.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/rewards/reward_bottom_sheet.dart';
 import 'package:swaply/services/reward_after_publish.dart';
+import 'package:swaply/core/qa_keys.dart'; // QaKeys
 
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
@@ -360,7 +362,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       if (kDebugMode) print('🔍 正在加载卖家信息，sellerId: $sellerId');
 
       final profile = await Supabase.instance.client
-          .from('profiles')
+          .from('public_profiles')
           .select('id, full_name, avatar_url, created_at')
           .eq('id', sellerId)
           .maybeSingle();
@@ -408,8 +410,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         _sellerVerified = (badge != vt.VerificationBadgeType.none);
       });
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[ProductDetail] fetchPublicVerification error: $e');
+      }
     }
   }
 
@@ -465,10 +468,10 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       if (productId == null) return;
 
       final fp = await _getOrCreateDeviceId();
-      await Supabase.instance.client.rpc('increment_listing_views', params: {
+      await EdgeFunctionsClient.instance.rpcProxy('increment_listing_views', params: {
         'p_listing_id': productId,
         'p_fp': fp,
-      });
+      }, requireAuth: false);
 
       if (kDebugMode) {
         print('Views incremented via RPC for product: $productId');
@@ -876,7 +879,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       String? userName;
       try {
         final profile = await Supabase.instance.client
-            .from('profiles')
+            .from('public_profiles')
             .select('full_name')
             .eq('id', user.id)
             .maybeSingle();
@@ -1513,6 +1516,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: CustomScrollView(
+        key: const Key(QaKeys.listingDetailRoot),
         slivers: [
           SliverAppBar(
             expandedHeight: _imageAreaHeight(context),
@@ -1549,6 +1553,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       ),
                     )
                   : IconButton(
+                      key: const Key(QaKeys.favoriteToggle),
                       icon: Icon(
                         _isInFavorites ? Icons.favorite : Icons.favorite_border,
                         color: _isInFavorites ? Colors.red : Colors.grey[800],
@@ -2218,8 +2223,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
 
     if (_isViewerOpening) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('⚠️ Image viewer already opening, ignoring duplicate tap');
+      }
       return;
     }
 

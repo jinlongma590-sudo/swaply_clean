@@ -1,18 +1,14 @@
 // lib/pages/account_settings_page.dart
 import 'package:flutter/foundation.dart';
-import 'package:swaply/router/safe_navigator.dart'; // 閴?For platform check
+// 閴?For platform check
 import 'package:flutter/material.dart';
-import 'package:swaply/router/safe_navigator.dart';
 import 'package:flutter/services.dart';
-import 'package:swaply/router/safe_navigator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:swaply/router/safe_navigator.dart';
 import 'package:swaply/services/auth_service.dart';
-import 'package:swaply/router/safe_navigator.dart'; // 鉁?鏂板锛氱粺涓€璧?AuthService 鐧诲嚭
+// 鉁?鏂板锛氱粺涓€璧?AuthService 鐧诲嚭
 import 'package:swaply/services/auth_flow_observer.dart';
-import 'package:swaply/router/safe_navigator.dart'; // 鉁?鏂板 Observer
+// 鉁?鏂板 Observer
 import 'package:swaply/router/root_nav.dart';
-import 'package:swaply/router/safe_navigator.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});

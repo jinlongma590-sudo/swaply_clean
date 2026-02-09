@@ -3,7 +3,6 @@
 // ========================================
 // 在找到具体问题之前，先用这个补丁降低失败率
 
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// ✅ 深链导航保护器

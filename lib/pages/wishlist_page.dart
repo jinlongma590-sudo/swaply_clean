@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/router/root_nav.dart';
@@ -11,9 +10,9 @@ import 'package:swaply/services/dual_favorites_service.dart';
 import 'package:swaply/services/favorites_update_service.dart';
 
 // === 全局路由 & 常量 & API ===
-import 'package:swaply/router/root_nav.dart'; // navPush / navReplaceAll
+// navPush / navReplaceAll
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue / kCustomHeaderHeight
-import 'package:swaply/listing_api.dart'; // 保留用于其他可能的引用，主要逻辑已切回 DualFavoritesService
+// 保留用于其他可能的引用，主要逻辑已切回 DualFavoritesService
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});

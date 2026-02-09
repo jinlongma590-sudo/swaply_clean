@@ -29,11 +29,18 @@ class ListingRepo {
     required String imageUrl,
     String? userId,
   }) async {
+    // ✅ 硬校验 price 字段，杜绝 numeric 溢出
+    final priceValue = price.toDouble();
+    
+    if (priceValue.abs() >= 10000000000) { // 10^10
+      throw Exception('Price too large: $priceValue');
+    }
+
     final res = await _sp
         .from('listings')
         .insert({
           'title': title,
-          'price': price,
+          'price': priceValue,
           'category': category,
           'city': city,
           'image_url': imageUrl,

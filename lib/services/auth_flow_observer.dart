@@ -5,7 +5,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';

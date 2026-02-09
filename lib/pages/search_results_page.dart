@@ -14,6 +14,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/services/listing_service.dart';
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/core/qa_keys.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final String keyword;
@@ -131,7 +132,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
       final pinnedCount = _items.where((item) => item['pinned'] == true).length;
       debugPrint(
-          '[SearchResults] ✅ Final list: ${_items.length} items (${pinnedCount} pinned)');
+          '[SearchResults] ✅ Final list: ${_items.length} items ($pinnedCount pinned)');
     } catch (e, stackTrace) {
       debugPrint('[SearchResults] ❌ ERROR: $e');
       debugPrint('[SearchResults] ❌ Stack: $stackTrace');
@@ -159,6 +160,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
     try {
       final sb = Supabase.instance.client;
+
+      // 🔐 游客降级：search_pins 表仅允许 authenticated 读取
+      final currentUser = sb.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('[SearchResults] 未登录用户，跳过置顶查询');
+        return <String>{};
+      }
 
       // ✅ 查询所有有效的置顶（视图已经过滤了时间范围）
       final data = await sb
@@ -329,6 +337,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     final title = 'Results for "${widget.keyword}"';
 
     return Scaffold(
+      key: const Key(QaKeys.searchResultsRoot),
       backgroundColor: Colors.grey[50],
       appBar: _buildStandardAppBar(context, title),
       body: _loading
