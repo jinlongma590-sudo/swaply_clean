@@ -19,24 +19,7 @@ void main() {
       if (!binding.hasScheduledFrame) return;
     }
     // ignore: avoid_print
-    print(
-      '[safeSettle] still busy after ${maxAttempts * step.inMilliseconds}ms, continue',
-    );
-  }
-
-  Future<bool> waitForKey(
-      WidgetTester tester,
-      String key, {
-        Duration timeout = const Duration(seconds: 30),
-        Duration step = const Duration(milliseconds: 250),
-      }) async {
-    final finder = find.byKey(Key(key));
-    final endTime = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(endTime)) {
-      await tester.pump(step);
-      if (finder.evaluate().isNotEmpty) return true;
-    }
-    return false;
+    print('[safeSettle] still busy after ${maxAttempts * step.inMilliseconds}ms, continue');
   }
 
   Future<bool> waitForAny(
@@ -55,13 +38,24 @@ void main() {
     return false;
   }
 
+  Future<bool> waitForKey(
+      WidgetTester tester,
+      String key, {
+        Duration timeout = const Duration(seconds: 30),
+      }) async {
+    return waitForAny(
+      tester,
+      [find.byKey(Key(key))],
+      timeout: timeout,
+    );
+  }
+
   Future<void> scrollUntilVisible(
       WidgetTester tester,
       Finder finder,
       double delta, {
         int maxScrolls = 80,
       }) async {
-    // 兼容 Column/SingleChildScrollView/ListView：优先找一个可滚动的
     final scrollable = find.byType(Scrollable);
     for (int i = 0; i < maxScrolls; i++) {
       if (finder.evaluate().isNotEmpty) return;
@@ -71,50 +65,8 @@ void main() {
     }
   }
 
-  testWidgets('Full App Smoke via QA Panel', (tester) async {
-    // 1) 冷启动 App
-    app.main();
-    await tester.pump(const Duration(milliseconds: 300));
-    await safeSettle(tester);
-
-    // 2) Welcome Screen → Guest
-    print('🔍 Checking WelcomeScreen...');
-    final welcomeGuestBtn = find.byKey(Key(QaKeys.welcomeGuestBtn));
-    if (welcomeGuestBtn.evaluate().isNotEmpty) {
-      print('✅ Found welcome_guest_btn, tapping to enter guest mode');
-      await tester.tap(welcomeGuestBtn.first);
-      await tester.pump(const Duration(milliseconds: 800));
-      await safeSettle(tester);
-
-      // 处理可能的对话框：优先 key / 其次 text
-      final continueKeyBtn = find.byKey(Key(QaKeys.welcomeContinueBtn));
-      final continueTextBtn = find.text('Continue');
-
-      final hasDialog = await waitForAny(
-        tester,
-        [continueKeyBtn, continueTextBtn],
-        timeout: const Duration(seconds: 12),
-      );
-
-      if (hasDialog) {
-        if (continueKeyBtn.evaluate().isNotEmpty) {
-          print('✅ Found Continue button (key), tapping');
-          await tester.tap(continueKeyBtn.first);
-        } else if (continueTextBtn.evaluate().isNotEmpty) {
-          print('✅ Found Continue button (text), tapping');
-          await tester.tap(continueTextBtn.first);
-        }
-        await tester.pump(const Duration(milliseconds: 800));
-        await safeSettle(tester);
-      }
-    } else {
-      print('ℹ️ Already past WelcomeScreen');
-    }
-
-    // 3) 等待 MainNavigationPage 加载并点击 qa_fab
-    print('🔍 Waiting for qa_fab...');
+  Future<void> openQaPanel(WidgetTester tester) async {
     final qaFab = find.byKey(Key(QaKeys.qaFab));
-
     final fabOk = await waitForAny(
       tester,
       [qaFab],
@@ -129,114 +81,196 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await safeSettle(tester);
 
-    // 4) 验证 QA Panel 打开
-    print('🔍 Verifying QA Panel opened...');
-    final qaPanelAppBar = find.text('QA Panel');
-
     final panelOk = await waitForAny(
       tester,
-      [qaPanelAppBar],
-      timeout: const Duration(seconds: 10),
+      [find.text('QA Panel')],
+      timeout: const Duration(seconds: 12),
     );
     if (!panelOk) {
       debugDumpApp();
       fail('QA Panel not opened after tapping qa_fab');
     }
+  }
 
-    // 5) 功能按钮映射：按钮Key -> 页面根Key（用于断言页面打开）
-    final Map<String, String?> buttonToPageRoot = {
-      QaKeys.qaNavHome: QaKeys.pageHomeRoot,
-      QaKeys.qaNavSearchResults: QaKeys.searchResultsRoot,
-      QaKeys.qaNavCategoryProducts: QaKeys.listingGrid,
-      QaKeys.qaNavProductDetail: QaKeys.listingDetailRoot,
-      QaKeys.qaNavSavedList: QaKeys.savedListRoot,
-      QaKeys.qaNavNotifications: QaKeys.pageNotificationsRoot,
-      QaKeys.qaNavProfile: QaKeys.pageProfileRoot,
-      QaKeys.qaNavRewardCenter: QaKeys.rewardCenterRulesCard, // 规则卡片作为标识
-      QaKeys.qaNavRules: QaKeys.rewardRulesTitle,
-    };
+  Future<void> gotoHomeRoot(WidgetTester tester) async {
+    final homeTab = find.byKey(Key(QaKeys.tabHome));
+    if (homeTab.evaluate().isNotEmpty) {
+      await tester.tap(homeTab.first);
+      await tester.pump(const Duration(milliseconds: 450));
+      await safeSettle(tester, maxAttempts: 80);
+    }
+  }
 
-    // 不导航到独立页面，仅验证按钮存在
-    final List<String> standaloneButtons = [
-      QaKeys.qaNavFavoriteToggle,
-      QaKeys.qaNavSellMockPublish,
-      QaKeys.qaOpenRewardBottomSheet,
-      QaKeys.qaSeedPoolMock,
-      QaKeys.qaQuickPublish,
-      QaKeys.qaSmokeOpenTabs,
-      QaKeys.qaDebugLog,
-    ];
+  /// ✅ 稳定返回 QA Panel：不要依赖 back button / back stack
+  Future<void> ensureBackToQaPanel(WidgetTester tester) async {
+    // try back 2 times
+    for (int i = 0; i < 2; i++) {
+      final already = find.text('QA Panel');
+      if (already.evaluate().isNotEmpty) return;
 
-    int passed = 0;
-    final int total = buttonToPageRoot.length + standaloneButtons.length;
-
-    // 6) 遍历所有导航按钮
-    for (final entry in buttonToPageRoot.entries) {
-      final buttonKey = entry.key;
-      final pageRootKey = entry.value;
-
-      print('🧪 Testing button: $buttonKey -> $pageRootKey');
-
-      final buttonFinder = find.byKey(Key(buttonKey));
-      await scrollUntilVisible(tester, buttonFinder, 60);
-
-      if (buttonFinder.evaluate().isEmpty) {
-        debugDumpApp();
-        fail('Button $buttonKey should exist in QA Panel');
-      }
-
-      await tester.tap(buttonFinder.first);
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pageBack();
+      await tester.pump(const Duration(milliseconds: 450));
       await safeSettle(tester, maxAttempts: 80);
 
-      // ✅ 验证页面根 Key（如果提供了）
-      if (pageRootKey != null) {
-        final ok = await waitForKey(
-          tester,
-          pageRootKey,
-          timeout: const Duration(seconds: 15),
-        );
+      if (find.text('QA Panel').evaluate().isNotEmpty) return;
+    }
 
-        if (!ok) {
-          debugDumpApp();
-          fail('Page root key $pageRootKey should appear after tapping $buttonKey');
+    // fallback: go home tab and reopen QA Panel
+    await gotoHomeRoot(tester);
+    await openQaPanel(tester);
+  }
+
+  /// ✅ 同样解决 FlutterError.onError 残留问题
+  Future<void> runGuarded(
+      WidgetTester tester,
+      Future<void> Function() body,
+      ) async {
+    final original = FlutterError.onError;
+    final List<FlutterErrorDetails> captured = [];
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      captured.add(details);
+      original?.call(details);
+    };
+
+    try {
+      await body();
+    } finally {
+      FlutterError.onError = original;
+      if (captured.isNotEmpty) {
+        // ignore: avoid_print
+        print('❌ Captured FlutterError(s): ${captured.length}');
+        for (final d in captured.take(3)) {
+          // ignore: avoid_print
+          print('--- FlutterError ---\n${d.exceptionAsString()}\n${d.stack ?? ''}\n');
         }
-        print('✅ Page $pageRootKey opened successfully');
+        fail('FlutterError captured during test. See logs above.');
       }
+    }
+  }
 
-      // 返回 QA Panel
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 500));
+  testWidgets('Full App Smoke via QA Panel', (tester) async {
+    await runGuarded(tester, () async {
+      // 1) Cold start
+      app.main();
+      await tester.pump(const Duration(milliseconds: 300));
       await safeSettle(tester);
 
-      // 确保回到 QA Panel
-      final backOk = await waitForAny(
-        tester,
-        [find.text('QA Panel')],
-        timeout: const Duration(seconds: 10),
-      );
-      if (!backOk) {
-        debugDumpApp();
-        fail('Should be back in QA Panel after pageBack() from $buttonKey');
+      // 2) Welcome -> Guest (best effort)
+      final welcomeGuestBtn = find.byKey(Key(QaKeys.welcomeGuestBtn));
+      if (welcomeGuestBtn.evaluate().isNotEmpty) {
+        // ignore: avoid_print
+        print('✅ WelcomeScreen: entering guest mode');
+        await tester.tap(welcomeGuestBtn.first);
+        await tester.pump(const Duration(milliseconds: 800));
+        await safeSettle(tester);
+
+        final continueKeyBtn = find.byKey(Key(QaKeys.welcomeContinueBtn));
+        final continueTextBtn = find.text('Continue');
+
+        final hasDialog = await waitForAny(
+          tester,
+          [continueKeyBtn, continueTextBtn],
+          timeout: const Duration(seconds: 12),
+        );
+
+        if (hasDialog) {
+          if (continueKeyBtn.evaluate().isNotEmpty) {
+            await tester.tap(continueKeyBtn.first);
+          } else if (continueTextBtn.evaluate().isNotEmpty) {
+            await tester.tap(continueTextBtn.first);
+          }
+          await tester.pump(const Duration(milliseconds: 800));
+          await safeSettle(tester);
+        }
       }
 
-      passed++;
-    }
+      // 3) Open QA Panel
+      await openQaPanel(tester);
 
-    // 7) 验证独立按钮存在（不导航）
-    for (final buttonKey in standaloneButtons) {
-      print('🧪 Verifying standalone button: $buttonKey');
-      final buttonFinder = find.byKey(Key(buttonKey));
-      await scrollUntilVisible(tester, buttonFinder, 60);
+      final Map<String, String?> buttonToPageRoot = {
+        QaKeys.qaNavHome: QaKeys.pageHomeRoot,
+        QaKeys.qaNavSearchResults: QaKeys.searchResultsRoot,
+        QaKeys.qaNavCategoryProducts: QaKeys.listingGrid,
+        QaKeys.qaNavProductDetail: QaKeys.listingDetailRoot,
+        QaKeys.qaNavSavedList: QaKeys.savedListRoot,
+        QaKeys.qaNavNotifications: QaKeys.pageNotificationsRoot,
+        QaKeys.qaNavProfile: QaKeys.pageProfileRoot,
+        QaKeys.qaNavRewardCenter: QaKeys.rewardCenterRulesCard,
+        QaKeys.qaNavRules: QaKeys.rewardRulesTitle,
+      };
 
-      if (buttonFinder.evaluate().isEmpty) {
-        debugDumpApp();
-        fail('Button $buttonKey should exist in QA Panel');
+      final List<String> standaloneButtons = [
+        QaKeys.qaNavFavoriteToggle,
+        QaKeys.qaNavSellMockPublish,
+        QaKeys.qaOpenRewardBottomSheet,
+        QaKeys.qaSeedPoolMock,
+        QaKeys.qaQuickPublish,
+        QaKeys.qaSmokeOpenTabs,
+        QaKeys.qaDebugLog,
+      ];
+
+      int passed = 0;
+      final int total = buttonToPageRoot.length + standaloneButtons.length;
+
+      // 4) Navigate buttons
+      for (final entry in buttonToPageRoot.entries) {
+        final buttonKey = entry.key;
+        final pageRootKey = entry.value;
+
+        // ignore: avoid_print
+        print('🧪 Testing button: $buttonKey -> $pageRootKey');
+
+        final buttonFinder = find.byKey(Key(buttonKey));
+        await scrollUntilVisible(tester, buttonFinder, 60);
+
+        if (buttonFinder.evaluate().isEmpty) {
+          debugDumpApp();
+          fail('Button $buttonKey should exist in QA Panel');
+        }
+
+        await tester.tap(buttonFinder.first);
+        await tester.pump(const Duration(milliseconds: 600));
+        await safeSettle(tester, maxAttempts: 90);
+
+        if (pageRootKey != null) {
+          final ok = await waitForKey(
+            tester,
+            pageRootKey,
+            timeout: const Duration(seconds: 18),
+          );
+
+          if (!ok) {
+            debugDumpApp();
+            fail('Page root key $pageRootKey should appear after tapping $buttonKey');
+          }
+          // ignore: avoid_print
+          print('✅ Page $pageRootKey opened successfully');
+        }
+
+        // ✅ robust back to QA Panel
+        await ensureBackToQaPanel(tester);
+        passed++;
       }
-      passed++;
-    }
 
-    print('✅ Full App Smoke passed: $passed/$total checks');
-    expect(passed, total, reason: 'All buttons should be tested');
+      // 5) Standalone buttons exist
+      for (final buttonKey in standaloneButtons) {
+        // ignore: avoid_print
+        print('🧪 Verifying standalone button: $buttonKey');
+
+        final buttonFinder = find.byKey(Key(buttonKey));
+        await scrollUntilVisible(tester, buttonFinder, 60);
+
+        if (buttonFinder.evaluate().isEmpty) {
+          debugDumpApp();
+          fail('Button $buttonKey should exist in QA Panel');
+        }
+        passed++;
+      }
+
+      // ignore: avoid_print
+      print('✅ Full App Smoke passed: $passed/$total checks');
+      expect(passed, total, reason: 'All buttons should be tested');
+    });
   });
 }

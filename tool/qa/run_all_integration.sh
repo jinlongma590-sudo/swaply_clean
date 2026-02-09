@@ -1,8 +1,8 @@
 #!/bin/bash
 # ============================================
-# 全功能集成测试一键脚本 (bash 3.2+ 兼容)
-# 要求：Flutter环境 + 至少一个Android设备连接
-# 输出：/tmp/qa_<timestamp>/ 证据包
+# Full Integration Test Runner (bash 3.2+)
+# Requires: Flutter + one Android device/emulator ONLINE (state=device)
+# Evidence: /tmp/qa_<timestamp>/
 # ============================================
 
 set -u
@@ -30,7 +30,7 @@ get_device_id() {
     if [ $? -eq 0 ]; then
       local first_device
       first_device=$(echo "$devices_json" | jq -r '.[] | select(.platform=="android") | .id' | head -1)
-      if [ -n "$first_device" ]; then
+      if [ -n "$first_device" ] && [ "$first_device" != "null" ]; then
         echo "$first_device"
         return 0
       fi
@@ -44,11 +44,16 @@ get_device_id() {
     return 0
   fi
 
-  # fallback
   echo "emulator-5554"
 }
 
-# ========= 0) 强制要求登录凭据 =========
+adb_tail_logcat() {
+  local out_file="$1"
+  local tail_lines="${2:-350}"
+  adb -s "$DEVICE_ID" logcat -d -t 1200 2>/dev/null | tail -n "$tail_lines" > "$out_file" || true
+}
+
+# ========= 0) Require credentials =========
 QA_EMAIL_ENV="${QA_EMAIL:-}"
 QA_PASS_ENV="${QA_PASS:-}"
 
@@ -58,7 +63,7 @@ if [ -z "$QA_EMAIL_ENV" ] || [ -z "$QA_PASS_ENV" ]; then
   exit 3
 fi
 
-# 1) 单设备原则（只认 device 状态；offline/unauthorized 直接失败）
+# 1) Single ONLINE device only (state=device)
 log "🔍 Detecting Android device..."
 DEVICE_ONLINE_COUNT=$(adb devices | awk 'NR>1 && $1!="" {print $2}' | grep -c '^device$' | tr -d ' ')
 if [ "$DEVICE_ONLINE_COUNT" -eq 0 ]; then
@@ -74,20 +79,20 @@ fi
 DEVICE_ID=$(get_device_id)
 log "✅ Device: $DEVICE_ID (single device OK)"
 
-# 2) 环境信息
+# 2) Environment info
 log "📊 Collecting environment info..."
 {
   echo "=== QA Integration Test Summary ==="
   echo "Timestamp: $(date)"
   echo "Device ID: $DEVICE_ID"
   echo ""
-  echo "--- Flutter Environment ---"
+  echo "--- Flutter ---"
   flutter --version
   echo ""
-  echo "--- Dart Environment ---"
+  echo "--- Dart ---"
   dart --version
   echo ""
-  echo "--- Java Environment ---"
+  echo "--- Java ---"
   java -version 2>&1 || echo "Java not found"
   echo ""
   echo "--- Android SDK ---"
@@ -99,12 +104,12 @@ log "📊 Collecting environment info..."
   echo ""
 } > "$OUTPUT_DIR/summary.txt"
 
-# 3) 清理 + pub get
+# 3) Clean + pub get
 log "🧹 Light cleaning..."
 flutter clean > "$OUTPUT_DIR/flutter_clean.log" 2>&1 || true
 flutter pub get > "$OUTPUT_DIR/flutter_pub_get.log" 2>&1
 
-# 4) 套件选择
+# 4) Suite select
 SUITE="${1:-smoke}"
 
 case "$SUITE" in
@@ -117,7 +122,7 @@ esac
 
 log "🎯 Selected suite: $SUITE"
 
-# 5) 测试矩阵
+# 5) Test matrix
 declare -a TEST_NAMES
 declare -a TEST_FILES
 
@@ -155,8 +160,6 @@ case "$SUITE" in
     TEST_FILES=("integration_test/invite_flow_test.dart")
     ;;
   deep_full)
-    # ✅ deep_full：不包含 integration key_audit（它容易受 emulator/设备抖动影响）
-    # key_audit 仍由 CI 的 key_audit_static job 覆盖；如需 integration key_audit 用 suite=all
     TEST_NAMES=(
       "smoke_all_tabs"
       "core_flows"
@@ -177,7 +180,6 @@ case "$SUITE" in
     )
     ;;
   all)
-    # all：包含 integration key_audit（最严格的全量）
     TEST_NAMES=(
       "key_audit"
       "smoke_all_tabs"
@@ -232,64 +234,49 @@ run_one_test() {
     reward_regression) timeout_seconds=900 ;;   # 15m
     full_app_smoke)    timeout_seconds=1800 ;;  # 30m
     deeplink_test)     timeout_seconds=900 ;;   # 15m
-    real_publish_test) timeout_seconds=2400 ;;  # 40m（上传/清理更耗时）
+    real_publish_test) timeout_seconds=2400 ;;  # 40m
     invite_flow_test)  timeout_seconds=1500 ;;  # 25m
     *)                 timeout_seconds=900 ;;
   esac
 
   log "⏱️  Timeout set to ${timeout_seconds}s for $test_name"
 
-  (
-    flutter test "$test_file" \
-      "${DART_DEFINES[@]}" \
-      -r expanded \
-      > "$log_file" 2>&1
-  ) &
-  TEST_PID=$!
+  # ✅ TRUE fail-fast + TRUE timeout (no background PID polling)
+  # exit_code:
+  #   0   pass
+  #   124 timeout (from coreutils timeout)
+  #   else fail
+  timeout "${timeout_seconds}s" flutter test "$test_file" "${DART_DEFINES[@]}" -r expanded > "$log_file" 2>&1
+  exit_code=$?
 
-  for _ in $(seq 1 "$timeout_seconds"); do
-    if ! kill -0 "$TEST_PID" 2>/dev/null; then
-      break
-    fi
-    sleep 1
-  done
+  # Always collect a small tail logcat for each test (helps debug even when pass)
+  adb_tail_logcat "$OUTPUT_DIR/${test_name}_logcat_tail.txt" 220
 
-  if kill -0 "$TEST_PID" 2>/dev/null; then
-    log "⚠️  Test $test_name timed out after ${timeout_seconds}s, killing..."
-    log "📱 Collecting diagnostic logs for timeout..."
-    adb -s "$DEVICE_ID" logcat -d -t 800 2>/dev/null | tail -n 300 > "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" || true
-    log "📄 ADB logcat saved to ${test_name}_logcat_timeout.txt"
-
-    kill -9 "$TEST_PID" 2>/dev/null || true
-    echo "" >> "$log_file"
-    echo "TIMEOUT after ${timeout_seconds}s" >> "$log_file"
-    exit_code=124
-  else
-    wait "$TEST_PID"
-    exit_code=$?
-  fi
-
-  # ✅ 判定以 exit_code 为准（更稳），grep 作为补充
-  if [ "$exit_code" -eq 0 ] || grep -q "All tests passed" "$log_file"; then
+  if [ "$exit_code" -eq 0 ]; then
     result="PASS"
     PASS_COUNT=$((PASS_COUNT + 1))
   else
     result="FAIL"
     FAIL_COUNT=$((FAIL_COUNT + 1))
     test_result=1
-    log "❌ $test_name failed."
 
-    log "📱 Collecting diagnostic logs for failure..."
-    adb -s "$DEVICE_ID" logcat -d -t 800 2>/dev/null | tail -n 300 > "$OUTPUT_DIR/${test_name}_logcat_failure.txt" || true
-    log "📄 ADB logcat saved to ${test_name}_logcat_failure.txt"
+    if [ "$exit_code" -eq 124 ]; then
+      log "⚠️  Test $test_name timed out after ${timeout_seconds}s"
+      adb_tail_logcat "$OUTPUT_DIR/${test_name}_logcat_timeout.txt" 350
+      echo "" >> "$log_file"
+      echo "TIMEOUT after ${timeout_seconds}s" >> "$log_file"
+    else
+      log "❌ $test_name failed (exit=$exit_code)."
+      adb_tail_logcat "$OUTPUT_DIR/${test_name}_logcat_failure.txt" 350
+    fi
 
-    log "📄 Last 120 lines of $log_file:"
-    tail -120 "$log_file" | while IFS= read -r line; do log "   $line"; done
+    log "📄 Last 160 lines of $log_file:"
+    tail -160 "$log_file" | while IFS= read -r line; do log "   $line"; done
   fi
 
   echo "$test_name=$exit_code" >> "$OUTPUT_DIR/test_exit_codes.txt"
   log "  Result: $result (exit: $exit_code)"
-  echo "  $test_name: $result" >> "$OUTPUT_DIR/summary.txt"
+  echo "  $test_name: $result (exit=$exit_code)" >> "$OUTPUT_DIR/summary.txt"
 
   return $test_result
 }
@@ -302,7 +289,7 @@ while [ $i -lt $TOTAL_TESTS ]; do
   run_one_test "$test_name" "$test_file"
   test_result=$?
 
-  # fail-fast：仅 suite=all 或 suite=key_audit
+  # fail-fast only for suite=key_audit or suite=all
   if [ $test_result -ne 0 ]; then
     if [ "$SUITE" = "key_audit" ] || [ "$SUITE" = "all" ]; then
       log "❌ $test_name failed in fail-fast suite ($SUITE). Stopping early."
@@ -314,7 +301,8 @@ while [ $i -lt $TOTAL_TESTS ]; do
   i=$((i + 1))
 done
 
-log "📱 Collecting logcat..."
+# final full logcat
+log "📱 Collecting full logcat..."
 adb -s "$DEVICE_ID" logcat -d -t 30000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null || true
 
 {
@@ -322,31 +310,30 @@ adb -s "$DEVICE_ID" logcat -d -t 30000 > "$OUTPUT_DIR/logcat.txt" 2>/dev/null ||
   echo "Passed: $PASS_COUNT"
   echo "Failed: $FAIL_COUNT"
   echo ""
-
   if [ $FAIL_COUNT -eq 0 ]; then
     echo "✅ ALL TESTS PASSED"
   else
     echo "❌ SOME TESTS FAILED"
   fi
-
   echo ""
   echo "Evidence package: $OUTPUT_DIR"
-  echo "  - summary.txt          (环境摘要)"
-  echo "  - *.log                (各测试日志)"
-  echo "  - logcat.txt           (设备日志)"
-  echo "  - run.log              (脚本执行日志)"
-  echo "  - test_exit_codes.txt  (各测试退出码)"
-  echo "  - exit_code.txt        (总退出码)"
+  echo "  - summary.txt"
+  echo "  - *.log"
+  echo "  - *_logcat_*.txt"
+  echo "  - logcat.txt"
+  echo "  - run.log"
+  echo "  - test_exit_codes.txt"
+  echo "  - exit_code.txt"
 } >> "$OUTPUT_DIR/summary.txt"
 
 if [ $FAIL_COUNT -eq 0 ]; then
   echo "0" > "$OUTPUT_DIR/exit_code.txt"
   log "📦 Evidence package ready: $OUTPUT_DIR"
-  cat "$OUTPUT_DIR/summary.txt" | tail -20
+  tail -20 "$OUTPUT_DIR/summary.txt"
   exit 0
 else
   echo "1" > "$OUTPUT_DIR/exit_code.txt"
   log "📦 Evidence package ready: $OUTPUT_DIR"
-  cat "$OUTPUT_DIR/summary.txt" | tail -20
+  tail -20 "$OUTPUT_DIR/summary.txt"
   exit 1
 fi
