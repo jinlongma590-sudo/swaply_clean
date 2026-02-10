@@ -14,8 +14,9 @@
     <!-- ✅ 修复：App 正常主题 - 添加导航栏颜色配置 -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@android:color/white</item>
-        <!-- ✅ 关键修复：设置底部导航栏颜色，消除后台切换时的白条 -->
-        <item name="android:navigationBarColor">@android:color/black</item>
+        <!-- ✅ 关键修复：设置底部导航栏透明，由 Flutter 自己画底色 -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <!-- ✅ 可选：如果你的 App 整体是深色底部，可改为你的主题色 -->

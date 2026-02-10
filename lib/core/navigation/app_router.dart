@@ -23,6 +23,7 @@ import 'package:swaply/pages/search_results_page.dart';
 import 'package:swaply/pages/notification_page.dart' as notif; // ✅ 使用别名避免冲突
 import 'package:swaply/pages/seller_profile_page.dart';
 import 'package:swaply/pages/account_settings_page.dart';
+import 'package:swaply/rewards/airtime_redeem_page.dart';
 
 /// ===============================================================
 /// AppRouter
@@ -192,6 +193,10 @@ class AppRouter {
 
       case '/account-settings':
         return _fade(const AccountSettingsPage(), '/account-settings');
+
+      /* ================= Airtime Redeem ================= */
+      case '/airtime-redeem':
+        return _fade(const AirtimeRedeemPage(), '/airtime-redeem');
 
       /* ================= Fallback ================= */
       default:

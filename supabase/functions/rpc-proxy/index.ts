@@ -39,6 +39,10 @@ const ALLOWED_ACTIONS = [
 
   // notifications
   "notify_favorite",
+
+  // airtime redemption
+  "airtime_redeem_request",
+  "airtime_redeem_request_v2",
 ] as const;
 
 type AllowedAction = typeof ALLOWED_ACTIONS[number];
@@ -61,6 +65,8 @@ const AUTH_ACTIONS: AllowedAction[] = [
   "get_seller_contact",
   "upsert_user_verification",
   "notify_favorite",
+  "airtime_redeem_request",
+  "airtime_redeem_request_v2",
 ];
 
 // Admin actions (require admin permission)

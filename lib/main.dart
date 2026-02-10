@@ -452,11 +452,15 @@ Future<void> main() async {
         statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
         statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.black,
-        systemNavigationBarIconBrightness: Brightness.light,
-        systemNavigationBarDividerColor: Colors.transparent,
-      ));
 
+        // ✅ 关键：让系统导航栏透明，由 Flutter 自己画底色
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+
+        // ✅ 关键：Android 10+ 防止系统强制加深/加遮罩
+        systemNavigationBarContrastEnforced: false,
+      ));
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,

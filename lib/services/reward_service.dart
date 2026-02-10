@@ -290,7 +290,7 @@ class RewardService {
 
   static String _generateInvitationCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
+    final random = Random.secure();
     return 'INV${List.generate(6, (index) => chars[random.nextInt(chars.length)]).join()}';
   }
 
@@ -689,16 +689,32 @@ class RewardService {
         final inviterId = res;
         _debugPrint('referral completed, inviter=$inviterId');
 
-        // 优先使用后端 RPC（单张里程碑券：1/5/10）
-        try {
-          final r =
-              await EdgeFunctionsClient.instance.rpcProxy('issue_referral_milestone_reward', params: {
-            'p_inviter': inviterId,
-          });
-          _debugPrint('issue_referral_milestone_reward: $r');
-        } catch (e) {
-          _debugPrint('issue_referral_milestone_reward error: $e');
-          // 兜底（若无 RPC 或 RLS 拦截）：前端计算发券
+        // 优先使用后端 RPC（单张里程碑券：1/5/10），最多重试2次
+        bool rewardIssued = false;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+          try {
+            final r = await EdgeFunctionsClient.instance.rpcProxy(
+              'issue_referral_milestone_reward',
+              params: {'p_inviter': inviterId},
+            );
+            _debugPrint('issue_referral_milestone_reward attempt $attempt: $r');
+            rewardIssued = true;
+            break; // 成功则退出重试循环
+          } catch (e) {
+            _debugPrint('issue_referral_milestone_reward error (attempt $attempt): $e');
+            if (attempt < 2) {
+              // 指数退避：300ms, 800ms
+              final delayMs = attempt == 1 ? 300 : 800;
+              await Future.delayed(Duration(milliseconds: delayMs));
+              continue;
+            }
+            // 最后一次尝试也失败，进入兜底
+          }
+        }
+        
+        // 如果后端 RPC 失败（包括重试后），使用前端兜底
+        if (!rewardIssued) {
+          _debugPrint('RPC failed after retries, using fallback');
           await _grantReferralRewardByCount(inviterId);
         }
       } else {

@@ -279,6 +279,19 @@ class _RewardWalletPageState extends State<RewardWalletPage>
       }
     }
 
+    // ✅ 新增：查询 airtime 兑换记录
+    List<dynamic> redemptions = [];
+    try {
+      redemptions = await supabase
+          .from('airtime_redemptions')
+          .select('id,user_id,phone,points_spent,status,requested_at')
+          .eq('user_id', user.id)
+          .order('requested_at', ascending: false);
+    } catch (e) {
+      // 如果表不存在或权限问题，忽略但不中断
+      print('Warning: Failed to load airtime redemptions: $e');
+    }
+
     try {
       final List<String> ids = usages
           .map((u) => (u is Map ? u['coupon_id'] : null))
@@ -299,6 +312,8 @@ class _RewardWalletPageState extends State<RewardWalletPage>
       }
 
       final List<Map<String, dynamic>> history = [];
+      
+      // 1. 处理 coupon_usages 记录
       for (final u in usages) {
         if (u is! Map) continue;
 
@@ -328,12 +343,78 @@ class _RewardWalletPageState extends State<RewardWalletPage>
           'reward_reason': (source ?? 'coupon_used'),
           'coupon_title': couponTitle,
           'reward_type': rewardType,
+          'record_type': 'coupon', // 新增字段标识记录类型
         });
       }
+      
+      // 2. 处理 airtime_redemptions 记录
+      for (final r in redemptions) {
+        if (r is! Map) continue;
+        
+        final dynamic ts = r['requested_at'];
+        final int pointsSpent = (r['points_spent'] as num?)?.toInt() ?? 0;
+        final String status = (r['status'] as String?) ?? 'pending';
+        final String phone = (r['phone'] as String?) ?? '';
+        
+        // 脱敏手机号（仅显示后4位）
+        final String maskedPhone = phone.length > 4 
+            ? '****${phone.substring(phone.length - 4)}'
+            : '****';
+            
+        String statusText = '';
+        switch (status) {
+          case 'pending':
+            statusText = 'Pending';
+            break;
+          case 'completed':
+            statusText = 'Completed';
+            break;
+          case 'failed':
+            statusText = 'Failed';
+            break;
+          default:
+            statusText = status;
+        }
+        
+        history.add({
+          'created_at': ts,
+          'reward_reason': 'airtime_redeem',
+          'coupon_title': 'Airtime Redemption ($pointsSpent points)',
+          'reward_type': 'airtime_redeem',
+          'record_type': 'airtime', // 新增字段标识记录类型
+          'metadata': {
+            'points_spent': pointsSpent,
+            'status': status,
+            'status_text': statusText,
+            'phone_masked': maskedPhone,
+          },
+        });
+      }
+      
+      // 3. 按时间倒序排序（合并后的列表）
+      history.sort((a, b) {
+        final dynamic tsA = a['created_at'];
+        final dynamic tsB = b['created_at'];
+        
+        DateTime dateA;
+        DateTime dateB;
+        
+        if (tsA is DateTime) dateA = tsA;
+        else if (tsA is String) dateA = DateTime.tryParse(tsA) ?? DateTime(0);
+        else dateA = DateTime(0);
+        
+        if (tsB is DateTime) dateB = tsB;
+        else if (tsB is String) dateB = DateTime.tryParse(tsB) ?? DateTime(0);
+        else dateB = DateTime(0);
+        
+        return dateB.compareTo(dateA); // 降序：最新的在前
+      });
 
       if (!mounted) return;
       setState(() => _rewardHistory = history);
-    } catch (e) {}
+    } catch (e) {
+      print('Error in _loadRewardHistory: $e');
+    }
   }
 
   String _couponTypeName(CouponType t) {
@@ -797,6 +878,13 @@ class _RewardWalletPageState extends State<RewardWalletPage>
     }
 
     final reason = prettyReason(rawReason, reward['reward_type']);
+    
+    // ✅ 检查是否为 airtime 兑换记录
+    final bool isAirtime = reward['record_type'] == 'airtime';
+    final Map<String, dynamic> metadata = (reward['metadata'] as Map<String, dynamic>?) ?? {};
+    final String? statusText = metadata['status_text'] as String?;
+    final String? phoneMasked = metadata['phone_masked'] as String?;
+    final int? pointsSpent = metadata['points_spent'] as int?;
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
@@ -845,7 +933,38 @@ class _RewardWalletPageState extends State<RewardWalletPage>
                     color: Colors.black87,
                   ),
                 ),
-                if (reason.isNotEmpty) ...[
+                if (isAirtime && statusText != null) ...[
+                  SizedBox(height: 2.h),
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(statusText),
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          statusText.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (phoneMasked != null && phoneMasked.isNotEmpty) ...[
+                        SizedBox(width: 8.w),
+                        Text(
+                          phoneMasked,
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ] else if (reason.isNotEmpty) ...[
                   SizedBox(height: 2.h),
                   Text(
                     reason,
@@ -1022,6 +1141,8 @@ class _RewardWalletPageState extends State<RewardWalletPage>
         return const Color(0xFF2196F3);
       case 'referral_bonus':
         return const Color(0xFFE91E63);
+      case 'airtime_redeem':
+        return const Color(0xFFFF9800); // 橙色
       default:
         return Colors.grey;
     }
@@ -1036,6 +1157,8 @@ class _RewardWalletPageState extends State<RewardWalletPage>
         return Icons.task_alt;
       case 'referral_bonus':
         return Icons.group_add;
+      case 'airtime_redeem':
+        return Icons.phone_iphone;
       default:
         return Icons.card_giftcard;
     }
@@ -1050,6 +1173,18 @@ class _RewardWalletPageState extends State<RewardWalletPage>
     if (difference.inHours < 24) return '${difference.inHours}h ago';
     if (difference.inDays < 30) return '${difference.inDays}d ago';
     return '${dateTime.month}/${dateTime.day}';
+  }
+
+  Color _getStatusColor(String statusText) {
+    final lower = statusText.toLowerCase();
+    if (lower.contains('pending')) {
+      return const Color(0xFFFF9800); // 橙色
+    } else if (lower.contains('completed')) {
+      return const Color(0xFF4CAF50); // 绿色
+    } else if (lower.contains('failed')) {
+      return const Color(0xFFF44336); // 红色
+    }
+    return Colors.grey;
   }
 
   String _mapCouponTypeToRewardType(String? t) {

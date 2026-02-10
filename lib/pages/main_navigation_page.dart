@@ -302,8 +302,12 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           statusBarBrightness: Brightness.dark,
           statusBarIconBrightness: Brightness.light,
           statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Color(0xFF1877F2),
-          systemNavigationBarIconBrightness: Brightness.light,
+
+          // ✅ 关键：让系统导航栏透明，由 Flutter 自己画底色
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
         ),
         child: Scaffold(
           backgroundColor: const Color(0xFF1877F2),
@@ -396,11 +400,22 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       ),
     ];
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: _onPopInvokedWithResult,
-      child: Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: _onPopInvokedWithResult,
+        child: Scaffold(
         backgroundColor: Colors.white,
+        extendBody: true, // 让body扩展到系统导航栏区域
         body: IndexedStack(index: _selectedIndex, children: pages),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
@@ -421,8 +436,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
               8.w,
               math.max(
                 MediaQuery.of(context).padding.bottom +
-                    2.h, // ✅ 改小：4.h → 2.h（底部间距最小化）
-                8.h, // ✅ 改小：12.h → 8.h（最小兜底值）
+                    1.h, // ✅ 改小：2.h → 1.h（减少与系统导航栏的间隙）
+                6.h, // ✅ 改小：8.h → 6.h（最小兜底值更小）
               ),
             ),
             child: SizedBox(
@@ -465,19 +480,20 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             ),
           ),
         ),
-        floatingActionButton: kDebugMode
+        floatingActionButton: (kQaMode && kDebugMode)
             ? FloatingActionButton(
-                key: const Key(QaKeys.qaFab),
-                onPressed: () {
-                  SafeNavigator.push(
-                    MaterialPageRoute(builder: (_) => const QaPanelPage()),
-                  );
-                },
-                child: const Icon(Icons.bug_report),
-              )
+          key: const Key(QaKeys.qaFab),
+          onPressed: () {
+            SafeNavigator.push(
+              MaterialPageRoute(builder: (_) => const QaPanelPage()),
+            );
+          },
+          child: const Icon(Icons.bug_report),
+        )
             : null,
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildCompactNavItem({

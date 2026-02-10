@@ -48,6 +48,9 @@ class _RewardCenterHubState extends State<RewardCenterHub>
 
   // 统计数据（轻量级）
   int _couponsCount = 0;
+  
+  // 奖池数据
+  List<Map<String, dynamic>> _spinPool = [];
   int _historyCount = 0;
 
   // Realtime（只订阅必要的）
@@ -122,6 +125,7 @@ class _RewardCenterHubState extends State<RewardCenterHub>
       await Future.wait([
         _loadRewardState(),
         _loadCounts(),
+        _loadSpinPool(), // ✅ 新增奖池加载
       ]);
 
       if (mounted) setState(() => _hasLoadedOnce = true);
@@ -200,6 +204,34 @@ class _RewardCenterHubState extends State<RewardCenterHub>
       });
     } catch (e) {
       debugPrint('Failed to load counts: $e');
+    }
+  }
+
+  Future<void> _loadSpinPool() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final rows = await supabase
+          .from('reward_pool_items')
+          .select('id, title, item_type, weight, payload')
+          .eq('campaign_code', 'launch_v1')
+          .eq('is_active', true)
+          .order('sort_order');
+
+      final List<Map<String, dynamic>> pool = [];
+      for (final row in rows) {
+        if (row is Map) {
+          pool.add(Map<String, dynamic>.from(row));
+        }
+      }
+
+      if (!mounted) return;
+      setState(() => _spinPool = pool);
+    } catch (e) {
+      debugPrint('Failed to load spin pool: $e');
     }
   }
 
@@ -808,6 +840,42 @@ class _RewardCenterHubState extends State<RewardCenterHub>
     );
   }
 
+  // 手机号校验函数
+  String? _validatePhone(String phone) {
+    // 1. trim 去空格
+    final trimmed = phone.trim();
+    
+    if (trimmed.isEmpty) {
+      return 'Phone number is required';
+    }
+    
+    // 2. 检查 + 只能出现在开头
+    if (trimmed.contains('+') && !trimmed.startsWith('+')) {
+      return 'Plus sign (+) must be at the beginning';
+    }
+    
+    // 3. 只允许 + 和数字
+    final allowedPattern = RegExp(r'^\+?[0-9]+$');
+    if (!allowedPattern.hasMatch(trimmed)) {
+      return 'Only numbers and + at the beginning allowed';
+    }
+    
+    // 4. 计算数字长度（不包括 +）
+    final digits = trimmed.replaceAll('+', '');
+    final totalLength = trimmed.length; // 包含 + 的总长度
+    
+    // E.164 最长 15 位数字，带 + 最多 16
+    if (digits.length < 8 || digits.length > 15) {
+      return 'Phone number must be 8-15 digits (E.164 format)';
+    }
+    
+    if (totalLength < 8 || totalLength > 16) {
+      return 'Total length (with +) must be 8-16 characters';
+    }
+    
+    return null;
+  }
+
   Future<void> _onRedeemPressed() async {
     if (_isRedeeming) return;
 
@@ -821,33 +889,136 @@ class _RewardCenterHubState extends State<RewardCenterHub>
       return;
     }
 
-    final confirm = await showDialog<bool>(
+    // 对话框状态
+    String phoneInput = '';
+    String? phoneError;
+    bool isSubmitting = false;
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Redeem Airtime'),
-        content: const Text('Redeem 100 points for airtime credit?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            void validateAndSubmit() {
+              final error = _validatePhone(phoneInput);
+              setState(() => phoneError = error);
+              if (error == null) {
+                Navigator.pop(context, true);
+              }
+            }
+            
+            return AlertDialog(
+              title: const Text('Redeem Airtime'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Redeem 100 points for airtime credit'),
+                    const SizedBox(height: 16),
+                    // 手机号输入
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: 'Phone number',
+                        hintText: '+263771234567 or +8615615949938',
+                        errorText: phoneError,
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      onChanged: (value) {
+                        setState(() {
+                          phoneInput = value;
+                          // 实时校验（清除错误）
+                          if (phoneError != null) {
+                            final error = _validatePhone(value);
+                            setState(() => phoneError = error);
+                          }
+                        });
+                      },
+                      onSubmitted: (_) => validateAndSubmit(),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Format: E.164 (e.g., +263771234567, +8615615949938)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Points 信息
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.currency_exchange, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Points to redeem:'),
+                          const Spacer(),
+                          Text('100',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
+                              )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (isSubmitting)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => validateAndSubmit(),
+                  child: const Text('Redeem'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (confirm != true) return;
+    if (result != true) return;
+
+    // 最终校验
+    phoneError = _validatePhone(phoneInput);
+    if (phoneError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid phone number: $phoneError'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+      return;
+    }
+
+    final cleanPhone = phoneInput.trim();
 
     setState(() => _isRedeeming = true);
     try {
-      final user = Supabase.instance.client.auth.currentUser!;
       await EdgeFunctionsClient.instance.call('airtime-redeem', body: {
-        'p_user': user.id,
-        'p_campaign': 'launch_v1',
-        'p_points': 100,
+        'phone': cleanPhone,
+        'points': 100,
+        'campaign': 'launch_v1',
       });
 
       await _loadRewardState();
@@ -900,6 +1071,7 @@ class _RewardCenterHubState extends State<RewardCenterHub>
           spins: _spinsBalance,
           qualifiedCount: _qualifiedCount,
           loopProgressText: _loopProgressText,
+          pool: _spinPool,
           onAfterSpin: () async {
             await _loadRewardState();
             await _loadCounts();
@@ -931,6 +1103,7 @@ class _SpinSheet extends StatefulWidget {
   final int spins;
   final int qualifiedCount;
   final String loopProgressText;
+  final List<Map<String, dynamic>> pool;
   final Future<void> Function() onAfterSpin;
 
   const _SpinSheet({
@@ -938,6 +1111,7 @@ class _SpinSheet extends StatefulWidget {
     required this.spins,
     required this.qualifiedCount,
     required this.loopProgressText,
+    required this.pool,
     required this.onAfterSpin,
   });
 
@@ -986,6 +1160,57 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
   void dispose() {
     _selected.close();
     super.dispose();
+  }
+
+  String _probOf(Map<String, dynamic> item) {
+    final pool = widget.pool;
+    int toInt(dynamic v) => int.tryParse(v?.toString() ?? '') ?? 0;
+
+    final total = pool.fold<int>(0, (s, x) => s + toInt(x['weight']));
+    if (total <= 0) return '—';
+    final w = toInt(item['weight']);
+    final p = (w / total) * 100;
+    return '${p.toStringAsFixed(1)}%';
+  }
+
+  Widget _poolPanel() {
+    final pool = widget.pool;
+    if (pool.isEmpty) return const SizedBox.shrink();
+
+    final poolItems = pool.take(12).toList();
+
+    return ExpansionTile(
+      key: const Key(QaKeys.rewardPoolTile),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(top: 6, bottom: 6),
+      title: const Text(
+        'Prize Pool & Probability',
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+      children: [
+        LimitedBox(
+          maxHeight: 200,
+          child: SingleChildScrollView(
+            key: const Key(QaKeys.rewardPoolScroll),
+            child: Column(
+              children: poolItems.map((it) {
+                final title = (it['title'] ?? it['id'] ?? 'Reward').toString();
+                final prob = _probOf(it);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
+                      Text(prob, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -1152,53 +1377,61 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                         final gradient = kSliceGradients[index];
 
                         return FortuneItem(
-                          child: Container(
-                            // ✅ 调整 padding，确保文字在扇叶内
-                            padding: EdgeInsets.only(top: 30.r, bottom: 10.r),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  item.mainText,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16.sp, // ✅ 统一主文字大小为 16.sp
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5, // ✅ 减小字母间距
-                                    height: 1.0, // ✅ 减小行高
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.3),
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 2),
+                          child: Center(
+                            child: Padding(
+                              // ✅ 不要太大的 top padding，会挤压 slice 的可用高度
+                              padding: EdgeInsets.only(top: 18.r, bottom: 6.r),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown, // ✅ 关键：超出就缩小，不再 overflow
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min, // ✅ 关键：避免撑满导致溢出
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      item.mainText,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        fontSize: 14.sp, // 原来 16.sp 容易溢出，稍微降一点
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: 0.2,
+                                        height: 0.95, // ✅ 压缩行高
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.3),
+                                            blurRadius: 3,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  maxLines: 1, // ✅ 限制单行显示
-                                  overflow: TextOverflow.ellipsis, // ✅ 超出显示省略号
-                                ),
-                                SizedBox(height: 2.h), // ✅ 减小间距
-                                Text(
-                                  item.subText,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 9.sp, // ✅ 统一副文字大小为 9.sp
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white.withOpacity(0.95),
-                                    letterSpacing: 0.5, // ✅ 减小字母间距
-                                    height: 1.0, // ✅ 减小行高
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 2,
+                                    ),
+                                    SizedBox(height: 1.h), // ✅ 原来 2.h 改小一点
+                                    Text(
+                                      item.subText,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        fontSize: 8.sp, // 原来 9.sp 改小一点
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white.withOpacity(0.95),
+                                        letterSpacing: 0.2,
+                                        height: 0.95, // ✅ 压缩行高
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 2,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  maxLines: 1, // ✅ 限制单行显示
-                                  overflow: TextOverflow.ellipsis, // ✅ 超出显示省略号
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                           style: FortuneItemStyle(
@@ -1280,6 +1513,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
             ),
           ),
           SizedBox(height: 16.h),
+          _poolPanel(),
+          SizedBox(height: 12.h),
           Padding(
             padding: EdgeInsets.fromLTRB(24.r, 0, 24.r, 24.r),
             child: Container(

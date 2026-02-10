@@ -7,9 +7,10 @@ class RewardRedeemService {
 
   SupabaseClient get _sb => Supabase.instance.client;
 
-  /// 调用 RPC：public.reward_redeem_airtime(p_user, p_campaign, p_points)
-  /// 返回: { ok, new_points, redemption_id, status }
+  /// 调用 Edge Function：airtime-redeem(phone, points, campaign)
+  /// 返回: { ok, request_id, new_points, points_spent }
   Future<Map<String, dynamic>> redeemAirtime({
+    required String phone,
     required String campaignCode,
     required int points,
   }) async {
@@ -23,14 +24,33 @@ class RewardRedeemService {
     }
 
     try {
-      // 迁移到 Edge Function（原 rpc 'reward_redeem_airtime'）
+      // 获取用户手机号（如果未提供）
+      String userPhone = phone;
+      if (userPhone.isEmpty) {
+        final profile = await _sb
+            .from('profiles')
+            .select('phone')
+            .eq('id', userId)
+            .maybeSingle();
+        userPhone = profile?['phone'] as String? ?? '';
+      }
+
+      if (userPhone.isEmpty) {
+        return {
+          'ok': false,
+          'error': 'phone_required',
+          'message': 'Phone number required. Please set your phone number in profile.',
+        };
+      }
+
+      // 调用 Edge Function（新格式）
       final resp = await EdgeFunctionsClient.instance.call('airtime-redeem', body: {
-        'p_user': userId,
-        'p_campaign': campaignCode,
-        'p_points': points,
+        'phone': userPhone,
+        'points': points,
+        'campaign': campaignCode,
       });
 
-      // Edge Function 返回格式可能不同，做兼容处理
+      // Edge Function 返回格式处理
       if (resp is List && resp.isNotEmpty) {
         final row = resp.first;
         if (row is Map) return Map<String, dynamic>.from(row);
@@ -40,7 +60,7 @@ class RewardRedeemService {
       return {
         'ok': false,
         'error': 'unexpected_response',
-        'message': 'RPC returned: ${resp.runtimeType}',
+        'message': 'Edge Function returned: ${resp.runtimeType}',
       };
     } catch (e) {
       return {

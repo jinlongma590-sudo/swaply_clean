@@ -353,9 +353,13 @@ class AuthFlowObserver {
                   if (code != null && code.isNotEmpty) {
                     await RewardService.submitInviteCode(
                         code.trim().toUpperCase());
-                    RegisterScreen.clearPendingCode();
                   }
-                } catch (_) {}
+                } catch (_) {
+                  // 忽略错误，但继续清理 pending code
+                } finally {
+                  // 无论成功失败，登录后都清空 pending invitation code
+                  RegisterScreen.clearPendingCode();
+                }
               }),
             ]);
           } else {

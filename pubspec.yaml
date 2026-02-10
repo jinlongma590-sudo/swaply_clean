@@ -55,6 +55,7 @@ dependencies:
   rxdart: ^0.27.7
   cupertino_icons:
   cached_network_image: ^3.4.1
+  webview_flutter: ^4.7.0
 
   flutter_native_splash: ^2.4.1
 dev_dependencies:

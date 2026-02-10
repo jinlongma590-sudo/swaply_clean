@@ -70,7 +70,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
 
       final response = await Supabase.instance.client.functions.invoke(
         'airtime-redeem',
-        body: {'phone': phone, 'points': 100},
+        body: {'phone': phone, 'points': 100, 'campaign': 'launch_v1'},
         headers: {
           'Authorization': 'Bearer ${session.accessToken}',
           'Content-Type': 'application/json',
