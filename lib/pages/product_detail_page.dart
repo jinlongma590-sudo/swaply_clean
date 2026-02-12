@@ -1466,7 +1466,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
     await showModalBottomSheet(
       context: context,
-      isScrollControlled: false,
+      isScrollControlled: true, // ✅ 修复：改为true，允许内容滚动
       useSafeArea: true,
       useRootNavigator: true,
       backgroundColor: Colors.white, // ✅ 明确设置白色背景，避免锯齿
@@ -1480,8 +1480,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         return Container(
           // ✅ 额外包裹一层白色容器，确保完全不透明
           color: Colors.white,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            shrinkWrap: true,
+            physics: const ClampingScrollPhysics(),
             children: [
               const SizedBox(height: 8),
               Container(

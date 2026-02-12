@@ -105,30 +105,22 @@ class MainActivity : FlutterActivity() {
             // 使用资源ID加载图标
             val iconResId = R.mipmap.ic_launcher
 
-            // 使用资源ID直接设置图标
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // ✅【关键修复】统一使用兼容的 TaskDescription 构造函数 (API 21+)
+            // 避免使用 TaskDescription.Builder (API 28+) 在某些设备上可能不可用
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) { // API 21+
                 try {
-                    Log.i(TAG, "🔧 使用新 API: TaskDescription.Builder (Android 11+)")
-                    val builder = ActivityManager.TaskDescription.Builder()
-                        .setLabel(label)
-                        .setIcon(iconResId) // 使用资源ID
-
-                    setTaskDescription(builder.build())
-                    Log.i(TAG, "✅ 新 API 设置成功")
-                } catch (e: Exception) {
-                    Log.e(TAG, "⚠️ 新 API 失败，尝试旧 API: ${e.message}")
+                    Log.i(TAG, "🔧 使用兼容 API: TaskDescription constructor (Android 5.0+, API 21+)")
                     @Suppress("DEPRECATION")
                     setTaskDescription(ActivityManager.TaskDescription(label, iconResId)) // 使用资源ID
-                    Log.i(TAG, "✅ 旧 API (fallback) 设置成功")
+                    Log.i(TAG, "✅ TaskDescription 设置成功")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ TaskDescription 设置失败: ${e.message}")
+                    Log.e(TAG, "堆栈跟踪: ${e.stackTraceToString()}")
                 }
             } else {
-                Log.i(TAG, "🔧 使用旧 API: TaskDescription constructor (Android < 11)")
-                @Suppress("DEPRECATION")
-                setTaskDescription(ActivityManager.TaskDescription(label, iconResId)) // 使用资源ID
-                Log.i(TAG, "✅ 旧 API 设置成功")
+                Log.i(TAG, "🔧 Android 版本 < 5.0 (API <21)，跳过 TaskDescription 设置")
             }
 
-            Log.i(TAG, "========================================")
         } catch (e: Exception) {
             Log.e(TAG, "========================================")
             Log.e(TAG, "❌ [$source] 设置 TaskDescription 失败", e)

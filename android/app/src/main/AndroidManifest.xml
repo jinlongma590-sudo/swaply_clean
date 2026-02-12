@@ -98,7 +98,6 @@
             android:authorities="com.facebook.app.FacebookContentProvider1286488642887674"
             android:exported="false" />
 
-        <!-- ✅✅✅ MainActivity - 唯一处理所有 swaply:// 深链接的入口 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -115,13 +114,11 @@
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
-            <!-- 🚀 LAUNCHER - 应用启动入口 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- 🌐 HTTPS Deep Link - swaply.cc -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -130,7 +127,6 @@
                 <data android:host="swaply.cc" />
             </intent-filter>
 
-            <!-- 🔐 Facebook Login Callback -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -138,7 +134,6 @@
                 <data android:scheme="@string/fb_login_protocol_scheme" />
             </intent-filter>
 
-            <!-- 🔐 App-specific Login Callback (cc.swaply.app) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -146,7 +141,6 @@
                 <data android:scheme="cc.swaply.app" android:host="login-callback" />
             </intent-filter>
 
-            <!-- 🔐 Swaply Login Callback -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -154,8 +148,6 @@
                 <data android:scheme="swaply" android:host="login-callback" />
             </intent-filter>
 
-            <!-- ✅✅✅ 【核心】通用的 swaply:// 深链处理 - 包括通知等所有场景 -->
-            <!-- 这是唯一处理 swaply:// 的 Activity，确保不会出现选择器 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -164,12 +156,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ❌❌❌ NotificationActivity 已删除
-             不再需要单独的通知处理 Activity，所有深链接统一由 MainActivity 处理
-             这样避免了出现"两个 swaply 选择"的问题
-        -->
-
-        <!-- ✅ 自定义 FCM 服务 -->
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false"
@@ -178,6 +164,15 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <activity
+            android:name=".NotificationTrampolineActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance" />
 
         <meta-data
             android:name="flutterEmbedding"

@@ -117,13 +117,22 @@ class _NotificationPageState extends State<NotificationPage> {
   Future<void> _markAsRead(
       int index, List<Map<String, dynamic>> notifications) async {
     final notification = notifications[index];
-    if (notification['is_read'] == true) return;
+    if (notification['is_read'] == true) {
+      if (kDebugMode) debugPrint('[Notifications] 通知已读，跳过: ${notification['id']}');
+      return;
+    }
 
+    if (kDebugMode) debugPrint('[Notifications] 开始标记为已读: ${notification['id']}');
+    
     try {
       // ✅ 直接调用service，service会更新notifier
-      await NotificationService.markNotificationAsRead(
+      final success = await NotificationService.markNotificationAsRead(
         notification['id'].toString(),
       );
+      
+      if (kDebugMode) {
+        debugPrint('[Notifications] 标记已读结果: $success for ${notification['id']}');
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[Notifications] _markAsRead error: $e');
@@ -306,9 +315,14 @@ class _NotificationPageState extends State<NotificationPage> {
   // 🚀 优化后的点击处理：添加预取功能
   void _handleNotificationTap(Map<String, dynamic> notification,
       List<Map<String, dynamic>> notifications) async {
+    if (kDebugMode) {
+      debugPrint('[Notifications] 点击通知: ${notification['id']}, 类型: ${notification['type']}, 已读状态: ${notification['is_read']}');
+    }
+    
     final index = notifications.indexOf(notification);
     if (index >= 0) {
-      _markAsRead(index, notifications);
+      // ✅ 修复：等待标记为已读完成
+      await _markAsRead(index, notifications);
     }
 
     final type = notification['type']?.toString() ?? '';

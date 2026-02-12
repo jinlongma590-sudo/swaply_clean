@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kDebugMode, ValueNotifier;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:swaply/services/edge_functions_client.dart';
@@ -39,6 +40,15 @@ class NotificationService {
 
   static final ValueNotifier<bool> loadingNotifier = ValueNotifier<bool>(false);
 
+  // ✅ 【关键修复】本地已删除ID集合，防止刷新后还原
+  static final Set<String> _locallyDeletedIds = <String>{};
+
+  // ✅ 【持久化修复】持久化存储的已删除ID和已读状态（应用重启后保留）
+  static final Set<String> _persistentDeletedIds = <String>{};
+  static final Map<String, bool> _persistentReadStatus = <String, bool>{};
+  static bool _persistentStateLoaded = false;
+  static String? _lastLoadedUserId;
+
   static void _setList(List<Map<String, dynamic>> list) {
     // 只保留未删除
     final filtered = list.where((e) => e['is_deleted'] != true).toList();
@@ -54,6 +64,8 @@ class NotificationService {
 
     // deleted => 移除
     if (record['is_deleted'] == true) {
+      // ✅ 添加到本地已删除集合，防止刷新后还原
+      _locallyDeletedIds.add(id);
       _removeLocalById(id);
       return;
     }
@@ -78,15 +90,10 @@ class NotificationService {
   static void _removeLocalById(String id) {
     final cur = List<Map<String, dynamic>>.from(listNotifier.value);
     cur.removeWhere((e) => (e['id'] ?? '').toString() == id);
-    _setDictUnread(cur);
+    _setList(cur); // ✅ 统一使用 _setList
   }
 
-  static void _setDictUnread(List<Map<String, dynamic>> cur) {
-    listNotifier.value = List<Map<String, dynamic>>.unmodifiable(cur);
-    unreadCountNotifier.value = cur
-        .where((n) => n['is_deleted'] != true && n['is_read'] != true)
-        .length;
-  }
+  // 注：_setDictUnread 函数已移除，统一使用 _setList
 
   static Future<void> refresh({
     String? userId,
@@ -97,6 +104,9 @@ class NotificationService {
     final uid = userId ?? _client.auth.currentUser?.id;
     if (uid == null || uid.isEmpty) return;
 
+    // ✅ 【持久化修复】加载持久化状态（应用重启后保留）
+    await _loadPersistentState();
+    
     loadingNotifier.value = true;
     try {
       final list = await getUserNotifications(
@@ -105,7 +115,60 @@ class NotificationService {
         offset: offset,
         includeRead: includeRead,
       );
-      _setList(list);
+      
+      // ✅ 【关键修复】合并本地状态，防止刷新后还原已删除/已读的通知
+      // 1. 使用本地已删除ID集合过滤（包含持久化已删除ID）
+      final filteredList = list.where((item) {
+        final id = (item['id'] ?? '').toString();
+        final shouldFilter = !_locallyDeletedIds.contains(id);
+        
+        // 调试日志
+        if (!shouldFilter) {
+          _debugPrint('🔍 过滤已删除通知: $id');
+        }
+        
+        return shouldFilter;
+      }).toList();
+      
+      // 调试日志
+      _debugPrint('🔍 refresh统计:');
+      _debugPrint('   - 服务器返回: ${list.length}条');
+      _debugPrint('   - 本地已删除ID数量: ${_locallyDeletedIds.length}');
+      _debugPrint('   - 过滤后: ${filteredList.length}条');
+      _debugPrint('   - 持久化已读状态数量: ${_persistentReadStatus.length}');
+      
+      // 2. 应用已读状态：合并当前列表 + 持久化已读状态
+      final readStatus = <String, bool>{};
+      
+      // 2.1 从当前列表获取已读状态
+      final currentList = listNotifier.value;
+      for (final item in currentList) {
+        final id = (item['id'] ?? '').toString();
+        if (id.isNotEmpty && item['is_read'] == true) {
+          readStatus[id] = true;
+        }
+      }
+      
+      // 2.2 从持久化存储获取已读状态（应用重启后仍然有效）
+      for (final entry in _persistentReadStatus.entries) {
+        if (entry.value == true) {
+          readStatus[entry.key] = true;
+        }
+      }
+      
+      // 3. 更新服务器列表中的已读状态
+      for (final item in filteredList) {
+        final id = (item['id'] ?? '').toString();
+        if (readStatus.containsKey(id)) {
+          item['is_read'] = true;
+          // 确保有 read_at 时间戳
+          if (item['read_at'] == null) {
+            item['read_at'] = DateTime.now().toIso8601String();
+          }
+        }
+      }
+      
+      _setList(filteredList);
     } finally {
       loadingNotifier.value = false;
     }
@@ -622,6 +685,13 @@ class NotificationService {
         return true;
       }).toList();
 
+      // 调试日志：检查是否有 is_deleted=true 的记录
+      final deletedCount = filtered.where((item) => item['is_deleted'] == true).length;
+      if (deletedCount > 0) {
+        _debugPrint('⚠️ 警告：查询返回 $deletedCount 条已删除(is_deleted=true)的通知');
+      }
+      _debugPrint('🔍 getUserNotifications 返回 ${filtered.length} 条通知');
+      
       return List<Map<String, dynamic>>.from(
         filtered.map((e) => Map<String, dynamic>.from(e)),
       );
@@ -685,6 +755,9 @@ class NotificationService {
         'read_at': DateTime.now().toIso8601String(),
       });
 
+      // ✅ 持久化记录已读状态
+      await _addPersistentReadStatus(notificationId, true);
+
       return true;
     } catch (e) {
       _debugPrint('Error marking notification as read: $e');
@@ -712,8 +785,17 @@ class NotificationService {
       for (var n in cur) {
         n['is_read'] = true;
         n['read_at'] = DateTime.now().toIso8601String();
+        
+        // ✅ 持久化记录已读状态
+        final id = (n['id'] ?? '').toString();
+        if (id.isNotEmpty) {
+          _persistentReadStatus[id] = true;
+        }
       }
       _setList(cur);
+      
+      // ✅ 批量保存持久化已读状态
+      await _savePersistentReadStatus();
 
       return true;
     } catch (e) {
@@ -735,6 +817,8 @@ class NotificationService {
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
+      // ✅ 添加到本地已删除集合，防止刷新后还原
+      await _addPersistentDeletedId(notificationId);
       _removeLocalById(notificationId);
 
       return true;
@@ -756,6 +840,9 @@ class NotificationService {
           .update({'is_deleted': true}).eq('recipient_id', targetUserId);
 
       _setList([]);
+      
+      // ✅ 清除持久化状态（用户清空所有通知）
+      await clearPersistentState();
 
       return true;
     } catch (e) {
@@ -883,6 +970,156 @@ class NotificationService {
     } catch (e) {
       _debugPrint('Connection test failed: $e');
       return false;
+    }
+  }
+
+  // ======= ✅ 【持久化修复】持久化存储方法 =======
+
+  /// 获取当前用户ID（用于持久化存储键）
+  static String? _getCurrentUserIdForPersistence() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      _debugPrint('⚠️ 持久化操作：当前用户未登录，跳过');
+      return null;
+    }
+    return userId;
+  }
+
+  /// 加载持久化状态（已删除ID和已读状态）
+  static Future<void> _loadPersistentState() async {
+    final userId = _getCurrentUserIdForPersistence();
+    if (userId == null) return;
+    
+    // 检查用户是否切换：如果用户ID变化，需要重新加载
+    if (_lastLoadedUserId != null && _lastLoadedUserId != userId) {
+      _debugPrint('🔄 用户切换检测: $_lastLoadedUserId → $userId，重置持久化状态');
+      _persistentStateLoaded = false;
+      _persistentDeletedIds.clear();
+      _persistentReadStatus.clear();
+      _locallyDeletedIds.clear();
+    }
+    
+    if (_persistentStateLoaded) {
+      _debugPrint('📚 用户[$userId]持久化状态已加载，跳过重复加载');
+      return;
+    }
+    
+    // 使用用户ID特定的键，避免多用户冲突
+    final deletedKey = 'notification_deleted_ids_$userId';
+    final readKey = 'notification_read_status_$userId';
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // 加载已删除ID
+      final deletedIdsJson = prefs.getString(deletedKey);
+      if (deletedIdsJson != null && deletedIdsJson.isNotEmpty) {
+        final ids = (deletedIdsJson.split(',')).where((id) => id.isNotEmpty);
+        _persistentDeletedIds.clear();
+        _persistentDeletedIds.addAll(ids);
+        _locallyDeletedIds.addAll(ids); // 同时更新内存集合
+        _debugPrint('✅ 加载用户[$userId]持久化已删除ID: ${_persistentDeletedIds.length}个');
+      }
+      
+      // 加载已读状态
+      final readStatusJson = prefs.getString(readKey);
+      if (readStatusJson != null && readStatusJson.isNotEmpty) {
+        _persistentReadStatus.clear();
+        final entries = readStatusJson.split(';');
+        for (final entry in entries) {
+          final parts = entry.split(':');
+          if (parts.length == 2) {
+            final id = parts[0];
+            final isRead = parts[1] == '1';
+            _persistentReadStatus[id] = isRead;
+          }
+        }
+        _debugPrint('✅ 加载用户[$userId]持久化已读状态: ${_persistentReadStatus.length}条');
+      }
+      
+      _lastLoadedUserId = userId;
+      _persistentStateLoaded = true;
+      _debugPrint('🎉 用户[$userId]持久化状态加载完成');
+    } catch (e) {
+      _debugPrint('⚠️ 加载持久化状态失败: $e');
+    }
+  }
+
+  /// 保存已删除ID到持久化存储
+  static Future<void> _savePersistentDeletedIds() async {
+    final userId = _getCurrentUserIdForPersistence();
+    if (userId == null) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = _persistentDeletedIds.join(',');
+      final key = 'notification_deleted_ids_$userId';
+      await prefs.setString(key, ids);
+      _debugPrint('💾 保存用户[$userId]持久化已删除ID: ${_persistentDeletedIds.length}个');
+    } catch (e) {
+      _debugPrint('⚠️ 保存持久化已删除ID失败: $e');
+    }
+  }
+
+  /// 保存已读状态到持久化存储
+  static Future<void> _savePersistentReadStatus() async {
+    final userId = _getCurrentUserIdForPersistence();
+    if (userId == null) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final entries = _persistentReadStatus.entries
+          .map((e) => '${e.key}:${e.value ? '1' : '0'}')
+          .join(';');
+      final key = 'notification_read_status_$userId';
+      await prefs.setString(key, entries);
+      _debugPrint('💾 保存用户[$userId]持久化已读状态: ${_persistentReadStatus.length}条');
+    } catch (e) {
+      _debugPrint('⚠️ 保存持久化已读状态失败: $e');
+    }
+  }
+
+  /// 添加已删除ID到持久化存储
+  static Future<void> _addPersistentDeletedId(String id) async {
+    if (id.isEmpty) return;
+    
+    _persistentDeletedIds.add(id);
+    _locallyDeletedIds.add(id);
+    await _savePersistentDeletedIds();
+    _debugPrint('🗑️ 持久化记录已删除ID: $id');
+  }
+
+  /// 添加已读状态到持久化存储
+  static Future<void> _addPersistentReadStatus(String id, bool isRead) async {
+    if (id.isEmpty) return;
+    
+    _persistentReadStatus[id] = isRead;
+    await _savePersistentReadStatus();
+    _debugPrint('📖 持久化记录已读状态: $id -> $isRead');
+  }
+
+  /// 清除持久化状态（用于调试或用户登出）
+  static Future<void> clearPersistentState() async {
+    final userId = _getCurrentUserIdForPersistence();
+    if (userId == null) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final deletedKey = 'notification_deleted_ids_$userId';
+      final readKey = 'notification_read_status_$userId';
+      
+      await prefs.remove(deletedKey);
+      await prefs.remove(readKey);
+      
+      _persistentDeletedIds.clear();
+      _persistentReadStatus.clear();
+      _locallyDeletedIds.clear();
+      _persistentStateLoaded = false;
+      _lastLoadedUserId = null;
+      
+      _debugPrint('🧹 清除用户[$userId]持久化状态完成');
+    } catch (e) {
+      _debugPrint('⚠️ 清除持久化状态失败: $e');
     }
   }
 }
