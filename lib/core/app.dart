@@ -35,6 +35,9 @@ class _SwaplyAppState extends State<SwaplyApp> {
 
   // 确保 DeepLinkService.bootstrap() 全局只运行一次
   bool _dlBooted = false;
+  
+  // 记录应用启动时间（用于计算启动页显示时长）
+  late final DateTime _appStartTime = DateTime.now();
 
   /// ✅ [性能优化] 减少等待超时时间
   /// 原来：3秒超时
@@ -119,9 +122,19 @@ class _SwaplyAppState extends State<SwaplyApp> {
 
       // ✅ 移除 Splash
       try {
+        final beforeRemove = DateTime.now();
         FlutterNativeSplash.remove();
-        final totalTime = DateTime.now().difference(startTime).inMilliseconds;
-        debugPrint('[App] ✅ Native Splash removed (总耗时: ${totalTime}ms)');
+        final afterRemove = DateTime.now();
+        final removeTime = afterRemove.difference(beforeRemove).inMilliseconds;
+        final totalTime = afterRemove.difference(startTime).inMilliseconds;
+        
+        debugPrint('[App] ✅ Native Splash removed (移除耗时: ${removeTime}ms, 总耗时: ${totalTime}ms)');
+        debugPrint('[SplashDebug] 🚫 FlutterNativeSplash.remove() called at: $afterRemove');
+        debugPrint('[SplashDebug] ⏱️  Splash display duration: ${afterRemove.difference(_appStartTime).inMilliseconds}ms');
+        
+        // ✅ 通知 DeepLinkService 启动页已移除（解决安卓设备深链拉起时启动页logo不显示问题）
+        DeepLinkService.notifySplashRemoved();
+        debugPrint('[SplashDebug] 📢 notifySplashRemoved() called');
       } catch (e) {
         if (kDebugMode) {
           debugPrint('[App] ⚠️ Failed to remove splash: $e');

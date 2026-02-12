@@ -503,4 +503,70 @@ class MessageService {
       return false;
     }
   }
+
+  /// 获取offer的最新消息内容（方案B：动态查询最新消息）
+  static Future<String?> getLatestOfferMessage(String offerId) async {
+    try {
+      _debugPrint('获取offer最新消息: $offerId');
+      
+      final offerIdInt = _parseOfferId(offerId);
+      if (offerIdInt == null) {
+        _debugPrint('无效的offer ID格式: $offerId');
+        return null;
+      }
+      
+      // 查询最新的一条消息（按创建时间降序）
+      final List<dynamic> messages = await _client
+          .from(_tableName)
+          .select('message, sender_id, created_at')
+          .eq('offer_id', offerIdInt)
+          .order('created_at', ascending: false)
+          .limit(1);
+      
+      if (messages.isEmpty) {
+        _debugPrint('该offer暂无消息');
+        return null;
+      }
+      
+      final latestMessage = Map<String, dynamic>.from(messages.first);
+      final messageContent = latestMessage['message']?.toString() ?? '';
+      
+      _debugPrint('找到最新消息: ${messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent}');
+      return messageContent;
+    } catch (e) {
+      _debugPrint('获取最新消息时出错: $e');
+      return null;
+    }
+  }
+
+  /// 批量获取多个offer的最新消息（简单实现：循环调用单个查询）
+  static Future<Map<String, String?>> getLatestMessagesForOffers(List<String> offerIds) async {
+    try {
+      if (offerIds.isEmpty) {
+        _debugPrint('offerIds为空，跳过批量查询');
+        return {};
+      }
+      
+      _debugPrint('批量查询${offerIds.length}个offer的最新消息（循环方式）');
+      
+      final latestMessages = <String, String?>{};
+      
+      // 使用循环逐个查询（简单实现）
+      for (final offerId in offerIds) {
+        try {
+          final message = await getLatestOfferMessage(offerId);
+          latestMessages[offerId] = message;
+        } catch (e) {
+          _debugPrint('查询offer $offerId 最新消息时出错: $e');
+          latestMessages[offerId] = null;
+        }
+      }
+      
+      _debugPrint('批量查询完成，找到${latestMessages.length}个offer的最新消息');
+      return latestMessages;
+    } catch (e) {
+      _debugPrint('批量获取最新消息时出错: $e');
+      return {};
+    }
+  }
 }

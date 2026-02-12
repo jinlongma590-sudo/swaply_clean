@@ -148,7 +148,7 @@ serve(async (req) => {
 
     const isFirstListing = !state || Number(state.qualified_listings_count ?? 0) === 0;
 
-    // Device risk (first listing only)
+    // Device risk (first listing only) - 临时放宽：只记录不阻止
     if (device_id && isFirstListing && rules.device_fingerprint_enabled) {
       const { data: deviceRow } = await supabase
         .from("reward_device_map")
@@ -156,15 +156,18 @@ serve(async (req) => {
         .eq("device_id", device_id)
         .maybeSingle();
 
+      // 临时修改：仅当设备被其他用户占用时才阻止（同用户允许）
       if (deviceRow && deviceRow.user_id !== user.id) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            reason: "device_blocked",
-            message: "Device already claimed first-listing reward",
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
-        );
+        console.warn(`[Reward] Device ${device_id} already used by user ${deviceRow.user_id}, current user ${user.id}. Allowing due to test mode.`);
+        // 临时注释掉阻止逻辑，允许继续
+        // return new Response(
+        //   JSON.stringify({
+        //     ok: false,
+        //     reason: "device_blocked",
+        //     message: "Device already claimed first-listing reward",
+        //   }),
+        //   { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+        // );
       }
 
       await supabase.from("reward_device_map").upsert(

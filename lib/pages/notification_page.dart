@@ -9,6 +9,7 @@ import 'package:swaply/core/l10n/app_localizations.dart';
 import 'package:swaply/router/root_nav.dart'; // navPush / navReplaceAll
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
 import 'package:swaply/services/notification_service.dart';
+import 'package:swaply/services/message_service.dart'; // 方案B：动态查询最新消息
 import 'package:swaply/services/offer_detail_cache.dart'; // 🚀 新增缓存预取
 import 'package:swaply/core/qa_keys.dart';
 
@@ -33,6 +34,8 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage> {
   VoidCallback? _unreadListener;
+  final Map<String, Future<String?>> _messageCache = {};
+  final Map<String, String?> _messageResults = {};
 
   @override
   void initState() {
@@ -74,6 +77,41 @@ class _NotificationPageState extends State<NotificationPage> {
       NotificationService.unreadCountNotifier.removeListener(_unreadListener!);
     }
     super.dispose();
+  }
+
+  /// 获取offer的最新消息内容，带缓存（方案B）
+  Future<String?> _getLatestOfferMessage(String offerId) async {
+    // 如果已经有结果缓存，直接返回
+    if (_messageResults.containsKey(offerId)) {
+      return _messageResults[offerId];
+    }
+    
+    // 如果已经有进行中的Future，返回它
+    if (_messageCache.containsKey(offerId)) {
+      try {
+        final result = await _messageCache[offerId]!;
+        _messageResults[offerId] = result; // 缓存结果
+        return result;
+      } catch (e) {
+        // 如果Future失败，清除缓存以便重试
+        _messageCache.remove(offerId);
+        return null;
+      }
+    }
+    
+    // 创建新的查询Future
+    final future = MessageService.getLatestOfferMessage(offerId);
+    _messageCache[offerId] = future;
+    
+    try {
+      final result = await future;
+      _messageResults[offerId] = result; // 缓存结果
+      return result;
+    } catch (e) {
+      // 查询失败，清除Future缓存
+      _messageCache.remove(offerId);
+      return null;
+    }
   }
 
   Future<void> _markAsRead(
@@ -744,16 +782,34 @@ class _NotificationPageState extends State<NotificationPage> {
                                               ],
                                             ),
                                             SizedBox(height: 2.h),
-                                            Text(
-                                              '${notification['message'] ?? ''}',
-                                              style: TextStyle(
-                                                fontSize: 11.sp,
-                                                color: Colors.grey.shade600,
-                                                height: 1.4,
+                                            if (type == 'offer' && notification['offer_id'] != null)
+                                              FutureBuilder<String?>(
+                                                future: _getLatestOfferMessage(notification['offer_id'].toString()),
+                                                builder: (context, snapshot) {
+                                                  final displayMessage = snapshot.data ?? notification['message']?.toString() ?? '';
+                                                  return Text(
+                                                    displayMessage,
+                                                    style: TextStyle(
+                                                      fontSize: 11.sp,
+                                                      color: Colors.grey.shade600,
+                                                      height: 1.4,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  );
+                                                },
+                                              )
+                                            else
+                                              Text(
+                                                '${notification['message'] ?? ''}',
+                                                style: TextStyle(
+                                                  fontSize: 11.sp,
+                                                  color: Colors.grey.shade600,
+                                                  height: 1.4,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
                                             SizedBox(height: 4.h),
                                             Row(
                                               children: [

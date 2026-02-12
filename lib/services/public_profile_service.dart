@@ -35,10 +35,16 @@ class PublicProfileService {
   Future<List<Map<String, dynamic>>> getPublicProfiles(List<String> userIds) async {
     if (userIds.isEmpty) return [];
     try {
-      final response = await _sb
-          .from('public_profiles')
-          .select()
-          .in('id', userIds);
+      // 构建 OR 条件：id = 'id1' OR id = 'id2' ...
+      final query = _sb.from('public_profiles').select();
+      if (userIds.length == 1) {
+        query.eq('id', userIds[0]);
+      } else {
+        // 使用多个 OR 条件
+        final orConditions = userIds.map((id) => 'id.eq.$id').join(',');
+        query.or(orConditions);
+      }
+      final response = await query;
       return (response as List<dynamic>).cast<Map<String, dynamic>>();
     } catch (e) {
       print('[PublicProfileService] Error fetching public profiles: $e');

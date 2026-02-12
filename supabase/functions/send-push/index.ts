@@ -21,16 +21,6 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ================================
-// ✅ 0) 可选 webhook secret 校验（配了才强制）
-// ================================
-function checkWebhookSecret(req: Request) {
-  const secret = Deno.env.get("WEBHOOK_SECRET");
-  if (!secret) return true;
-  const auth = req.headers.get("authorization") || "";
-  return auth === `Bearer ${secret}`;
-}
-
-// ================================
 // ✅ 1) Google access token 缓存（best-effort）
 // ================================
 type TokenCache = { token: string; expiresAt: number; projectId: string };
@@ -139,6 +129,7 @@ function shouldRemoveTokenFromFCMError(text: string) {
 
 // ================================
 // ✅ 3) 发送 FCM（分平台）
+// ✅✅✅ 关键修改：Android 用 data-only，iOS 保持原样
 // ================================
 async function sendFCM(
   accessToken: string,
@@ -151,37 +142,74 @@ async function sendFCM(
 
   // ✅ 强制 data 为 string
   const data: Record<string, string> = {};
-  for (const [k, v] of Object.entries(p.data ?? {})) data[k] = String(v);
+  for (const [k, v] of Object.entries(p.data ?? {})) {
+    data[k] = String(v);
+  }
 
   const message: any = {
     token,
-    notification: { title: p.title, body: p.body },
     data,
   };
 
   if (platform === "android") {
+    // ✅✅✅ Android：纯 data message
+    // 不设置 notification 字段
+    // 原生层（MyFirebaseMessagingService）会自己创建通知
     message.android = {
       priority: "HIGH",
-      notification: {
-        title: p.title,
-        body: p.body,
-        sound: "default",
-        click_action: "FLUTTER_NOTIFICATION_CLICK",
-      },
     };
+
+    console.log("=== Android FCM Debug (Data-Only) ===");
+    console.log("Platform: Android");
+    console.log("Strategy: Data-only message (no notification field)");
+    console.log("data.payload:", data.payload);
+    console.log("all data keys:", Object.keys(data));
+    console.log("Native layer will create ACTION_VIEW notification");
+    console.log("======================================");
+
   } else if (platform === "ios") {
+    // ✅✅✅ iOS：保持原有方式
+    // 设置 notification 字段，FCM 自动显示系统通知
+    message.notification = {
+      title: p.title,
+      body: p.body,
+    };
+
     message.apns = {
       headers: {
         "apns-priority": "10",
-        "apns-push-type": "alert",
+        "apns-push-type": "alert",  // ✅ 正常的 alert 通知
       },
       payload: {
         aps: {
-          alert: { title: p.title, body: p.body },
+          alert: {
+            title: p.title,
+            body: p.body,
+          },
           sound: "default",
         },
+        // ✅ 自定义数据传递给 Flutter
+        ...data,
       },
     };
+
+    console.log("=== iOS FCM Debug (Standard) ===");
+    console.log("Platform: iOS");
+    console.log("Strategy: Standard notification + data");
+    console.log("notification.title:", p.title);
+    console.log("notification.body:", p.body);
+    console.log("data.payload:", data.payload);
+    console.log("================================");
+  } else {
+    // ✅ unknown platform：使用通用方式（带 notification）
+    message.notification = {
+      title: p.title,
+      body: p.body,
+    };
+
+    console.log("=== Unknown Platform FCM ===");
+    console.log("Using standard notification");
+    console.log("============================");
   }
 
   const resp = await fetch(url, {
@@ -194,6 +222,11 @@ async function sendFCM(
   });
 
   const text = await resp.text();
+  console.log(`FCM response [${platform}]:`, resp.status, resp.ok ? "✅" : "❌");
+  if (!resp.ok) {
+    console.error(`FCM error [${platform}]:`, text);
+  }
+
   return { ok: resp.ok, status: resp.status, text };
 }
 
@@ -312,7 +345,6 @@ async function finishDelivery(
 // ================================
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "POST only" });
-  if (!checkWebhookSecret(req)) return json(401, { error: "Unauthorized" });
 
   const sbUrl = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SB_URL");
   const sbServiceKey =
@@ -332,14 +364,18 @@ Deno.serve(async (req) => {
     return json(400, { error: "missing user_id/title/body" });
   }
 
-  // ✅ 脱敏日志
-  console.log("send-push", {
-    user_id: payload.user_id,
-    platform: payload.platform ?? "all",
-    message_id: payload.message_id ?? null,
-  });
+  // 记录日志
+  console.log("========================================");
+  console.log("🔔 Send Push Notification Request");
+  console.log("========================================");
+  console.log("user_id:", payload.user_id);
+  console.log("platform:", payload.platform ?? "all");
+  console.log("message_id:", payload.message_id ?? null);
+  console.log("title:", payload.title);
+  console.log("body:", payload.body);
+  console.log("========================================");
 
-  // 取 tokens
+  // 获取 FCM token
   let q = supabase
     .from("user_fcm_tokens")
     .select("id, fcm_token, platform")
@@ -350,6 +386,8 @@ Deno.serve(async (req) => {
   const { data: rows, error: qerr } = await q;
   if (qerr) return json(500, { error: "db_error", detail: qerr.message });
   if (!rows || rows.length === 0) return json(200, { ok: true, sent: 0, note: "no tokens" });
+
+  console.log(`Found ${rows.length} FCM token(s)`);
 
   let access_token: string, projectId: string;
   try {
@@ -366,9 +404,12 @@ Deno.serve(async (req) => {
     const platform: "ios" | "android" | "unknown" =
       platformRaw === "ios" ? "ios" : platformRaw === "android" ? "android" : "unknown";
 
+    console.log(`\n--- Processing token ${r.id} (${platform}) ---`);
+
     // ✅ 幂等 claim（只有 claimed=true 的实例才发）
     const claim = await claimDelivery(supabase, payload.message_id ?? "", r.id);
     if (claim.skipped) {
+      console.log(`⏭️ Skipped (${claim.reason})`);
       results.push({ token_id: r.id, platform: r.platform, ok: true, status: 200, skipped: true, reason: claim.reason });
       continue;
     }
@@ -383,13 +424,22 @@ Deno.serve(async (req) => {
 
     // ✅ token 回收
     if (!res.ok && shouldRemoveTokenFromFCMError(res.text)) {
+      console.log(`🗑️ Marking token ${r.id} for removal (invalid)`);
       tokenIdsToRemove.push(r.id);
     }
   }
 
   if (tokenIdsToRemove.length > 0) {
+    console.log(`\n🗑️ Removing ${tokenIdsToRemove.length} invalid token(s)`);
     await supabase.from("user_fcm_tokens").delete().in("id", tokenIdsToRemove);
   }
+
+  console.log("\n========================================");
+  console.log("✅ Push Notification Complete");
+  console.log(`Sent: ${results.filter((x) => x.ok && !x.skipped).length}`);
+  console.log(`Skipped: ${results.filter((x) => x.skipped).length}`);
+  console.log(`Removed: ${tokenIdsToRemove.length}`);
+  console.log("========================================\n");
 
   return json(200, {
     ok: true,

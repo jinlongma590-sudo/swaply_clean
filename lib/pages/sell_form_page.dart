@@ -716,6 +716,10 @@ class _SellFormPageState extends State<SellFormPage>
       if (newId != null && newId.isNotEmpty) {
         debugPrint('[SellForm] 📝 Marking reward pending for $newId');
         RewardAfterPublish.I.markPending(newId);
+        
+        // 调试：确认 pending 状态
+        debugPrint('[SellForm] ✅ Pending set contains $newId: ${RewardAfterPublish.I.isPending(newId)}');
+        debugPrint('[SellForm] ✅ All pending items: ${RewardAfterPublish.I.pendingSet}');
 
         debugPrint('[SellForm] 🚀 Navigating to detail page');
         await navReplaceAll('/listing', arguments: newId);

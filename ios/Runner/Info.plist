@@ -1,232 +1,190 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-  <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>$(DEVELOPMENT_LANGUAGE)</string>
-
-    <key>CFBundleDisplayName</key>
-    <string>Swaply</string>
-
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-
-    <key>CFBundleName</key>
-    <string>Swaply</string>
-
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-
-    <key>CFBundleShortVersionString</key>
-    <string>$(FLUTTER_BUILD_NAME)</string>
-
-    <key>CFBundleSignature</key>
-    <string>????</string>
-
-    <key>CFBundleVersion</key>
-    <string>$(FLUTTER_BUILD_NUMBER)</string>
-
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-
-    <key>UILaunchStoryboardName</key>
-    <string>LaunchScreen</string>
-
-    <key>UIMainStoryboardFile</key>
-    <string>Main</string>
-
-    <!-- ========== 设备方向设置 ========== -->
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-      <string>UIInterfaceOrientationPortrait</string>
-      <string>UIInterfaceOrientationLandscapeLeft</string>
-      <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-
-    <key>UIRequiresFullScreen</key>
-    <true/>
-
-    <!-- ========== 性能和UI设置 ========== -->
-    <key>CADisableMinimumFrameDurationOnPhone</key>
-    <true/>
-
-    <key>UIApplicationSupportsIndirectInputEvents</key>
-    <true/>
-
-    <key>UIStatusBarHidden</key>
-    <true/>
-
-    <key>UIViewControllerBasedStatusBarAppearance</key>
-    <false/>
-
-    <!-- ========== 隐私权限描述 ========== -->
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>We need access to your photos so you can upload item pictures to your listings.</string>
-
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>We may save photos to your library when you download or export listing images.</string>
-
-    <key>NSCameraUsageDescription</key>
-    <string>We use the camera to take photos or videos for your listings.</string>
-
-    <key>NSMicrophoneUsageDescription</key>
-    <string>We use the microphone when recording videos or voice messages.</string>
-
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>We use your location to show nearby listings and improve search results.</string>
-
-    <key>NSFaceIDUsageDescription</key>
-    <string>We use Face ID to secure your app data</string>
-
-    <!-- ❌ 已移除 NSUserTrackingUsageDescription：避免触发 ATT/追踪合规要求 -->
-
-    <!-- ========== Facebook 配置 ========== -->
-    <key>FacebookAppID</key>
-    <string>1286488642887674</string>
-
-    <key>FacebookDisplayName</key>
-    <string>Swaply</string>
-
-    <key>FacebookClientToken</key>
-    <string>c9abdffdb869f25d95fb42c3824cfdcc</string>
-
-    <!-- ✅ 关闭自动事件与广告标识采集：降低被判定 tracking 风险（不影响登录） -->
-    <key>FacebookAutoLogAppEventsEnabled</key>
-    <false/>
-
-    <key>FacebookAdvertiserIDCollectionEnabled</key>
-    <false/>
-
-    <!-- ✅ 禁用 Limited Login，强制使用经典登录 -->
-    <key>FacebookLimitedLoginEnabled</key>
-    <false/>
-
-    <!-- ========== Google Sign-In 配置 ========== -->
-    <key>GIDClientID</key>
-    <string>947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e.apps.googleusercontent.com</string>
-
-    <!-- ========== 后台模式 ========== -->
-    <key>UIBackgroundModes</key>
-    <array>
-      <string>remote-notification</string>
-      <string>fetch</string>
-      <string>processing</string>
-    </array>
-
-    <!-- ========== BGTask 标识符 ========== -->
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-      <string>cc.swaply.app.bgrefresh</string>
-      <string>cc.swaply.app.bgprocessing</string>
-    </array>
-
-    <!-- ========== Flutter Deep Link 支持 ========== -->
-    <key>FlutterDeepLinkingEnabled</key>
-    <true/>
-
-    <!-- ========== URL Schemes 配置 ========== -->
-    <key>CFBundleURLTypes</key>
-    <array>
-      <!-- App Bundle ID scheme -->
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>cc.swaply.app</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>cc.swaply.app</string>
-        </array>
-      </dict>
-
-      <!-- Supabase scheme -->
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>io.supabase.flutter</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>io.supabase.flutter</string>
-        </array>
-      </dict>
-
-      <!-- Swaply custom scheme -->
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>swaply</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>swaply</string>
-        </array>
-      </dict>
-
-      <!-- Google REVERSED_CLIENT_ID (从 GoogleService-Info.plist 获取) -->
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>com.google</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
-        </array>
-      </dict>
-
-      <!-- Facebook URL Scheme -->
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>com.facebook</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>fb1286488642887674</string>
-        </array>
-      </dict>
-    </array>
-
-    <!-- ========== 外部 App Scheme 查询白名单 ========== -->
-    <key>LSApplicationQueriesSchemes</key>
-    <array>
-      <!-- Google schemes -->
-      <string>google</string>
-      <string>googlechrome</string>
-      <string>googlechromes</string>
-      <string>com.google.gpay</string>
-
-      <!-- Messaging apps -->
-      <string>whatsapp</string>
-      <string>whatsapp-business</string>
-      <string>tg</string>
-
-      <!-- Facebook schemes -->
-      <string>fbapi</string>
-      <string>fb-messenger-share-api</string>
-      <string>fbauth2</string>
-      <string>fbshareextension</string>
-    </array>
-
-    <!-- ========== SKAdNetwork 标识符（可留可删；留着也不会触发 ATT） ========== -->
-    <key>SKAdNetworkItems</key>
-    <array>
-      <dict>
-        <key>SKAdNetworkIdentifier</key>
-        <string>v9wttpbfk9.skadnetwork</string>
-      </dict>
-      <dict>
-        <key>SKAdNetworkIdentifier</key>
-        <string>n38lu8286q.skadnetwork</string>
-      </dict>
-    </array>
-
-  </dict>
+	<dict>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Swaply</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>Swaply</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<!-- ========== 设备方向设置 ========== -->
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UIRequiresFullScreen</key>
+		<true/>
+		<!-- ========== 性能和UI设置 ========== -->
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UIStatusBarHidden</key>
+		<true/>
+		<key>UIViewControllerBasedStatusBarAppearance</key>
+		<false/>
+		<!-- ========== 隐私权限描述 ========== -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>We need access to your photos so you can upload item pictures to your listings.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>We may save photos to your library when you download or export listing images.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>We use the camera to take photos or videos for your listings.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>We use the microphone when recording videos or voice messages.</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>We use your location to show nearby listings and improve search results.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>We use Face ID to secure your app data</string>
+		<!-- ❌ 已移除 NSUserTrackingUsageDescription：避免触发 ATT/追踪合规要求 -->
+		<!-- ========== Facebook 配置 ========== -->
+		<key>FacebookAppID</key>
+		<string>1286488642887674</string>
+		<key>FacebookDisplayName</key>
+		<string>Swaply</string>
+		<key>FacebookClientToken</key>
+		<string>c9abdffdb869f25d95fb42c3824cfdcc</string>
+		<!-- ✅ 关闭自动事件与广告标识采集：降低被判定 tracking 风险（不影响登录） -->
+		<key>FacebookAutoLogAppEventsEnabled</key>
+		<false/>
+		<key>FacebookAdvertiserIDCollectionEnabled</key>
+		<false/>
+		<!-- ✅ 禁用 Limited Login，强制使用经典登录 -->
+		<key>FacebookLimitedLoginEnabled</key>
+		<false/>
+		<!-- ========== Google Sign-In 配置 ========== -->
+		<key>GIDClientID</key>
+		<string>947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e.apps.googleusercontent.com</string>
+		<!-- ========== 后台模式 ========== -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+			<string>fetch</string>
+			<string>processing</string>
+		</array>
+		<!-- ========== Firebase 配置 ========== -->
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<true/>
+		<!-- ========== BGTask 标识符 ========== -->
+		<key>BGTaskSchedulerPermittedIdentifiers</key>
+		<array>
+			<string>cc.swaply.app.bgrefresh</string>
+			<string>cc.swaply.app.bgprocessing</string>
+		</array>
+		<!-- ========== Flutter Deep Link 支持 ========== -->
+		<key>FlutterDeepLinkingEnabled</key>
+		<true/>
+		<!-- ========== URL Schemes 配置 ========== -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<!-- App Bundle ID scheme -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>cc.swaply.app</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>cc.swaply.app</string>
+				</array>
+			</dict>
+			<!-- Supabase scheme -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>io.supabase.flutter</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>io.supabase.flutter</string>
+				</array>
+			</dict>
+			<!-- Swaply custom scheme -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>swaply</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>swaply</string>
+				</array>
+			</dict>
+			<!-- Google REVERSED_CLIENT_ID (从 GoogleService-Info.plist 获取) -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.google</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.947323234114-1e3o2rs9cr24lq92k0s531dpgmr2et1e</string>
+				</array>
+			</dict>
+			<!-- Facebook URL Scheme -->
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.facebook</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>fb1286488642887674</string>
+				</array>
+			</dict>
+		</array>
+		<!-- ========== 外部 App Scheme 查询白名单 ========== -->
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<!-- Google schemes -->
+			<string>google</string>
+			<string>googlechrome</string>
+			<string>googlechromes</string>
+			<string>com.google.gpay</string>
+			<!-- Messaging apps -->
+			<string>whatsapp</string>
+			<string>whatsapp-business</string>
+			<string>tg</string>
+			<!-- Facebook schemes -->
+			<string>fbapi</string>
+			<string>fb-messenger-share-api</string>
+			<string>fbauth2</string>
+			<string>fbshareextension</string>
+		</array>
+		<!-- ========== SKAdNetwork 标识符（可留可删；留着也不会触发 ATT） ========== -->
+		<key>SKAdNetworkItems</key>
+		<array>
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>v9wttpbfk9.skadnetwork</string>
+			</dict>
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>n38lu8286q.skadnetwork</string>
+			</dict>
+		</array>
+	</dict>
 </plist>

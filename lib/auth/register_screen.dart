@@ -296,6 +296,19 @@ class _RegisterScreenState extends State<RegisterScreen>
         _showInfo('Verification email sent. Please check your inbox.');
       } else {
         _showInfo('Account created.');
+        
+        // 更新 profiles 表的手机号字段
+        try {
+          final userId = res.user!.id;
+          await supa.from('profiles').update({
+            'phone': phone,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', userId);
+          debugPrint('[Register] Updated phone in profiles table: $phone');
+        } catch (e) {
+          debugPrint('[Register] Error updating phone in profiles: $e');
+          // 非致命错误，继续
+        }
       }
     } on AuthException catch (e) {
       // ✅ 检查是否为网络导致的认证错误

@@ -21,6 +21,12 @@ class RewardAfterPublish {
     return ok;
   }
 
+  // 调试方法：检查pending状态
+  bool isPending(String listingId) => _pending.contains(listingId);
+  bool isConsumed(String listingId) => _consumed.contains(listingId);
+  Set<String> get pendingSet => Set<String>.from(_pending);
+  Set<String> get consumedSet => Set<String>.from(_consumed);
+
   Future<Map<String, dynamic>> fetchReward(String listingId) async {
     final deviceFp = await _getOrCreateDeviceFingerprint();
     final api = RewardApi(Supabase.instance.client);

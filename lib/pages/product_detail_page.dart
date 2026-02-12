@@ -160,16 +160,34 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   // ✅ [发布奖励] 检查并显示奖励弹窗
   Future<void> _maybeShowRewardAfterPublish() async {
-    if (_rewardShownOnce) return;
+    debugPrint('[RewardDebug] _maybeShowRewardAfterPublish called');
+    
+    if (_rewardShownOnce) {
+      debugPrint('[RewardDebug] Already shown once, returning');
+      return;
+    }
 
     final listingId = widget.productId ?? product['id']?.toString();
-    if (listingId == null || listingId.isEmpty) return;
+    if (listingId == null || listingId.isEmpty) {
+      debugPrint('[RewardDebug] No listingId found, returning');
+      debugPrint('[RewardDebug] widget.productId: ${widget.productId}');
+      debugPrint('[RewardDebug] product[id]: ${product['id']}');
+      return;
+    }
 
+    debugPrint('[RewardDebug] Listing ID: $listingId');
+    
     // ✅ 只触发一次：消费 pending
     final should = RewardAfterPublish.I.consumeIfPending(listingId);
-    if (!should) return;
+    debugPrint('[RewardDebug] consumeIfPending returned: $should');
+    
+    if (!should) {
+      debugPrint('[RewardDebug] Not pending or already consumed, returning');
+      return;
+    }
 
     _rewardShownOnce = true;
+    debugPrint('[RewardDebug] Marking as shown, starting reward flow');
 
     // ✅ 不 await，别阻塞 UI
     unawaited(_runRewardFlow(listingId));
@@ -178,12 +196,83 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   // ✅ [发布奖励] 执行奖励流程
   Future<void> _runRewardFlow(String listingId) async {
     try {
+      // 添加调试日志
+      debugPrint('[RewardDebug] ==================== START ====================');
+      debugPrint('[RewardDebug] Fetching reward for listing: $listingId');
+      debugPrint('[RewardDebug] Current user: ${Supabase.instance.client.auth.currentUser?.id}');
+      
+      // 检查 pending 状态
+      debugPrint('[RewardDebug] Pending contains $listingId: ${RewardAfterPublish.I.isPending(listingId)}');
+      debugPrint('[RewardDebug] Consumed contains $listingId: ${RewardAfterPublish.I.isConsumed(listingId)}');
+      debugPrint('[RewardDebug] All pending: ${RewardAfterPublish.I.pendingSet}');
+      debugPrint('[RewardDebug] All consumed: ${RewardAfterPublish.I.consumedSet}');
+      
       final data = await RewardAfterPublish.I.fetchReward(listingId);
-      if (!mounted) return;
+      
+      debugPrint('[RewardDebug] Edge Function response:');
+      debugPrint('[RewardDebug]   ok: ${data['ok']}');
+      debugPrint('[RewardDebug]   reason: ${data['reason']}');
+      debugPrint('[RewardDebug]   detail: ${data['detail']}');
+      debugPrint('[RewardDebug]   spins: ${data['spins']}');
+      debugPrint('[RewardDebug]   auto_reveal: ${data['auto_reveal']}');
+      debugPrint('[RewardDebug]   request_id: ${data['request_id']}');
+      debugPrint('[RewardDebug]   full response: $data');
+      
+      if (!mounted) {
+        debugPrint('[RewardDebug] Widget not mounted, returning');
+        debugPrint('[RewardDebug] ==================== END (NOT MOUNTED) ====================');
+        return;
+      }
 
       // 你 edge function 返回 {ok:true,...}，这里防御一下
-      if (data['ok'] != true) return;
+      if (data['ok'] != true) {
+        debugPrint('[RewardDebug] Reward not ok, reason: ${data['reason']}');
+        
+        // 特殊处理：设备被阻止的情况，仍显示一个信息弹窗
+        if (data['reason'] == 'device_blocked') {
+          debugPrint('[RewardDebug] Device blocked, creating informative response');
+          
+          // 创建一个模拟的成功响应，显示设备限制信息
+          final simulatedData = {
+            'ok': true,
+            'qualified_count': 1,
+            'airtime_points': 0,
+            'spins': 0,
+            'milestone_progress_text': 'Device limit reached',
+            'milestone_steps': [1, 5, 10, 20, 30],
+            'milestone_spins_each': 1,
+            'spin_granted_now': false,
+            'spins_added_now': 0,
+            'spin_grant_trigger_n': 0,
+            'device_blocked': true,
+            'blocked_message': data['message'] ?? 'Device already claimed first-listing reward',
+          };
+          
+          debugPrint('[RewardDebug] Showing device blocked info bottom sheet');
+          
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            useRootNavigator: true,
+            useSafeArea: true,
+            builder: (_) => RewardBottomSheet(
+              data: simulatedData,
+              campaignCode: 'launch_v1',
+              listingId: listingId,
+            ),
+          );
+          
+          debugPrint('[RewardDebug] ==================== END (DEVICE BLOCKED INFO) ====================');
+          return;
+        }
+        
+        debugPrint('[RewardDebug] ==================== END (NOT OK) ====================');
+        return;
+      }
 
+      debugPrint('[RewardDebug] Showing reward bottom sheet');
+      
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -196,7 +285,12 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           listingId: listingId,
         ),
       );
+      
+      debugPrint('[RewardDebug] ==================== END (SUCCESS) ====================');
     } catch (e) {
+      debugPrint('[RewardDebug] ERROR in reward flow: $e');
+      debugPrint('[RewardDebug] Stack trace: ${e.toString()}');
+      debugPrint('[RewardDebug] ==================== END (ERROR) ====================');
       // 生产环境建议只 log，不要弹错误奖励
       if (kDebugMode) {
         debugPrint('[RewardAfterPublish] error: $e');

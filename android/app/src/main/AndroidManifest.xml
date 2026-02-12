@@ -98,6 +98,7 @@
             android:authorities="com.facebook.app.FacebookContentProvider1286488642887674"
             android:exported="false" />
 
+        <!-- ✅ 原 MainActivity 保持完全不变 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -115,11 +116,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <intent-filter>
-                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <intent-filter android:autoVerify="true">
@@ -150,10 +146,41 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="swaply" android:host="login-callback" />
             </intent-filter>
+
+            <!-- ✅ 通用的 swaply:// 深链处理 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="swaply" />
+            </intent-filter>
         </activity>
 
+        <!-- ✅✅✅ 【方案2核心修复】通知专用 Activity Alias -->
+        <!--
+        这不是新的Activity，而是MainActivity的别名入口
+        作用：为通知启动创建独立的入口点，强制走完整的冷启动流程
+        -->
+        <activity-alias
+            android:name=".NotificationActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="true"
+            android:launchMode="standard"
+            android:theme="@style/LaunchTheme">
+
+            <!-- ✅ 与深链完全相同的配置，确保系统正确识别为深链启动 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="swaply" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ 自定义 FCM 服务 -->
         <service
-            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            android:name=".MyFirebaseMessagingService"
             android:exported="false"
             android:directBootAware="true">
             <intent-filter>

@@ -1,30 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <style name="LaunchTheme" parent="Theme.SplashScreen">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="postSplashScreenTheme">@style/NormalTheme</item>
-
         <item name="android:statusBarColor">@color/splash_blue</item>
         <item name="android:navigationBarColor">@color/splash_blue</item>
-
+        <!-- ✅ 关键修复：强制显示启动页图标，防止深链启动时被跳过 -->
+        <item name="android:windowSplashScreenBehavior">icon_preferred</item>
         <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowFullscreen">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-
-        <item name="android:windowSplashScreenBackground">@color/splash_blue</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_blue</item>
+        <item name="android:windowSplashScreenBackground">#1877F2</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/android12splash</item>
+        <!-- 🔴 测试修改：改为红色背景，验证Logo是否因颜色融合而不可见 -->
+        <item name="android:windowSplashScreenIconBackgroundColor">#FF0000</item>
     </style>
-
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@android:color/white</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
     </style>
-
 </resources>

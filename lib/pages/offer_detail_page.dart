@@ -18,6 +18,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:swaply/models/offer.dart';
 import 'package:swaply/services/message_service.dart';
+import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/offer_service.dart';
 import 'package:swaply/services/verification_guard.dart';
 import 'package:swaply/services/offer_detail_cache.dart';
@@ -73,6 +74,10 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
     _currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     _loadAllDataInParallel();
+    // 标记相关通知为已读
+    if (_currentUserId != null) {
+      Future.microtask(() => NotificationService.markOfferNotificationsAsRead(widget.offerId));
+    }
     _subscribeToMessages();
   }
 
@@ -137,7 +142,10 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
         MessageService.markMessagesAsRead(
           offerId: widget.offerId,
           receiverId: _currentUserId!,
-        ).catchError((_) {});
+        ).catchError((_) {
+          // 忽略错误，静默失败
+          return false;
+        });
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -228,7 +236,13 @@ class _OfferDetailPageState extends State<OfferDetailPage> {
         receiverId: receiverId,
         message: message,
       );
-      if (result != null) _messageController.clear();
+      if (result != null) {
+        _messageController.clear();
+        // 标记相关通知为已读
+        if (_currentUserId != null) {
+          NotificationService.markOfferNotificationsAsRead(widget.offerId);
+        }
+      }
     } catch (_) {
       _showSnackBar('发送消息时出现错误', isError: true);
     } finally {

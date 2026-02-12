@@ -251,8 +251,10 @@ serve(async (req) => {
           break;
           
         case "upsert_user_verification":
-          // Force user_id to be current user
-          rpcParams.user_id = user.id;
+          // Force p_user_id to be current user (matches function signature)
+          rpcParams.p_user_id = user.id;
+          // Remove any user_id parameter to avoid confusion
+          delete rpcParams.user_id;
           break;
           
         case "notify_favorite":

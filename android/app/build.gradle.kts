@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 // 保证 Android 12+ SplashScreen API 所需的 SDK 版本足够高
 val resolvedCompileSdk = max(flutter.compileSdkVersion, 34)
 val resolvedTargetSdk = max(flutter.targetSdkVersion, 34)
-val resolvedMinSdk = max(flutter.minSdkVersion, 21)
+val resolvedMinSdk = max(flutter.minSdkVersion, 23)
 
 android {
     namespace = "cc.swaply.app"

@@ -210,6 +210,7 @@ class NotificationService {
 
   /// ✅ [关键修复] 使用 upsert 避免竞态条件
   /// 确保一个 user_id + platform 组合只有一个 token
+  /// ✅ [设备共享修复] 删除同一设备上的旧用户 token，防止多用户 token 冲突
   static Future<void> _saveFcmToken(String token) async {
     try {
       final user = _client.auth.currentUser;
@@ -225,7 +226,25 @@ class NotificationService {
       _debugPrint('  平台: $platform');
       _debugPrint('  Token: ${token.substring(0, 20)}...');
 
-      // ✅ 使用 upsert 自动处理冲突
+      // ✅ [设备共享修复] 步骤1：删除同一设备（相同 fcm_token + platform）上的所有旧记录
+      // 防止同一设备被多个用户占用，确保设备 token 只关联当前用户
+      try {
+        final deleteResult = await _client
+            .from('user_fcm_tokens')
+            .delete()
+            .eq('fcm_token', token)
+            .eq('platform', platform);
+        
+        _debugPrint('FCM: 🧹 已清理同一设备上的旧 token 记录');
+        if (kDebugMode) {
+          _debugPrint('  删除结果: $deleteResult');
+        }
+      } catch (deleteError) {
+        _debugPrint('FCM: ⚠️ 清理旧 token 失败（非致命）: $deleteError');
+        // 继续执行，尝试 upsert
+      }
+
+      // ✅ 步骤2：使用 upsert 自动处理冲突
       // onConflict 指定为 'user_id,platform'，匹配你的 unique constraint
       await _client.from('user_fcm_tokens').upsert(
         {
@@ -741,6 +760,58 @@ class NotificationService {
       return true;
     } catch (e) {
       _debugPrint('Error clearing all notifications: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> markOfferNotificationsAsRead(String offerId) async {
+    try {
+      final currentUserId = _client.auth.currentUser?.id;
+      if (currentUserId == null || currentUserId.isEmpty) return false;
+      
+      _debugPrint('Marking offer notifications as read: $offerId');
+      
+      // 查询与offer相关的通知
+      final response = await _client
+          .from(_tableName)
+          .select('id')
+          .eq('recipient_id', currentUserId)
+          .eq('offer_id', offerId)
+          .eq('is_read', false);
+      
+      // Supabase Dart 返回的是 PostgrestList，不是 PostgrestResponse
+      // 直接使用结果，错误通过 try-catch 处理
+      if (response.isEmpty) {
+        _debugPrint('No unread offer notifications found');
+        return true;
+      }
+      
+      final notificationIds = response.map<String>((n) => n['id'].toString()).toList();
+      
+      // 批量标记为已读
+      await _client
+          .from(_tableName)
+          .update({
+            'is_read': true,
+            'read_at': DateTime.now().toIso8601String(),
+          })
+          .inFilter('id', notificationIds)
+          .eq('recipient_id', currentUserId);
+      
+      // 更新本地状态
+      final cur = List<Map<String, dynamic>>.from(listNotifier.value);
+      for (var n in cur) {
+        if (notificationIds.contains(n['id'].toString())) {
+          n['is_read'] = true;
+          n['read_at'] = DateTime.now().toIso8601String();
+        }
+      }
+      _setList(cur);
+      
+      _debugPrint('Marked ${notificationIds.length} offer notifications as read');
+      return true;
+    } catch (e) {
+      _debugPrint('Error marking offer notifications as read: $e');
       return false;
     }
   }

@@ -9,6 +9,8 @@
 // ✅ [自动就绪] 自动调用 markAppReady() 处理队列中的通知
 // ✅ [方案1+2] 提供 Completer 和状态查询接口，供 AuthFlowObserver 协调
 // ✅ [iOS 修复] 增加等待时间，解决 iOS Universal Links 延迟传递问题
+// ✅ [启动屏修复] 统一通知启动和深链启动的等待时间为 1200ms
+// ✅ [通知冷启动修复] 冷启动通知时正确设置 _isDeepLinkLaunch 标志
 // 完全符合 Swaply 架构：
 //    1. 只负责业务跳转，不碰鉴权流程
 //    2. reset-password 使用 navReplaceAll（全局跳转）
@@ -55,6 +57,9 @@ class DeepLinkService {
   // ✅ [热启动检测] 标记当前是否是热启动场景
   bool _isHotStart = false;
 
+  // ✅ [深链启动检测] 标记是否通过深链启动（冷启动）
+  bool _isDeepLinkLaunch = false;
+
   // ============================================================
   // ✅ Public Getters（供 AuthFlowObserver 和生命周期监听器查询）
   // ============================================================
@@ -65,6 +70,12 @@ class DeepLinkService {
 
   /// 是否已通过深链成功导航到业务页面
   bool get hasNavigatedViaDeepLink => _hasNavigatedViaDeepLink;
+
+  /// 是否是热启动（应用已在运行）
+  bool get isHotStart => _isHotStart;
+
+  /// 是否通过深链启动（冷启动）
+  bool get isDeepLinkLaunch => _isDeepLinkLaunch;
 
   /// 获取 Completer 的 Future（供 AuthFlowObserver 等待）
   Future<void>? get initialLinkFuture => _initialLinkCompleter?.future;
@@ -186,12 +197,139 @@ class DeepLinkService {
   Future<void> _waitUntilReady(
       {Duration max = const Duration(seconds: 2)}) async {
     final started = DateTime.now();
+    debugPrint('[SplashDebug] 🔍 _waitUntilReady() started at: $started');
+    debugPrint('[SplashDebug] 🔥 Hot start status: $isHotStart');
+
+    // ✅ 安卓设备启动页协调：根据冷热启动采用不同策略
+    // 冷启动：必须等待启动页完全移除（确保logo显示完成）
+    // 热启动：启动页已移除，立即跳转
+    if (Platform.isAndroid) {
+      final waitStart = DateTime.now();
+
+      if (!_isHotStart) {
+        // ✅ 冷启动：必须等待启动页移除，确保logo完全显示
+        debugPrint('[SplashDebug] ❄️ Cold start detected on Android, waiting for splash to fully render...');
+        debugPrint('[SplashDebug] 🔗 Deep link launch: $_isDeepLinkLaunch');
+        debugPrint('[SplashDebug] ℹ️ _splashAlreadyRemoved: $_splashAlreadyRemoved');
+        debugPrint('[SplashDebug] ℹ️ _splashRemovedCompleter: ${_splashRemovedCompleter != null ? "exists" : "null"}');
+
+        // ✅ 【关键修复】统一使用 1200ms 超时，无论是深链还是通知启动
+        // 之前通知启动使用 800ms 太短，导致 logo 没时间渲染
+        const timeoutDuration = Duration(milliseconds: 1200);
+
+        try {
+          // 冷启动时等待启动页完全渲染
+          debugPrint('[SplashDebug] ⏱️ Waiting for splash removal (timeout: ${timeoutDuration.inMilliseconds}ms)...');
+          await waitForSplashRemoved().timeout(timeoutDuration);
+          final waitEnd = DateTime.now();
+          final waitDuration = waitEnd.difference(waitStart).inMilliseconds;
+          if (kDebugMode) {
+            debugPrint('[DeepLink] ✅ Splash removed after full render, proceeding with deep link (waited: ${waitDuration}ms)');
+            debugPrint('[SplashDebug] ✅ Cold start splash wait completed at: $waitEnd');
+          }
+
+          // ✅ 额外延迟：确保Android启动页动画完全完成
+          // 深链启动需要更多延迟，因为Android可能因为Intent flags而延迟渲染
+          final extraDelay = _isDeepLinkLaunch
+              ? const Duration(milliseconds: 200)  // 深链额外延迟
+              : const Duration(milliseconds: 100);  // 手动启动额外延迟
+
+          if (waitDuration < 400) { // 如果等待时间很短，说明启动页可能刚移除
+            debugPrint('[SplashDebug] ⏱️ Adding extra delay ($extraDelay) for Android splash animation completion...');
+            await Future.delayed(extraDelay);
+            debugPrint('[SplashDebug] ✅ Extra delay completed');
+          }
+        } catch (e) {
+          final waitEnd = DateTime.now();
+          final waitDuration = waitEnd.difference(waitStart).inMilliseconds;
+          if (kDebugMode) {
+            debugPrint('[DeepLink] ⏱️ Splash wait timeout/error, proceeding anyway (waited: ${waitDuration}ms): $e');
+            debugPrint('[SplashDebug] ⚠️ Cold start splash wait timeout at: $waitEnd');
+          }
+        }
+      } else {
+        // ✅ 热启动：应用已在运行，启动页已移除
+        debugPrint('[SplashDebug] 🔥 Hot start on Android, splash already removed, proceeding immediately');
+        debugPrint('[SplashDebug] ℹ️ _splashAlreadyRemoved: $_splashAlreadyRemoved');
+      }
+    }
+
+    debugPrint('[SplashDebug] 🔄 Checking navigation readiness...');
     while (!_navReady() && DateTime.now().difference(started) < max) {
       await Future.delayed(const Duration(milliseconds: 40));
     }
     if (Supabase.instance.client.auth.currentSession == null) {
+      debugPrint('[SplashDebug] 🔐 No session found, waiting 600ms...');
       await Future.delayed(const Duration(milliseconds: 600));
     }
+
+    final ended = DateTime.now();
+    final totalDuration = ended.difference(started).inMilliseconds;
+    debugPrint('[SplashDebug] ✅ _waitUntilReady() completed at: $ended (total: ${totalDuration}ms)');
+  }
+
+  // ============================================================
+  // ✅ 启动页协调机制（解决安卓设备深链拉起时启动页logo不显示问题）
+  // ============================================================
+  static Completer<void>? _splashRemovedCompleter;
+  static bool _splashAlreadyRemoved = false;
+
+  /// 通知 DeepLinkService 启动页已移除
+  static void notifySplashRemoved() {
+    final now = DateTime.now();
+    _splashAlreadyRemoved = true;
+    _splashRemovedCompleter?.complete();
+    _splashRemovedCompleter = null;
+    if (kDebugMode) {
+      debugPrint('[DeepLink] ✅ notifySplashRemoved called at: $now');
+    }
+    debugPrint('[SplashDebug] 📢 notifySplashRemoved() called, marking splash as removed');
+  }
+
+  /// 等待启动页移除（如果尚未移除）
+  static Future<void> waitForSplashRemoved() async {
+    final now = DateTime.now();
+    debugPrint('[SplashDebug] ⏳ waitForSplashRemoved() called at: $now');
+
+    // 检查是否是热启动（应用已在运行）
+    final isHotStart = instance.isHotStart;
+    debugPrint('[SplashDebug] 🔥 Current isHotStart: $isHotStart');
+
+    // 如果启动页已经移除
+    if (_splashAlreadyRemoved) {
+      if (kDebugMode) {
+        debugPrint('[DeepLink] ✅ Splash already removed, proceeding immediately');
+      }
+      debugPrint('[SplashDebug] ✅ Splash already removed, no waiting needed');
+
+      // ✅ 关键修复：即使启动页标记为已移除，如果是冷启动，等待最小显示时间
+      // 确保Android启动页有足够时间渲染logo（特别是Android 12+）
+      if (!isHotStart && Platform.isAndroid) {
+        final isDeepLinkLaunch = instance.isDeepLinkLaunch;
+        final minDisplayTime = isDeepLinkLaunch
+            ? const Duration(milliseconds: 500)  // 深链启动需要更长时间
+            : const Duration(milliseconds: 300);  // 手动启动
+
+        debugPrint('[SplashDebug] ⏱️ Cold start on Android, ensuring minimum splash display time ($minDisplayTime)...');
+        debugPrint('[SplashDebug] 🔗 Deep link launch: $isDeepLinkLaunch');
+        // 确保启动页有足够时间渲染logo
+        await Future.delayed(minDisplayTime);
+        debugPrint('[SplashDebug] ✅ Minimum splash display time ($minDisplayTime) ensured');
+      }
+
+      return;
+    }
+
+    // 如果Completer不存在，创建一个（冷启动情况）
+    if (_splashRemovedCompleter == null) {
+      debugPrint('[SplashDebug] 🔨 Creating new Completer for splash removal');
+      _splashRemovedCompleter = Completer<void>();
+    } else {
+      debugPrint('[SplashDebug] ℹ️ Using existing Completer for splash removal');
+    }
+
+    debugPrint('[SplashDebug] ⏳ Waiting for splash removal future...');
+    return _splashRemovedCompleter!.future;
   }
 
   /// ✅ 初始化：bootstrap() 返回时，初始链接已处理完成
@@ -199,12 +337,15 @@ class DeepLinkService {
     if (_bootstrapped) return;
     _bootstrapped = true;
 
+    debugPrint('[SplashDebug] 🚀 DeepLinkService.bootstrap() started');
+
     // 前台深链
     _appLinks.uriLinkStream.listen((uri) {
       if (kDebugMode) debugPrint('[DeepLink] 🔗 uriLinkStream -> $uri');
 
       // ✅ [热启动检测] 前台链接标记为热启动
       _isHotStart = true;
+      debugPrint('[SplashDebug] 🔥 Hot start detected via uriLinkStream');
 
       _handle(uri);
     }, onError: (err) {
@@ -213,13 +354,19 @@ class DeepLinkService {
 
     // 冷启动深链
     try {
+      debugPrint('[SplashDebug] 🔍 Calling _appLinks.getInitialLink()...');
       final initial = await _appLinks.getInitialLink();
+      debugPrint('[SplashDebug] 📋 getInitialLink() result: $initial');
 
       if (initial != null && !_initialHandled) {
         _initialHandled = true;
 
         // ✅ 冷启动标记
         _isHotStart = false;
+
+        // ✅ 深链启动标记
+        _isDeepLinkLaunch = true;
+        debugPrint('[SplashDebug] 🔗 Deep link cold launch detected');
 
         // ✅ [方案1] 创建 Completer，等待处理完成
         _initialLinkCompleter = Completer<void>();
@@ -327,11 +474,19 @@ class DeepLinkService {
 
   /// ✅ [通知处理] 处理通知点击（增强调试版）
   /// ✅ [热启动修复] 正确检测和设置热启动状态
+  /// ✅ [启动屏修复] 冷启动通知时设置深链启动标志
   void _handleNotification(RemoteMessage message, {required String source}) {
     // ✅ [热启动修复] 根据 source 检测是否是热启动
     // 'initial' = 冷启动（App 被通知启动）
     // 'opened' = 热启动（App 在后台，点击通知恢复）
     final isNotificationHotStart = source == 'opened';
+
+    // ✅ [关键修复] 冷启动通知时，设置深链启动标志
+    // 这样 _waitUntilReady() 就能正确等待启动屏渲染
+    if (source == 'initial') {
+      _isDeepLinkLaunch = true;
+      debugPrint('[SplashDebug] 🔔 Notification cold launch detected, setting _isDeepLinkLaunch = true');
+    }
 
     if (kDebugMode) {
       debugPrint('');
@@ -344,6 +499,7 @@ class DeepLinkService {
       debugPrint('');
       debugPrint('📍 Source: $source');
       debugPrint('🔥 Hot Start: $isNotificationHotStart');
+      debugPrint('🔗 Deep Link Launch: $_isDeepLinkLaunch');  // ← 新增日志
       debugPrint('📋 Message ID: ${message.messageId}');
       debugPrint('🕒 Sent time: ${message.sentTime}');
       debugPrint('');
@@ -620,6 +776,12 @@ class DeepLinkService {
   /// 所有深链 handler 统一入口
   void _handle(Uri uri,
       {bool isInitial = false, bool isFromNotification = false}) {
+    final now = DateTime.now();
+    debugPrint('[SplashDebug] 🎯 _handle() called at: $now');
+    debugPrint('[SplashDebug] 🔗 URI: $uri');
+    debugPrint('[SplashDebug] 📍 isInitial: $isInitial, isFromNotification: $isFromNotification');
+    debugPrint('[SplashDebug] 📍 _splashAlreadyRemoved: $_splashAlreadyRemoved');
+
     if (_pending.length >= _maxPendingSize) {
       debugPrint('[DeepLink] ⚠️ pending queue full, dropping oldest');
       _pending.removeAt(0);
@@ -1046,7 +1208,139 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 5) Home 深链
+      // 5) Notification 深链（推送通知点击）
+      // ✅ 业务跳转，使用 navPush
+      // ============================================================
+      final isNotificationByHost = host == 'notification';
+      if (isNotificationByHost) {
+        final notificationId = uri.queryParameters['id'];
+        final type = uri.queryParameters['type'];
+        final offerId = uri.queryParameters['offer_id'];
+        final listingId = uri.queryParameters['listing_id'];
+
+        if (kDebugMode) {
+          debugPrint('🔔 Matched: Notification Link');
+          debugPrint('   notification_id: $notificationId');
+          debugPrint('   type: $type');
+          debugPrint('   offer_id: $offerId');
+          debugPrint('   listing_id: $listingId');
+        }
+
+        // 根据通知类型跳转到不同页面
+        if (type == 'message' && offerId != null && offerId.isNotEmpty) {
+          // ✅ [热启动修复] 启动 Guard 保护
+          _guard.startHandling('/offer-detail', arguments: {'offer_id': offerId});
+
+          if (kDebugMode) {
+            debugPrint('💬 Message notification → Offer Detail');
+            debugPrint('🔒 Guard 保护已启动');
+          }
+
+          // 等待时间（与 offer 路由一致）
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)
+                : const Duration(milliseconds: 800);
+          } else {
+            waitTime = const Duration(milliseconds: 50);
+          }
+
+          await Future.delayed(waitTime);
+          await SchedulerBinding.instance.endOfFrame;
+
+          navPush('/offer-detail', arguments: {'offer_id': offerId});
+
+          // 标记导航成功
+          _hasNavigatedViaDeepLink = true;
+          _guard.finishHandling();
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation to offer-detail completed');
+            debugPrint('🔓 Guard 保护已释放');
+            debugPrint(
+                '════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
+          _completeInitialLink();
+          return;
+        } else if (type == 'offer' && listingId != null && listingId.isNotEmpty) {
+          // Offer 通知跳转到 Listing 详情
+          _guard.startHandling('/listing', arguments: {'id': listingId});
+
+          if (kDebugMode) {
+            debugPrint('💼 Offer notification → Listing Detail');
+            debugPrint('🔒 Guard 保护已启动');
+          }
+
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)
+                : const Duration(milliseconds: 800);
+          } else {
+            waitTime = const Duration(milliseconds: 50);
+          }
+
+          await Future.delayed(waitTime);
+          await SchedulerBinding.instance.endOfFrame;
+
+          navPush('/listing', arguments: {'id': listingId});
+
+          _hasNavigatedViaDeepLink = true;
+          _guard.finishHandling();
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation to listing completed');
+            debugPrint('🔓 Guard 保护已释放');
+            debugPrint(
+                '════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
+          _completeInitialLink();
+          return;
+        } else {
+          // 其他类型通知或缺少必要参数，跳转到通知页面
+          if (kDebugMode) {
+            debugPrint('📱 Generic notification → Notifications Page');
+          }
+
+          _guard.startHandling('/notifications');
+
+          Duration waitTime;
+          if (Platform.isIOS) {
+            waitTime = _isHotStart
+                ? const Duration(milliseconds: 1500)
+                : const Duration(milliseconds: 800);
+          } else {
+            waitTime = const Duration(milliseconds: 50);
+          }
+
+          await Future.delayed(waitTime);
+          await SchedulerBinding.instance.endOfFrame;
+
+          navPush('/notifications');
+
+          _hasNavigatedViaDeepLink = true;
+          _guard.finishHandling();
+
+          if (kDebugMode) {
+            debugPrint('✅ Navigation to notifications page completed');
+            debugPrint('🔓 Guard 保护已释放');
+            debugPrint(
+                '════════════════════════════════════════════════════════════');
+            debugPrint('');
+          }
+
+          _completeInitialLink();
+          return;
+        }
+      }
+
+      // ============================================================
+      // 6) Home 深链
       // ✅ 导航到首页
       // ============================================================
       final isHomeByHost = host == 'home';
@@ -1101,7 +1395,7 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 6) Saved 深链
+      // 7) Saved 深链
       // ✅ 导航到收藏页
       // ============================================================
       final isSavedByHost = host == 'saved';
@@ -1151,7 +1445,7 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 7) Category 深链
+      // 8) Category 深链
       // ✅ 导航到分类页
       // ============================================================
       final isCategoryByHost = host == 'category';
@@ -1166,7 +1460,7 @@ class DeepLinkService {
 
           // Convert slug to category name (capitalize first letter)
           final categoryName = slug[0].toUpperCase() + (slug.length > 1 ? slug.substring(1) : '');
-          
+
           _guard.startHandling('/category', arguments: {
             'categoryId': slug,
             'categoryName': categoryName,
@@ -1214,7 +1508,7 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 8) Reward Center 深链
+      // 9) Reward Center 深链
       // ✅ 导航到奖励中心页
       // ============================================================
       final isRewardCenterByHost = host == 'reward-center' || host == 'reward_center';
@@ -1248,7 +1542,7 @@ class DeepLinkService {
 
         // For now, just complete the link without navigation
         // In a real implementation, we would navigate to RewardCenterPage
-        
+
         _hasNavigatedViaDeepLink = true;
         _guard.finishHandling();
 
@@ -1265,7 +1559,7 @@ class DeepLinkService {
       }
 
       // ============================================================
-      // 9) 默认：不匹配的链接
+      // 10) 默认：不匹配的链接
       // ============================================================
       if (kDebugMode) {
         debugPrint('❓ No matching route found');

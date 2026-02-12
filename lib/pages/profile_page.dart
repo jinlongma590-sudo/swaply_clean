@@ -140,6 +140,24 @@ class _ProfilePageState extends State<ProfilePage>
     });
   }
 
+  // 重新加载用户资料，确保手机号同步
+  Future<void> _reloadUserProfile() async {
+    if (!_signedIn) return;
+    
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    
+    try {
+      // 使 ProfileService 缓存失效，强制重新加载
+      _svc.invalidateCache(user.id);
+      // 重新获取资料，这会更新 Stream 和缓存
+      await _svc.getUserProfile();
+      debugPrint('[ProfilePage] Reloaded user profile');
+    } catch (e) {
+      debugPrint('[ProfilePage] Error reloading profile: $e');
+    }
+  }
+
   Future<void> _editNamePhone() async {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();

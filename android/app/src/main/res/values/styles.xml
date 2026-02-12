@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 启动页主题：覆盖状态栏/导航栏并铺满到最顶 -->
+    <!-- API 31+ 使用 Theme.SplashScreen（values-v31/styles.xml），API 30及以下使用此回退主题 -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:statusBarColor">@color/splash_blue</item>
         <item name="android:navigationBarColor">@color/splash_blue</item>
+        <!-- 兼容旧API的启动页配置 -->
+        <!-- 尝试设置启动页行为（API 31+ 有效，低版本忽略） -->
+        <item name="android:windowSplashScreenBehavior">icon_preferred</item>
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
