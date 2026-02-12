@@ -3,7 +3,6 @@ package cc.swaply.app
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -40,8 +39,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        // ✅ 创建并显示本地通知
-        showNotification(title, body, payload, notificationId)
+        // ✅ 创建并显示本地通知，传递完整的 data map
+        showNotification(title, body, payload, notificationId, message.data)
 
         Log.d(TAG, "========================================")
     }
@@ -50,7 +49,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         title: String,
         body: String,
         payload: String,
-        notificationId: Int
+        notificationId: Int,
+        dataMap: Map<String, String>
     ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -65,77 +65,67 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 enableVibration(true)
             }
             notificationManager.createNotificationChannel(channel)
-            Log.d(TAG, "✅ 通知渠道已创建/更新")
+            Log.d(TAG, "✅ 通知渠道已创建/更新: $CHANNEL_ID")
         }
 
-        // 2. ✅✅✅ 【方案1：完全模拟深链启动的Intent创建方式】
-        Log.d(TAG, "========================================")
-        Log.d(TAG, "🔧 创建通知Intent（方案1：完全模拟深链启动）")
-        Log.d(TAG, "========================================")
-
+        // 2. ✅✅✅ 【核心策略】创建隐式 Intent，让系统通过 intent-filter 匹配 MainActivity
+        //
+        // 为什么使用隐式 Intent？
+        // - 系统会通过 AndroidManifest.xml 的 intent-filter 自动匹配 MainActivity
+        // - 在匹配过程中，系统会正确加载 MainActivity 的所有元数据（icon, label 等）
+        // - Recent Apps 会显示正确的应用图标
+        //
+        // 如果使用显式 Intent（setComponent）会导致：
+        // - 系统跳过 intent-filter 匹配过程
+        // - 可能不会完整加载 Activity 的元数据
+        // - Recent Apps 可能显示默认图标（无 logo）
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse(payload)  // ✅ 设置深链 URI
+            // ✅ 设置深链 URI
+            data = Uri.parse(payload)
 
-            // ✅✅✅ 【关键修改1】使用与深链启动完全相同的 flags
-            // CLEAR_TASK 而不是 CLEAR_TOP：确保完整的冷启动流程
-            // 这让通知启动的行为与浏览器深链启动完全一致
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            // ✅ 限定在本应用内解析（防止其他应用处理）
+            setPackage(packageName)
 
-            // ✅✅✅ 【方案2核心修复】使用 NotificationActivity 而不是 MainActivity
-            // NotificationActivity 是一个 Activity Alias，launchMode=standard
-            // 这强制系统创建新的实例，走完整的冷启动流程，显示完整的 SplashScreen
-            component = ComponentName(packageName, "$packageName.NotificationActivity")
-
-            // ✅✅✅ 【关键修改3】添加所有深链相关的 categories
-            // BROWSABLE 和 DEFAULT 都是深链标准所需的
-            addCategory(Intent.CATEGORY_BROWSABLE)
+            // ✅ 添加必要的 categories（匹配 MainActivity 的 intent-filter）
             addCategory(Intent.CATEGORY_DEFAULT)
+            addCategory(Intent.CATEGORY_BROWSABLE)
 
-            // ✅ 把 payload 也放到 extras，作为备份
+            // ✅✅✅ 【关键 Flags】
+            // FLAG_ACTIVITY_NEW_TASK: 从非 Activity context 启动 Activity 时必须
+            // FLAG_ACTIVITY_CLEAR_TOP: 如果 Activity 已存在，清除它上面的 Activity 栈
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+            // ✅ 传递额外数据（作为备份）
             putExtra("payload", payload)
+            putExtra("notification_id", notificationId.toString())
+
+            // ✅ 传递所有原始数据
+            dataMap.forEach { (key, value) ->
+                putExtra(key, value)
+            }
         }
 
-        // 详细日志：记录Intent的所有关键属性
-        Log.d(TAG, "📋 Intent 详细配置：")
-        Log.d(TAG, "   Action: ${intent.action}")
-        Log.d(TAG, "   Data URI: ${intent.data}")
-        Log.d(TAG, "   Component: ${intent.component}")
-        Log.d(TAG, "   ✅ 使用 NotificationActivity Alias (launchMode=standard)")
-        Log.d(TAG, "   Package: ${intent.`package`}")
-        Log.d(TAG, "   Flags (Binary): ${Integer.toBinaryString(intent.flags)}")
-        Log.d(TAG, "   Flags (Hex): 0x${Integer.toHexString(intent.flags)}")
-        Log.d(TAG, "   Categories: ${intent.categories}")
-        Log.d(TAG, "   Has NEW_TASK: ${(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK) != 0}")
-        Log.d(TAG, "   Has CLEAR_TASK: ${(intent.flags and Intent.FLAG_ACTIVITY_CLEAR_TASK) != 0}")
-        Log.d(TAG, "   Has CLEAR_TOP: ${(intent.flags and Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0}")
-
-        // ✅✅✅ 【关键修改4】PendingIntent flags 使用 FLAG_IMMUTABLE
-        // Android 12+ 强制要求使用 FLAG_IMMUTABLE 或 FLAG_MUTABLE
-        // FLAG_ONE_SHOT 确保每次通知点击都创建新的启动实例
         val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         } else {
-            PendingIntent.FLAG_ONE_SHOT
+            PendingIntent.FLAG_UPDATE_CURRENT
         }
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            notificationId,  // 使用唯一ID，避免Intent复用
+            notificationId,
             intent,
             pendingIntentFlags
         )
 
-        Log.d(TAG, "✅ PendingIntent 已创建")
-        Log.d(TAG, "   PendingIntent Flags: 0x${Integer.toHexString(pendingIntentFlags)}")
-        Log.d(TAG, "   Request Code: $notificationId")
-        Log.d(TAG, "")
-        Log.d(TAG, "🎯 【方案2】通知启动预期行为：")
-        Log.d(TAG, "   1. 系统查找 NotificationActivity Alias")
-        Log.d(TAG, "   2. 发现 launchMode=standard，强制创建新实例")
-        Log.d(TAG, "   3. target 指向 MainActivity，实际启动 MainActivity")
-        Log.d(TAG, "   4. 因为是新实例，触发完整的冷启动流程")
-        Log.d(TAG, "   5. 系统 SplashScreen 显示完整 Logo（背景+图标）")
-        Log.d(TAG, "========================================")
+        Log.d(TAG, "✅ PendingIntent 已创建（隐式 Intent）")
+        Log.d(TAG, "   Action: ${intent.action}")
+        Log.d(TAG, "   Data: ${intent.data}")
+        Log.d(TAG, "   Package: ${intent.`package`}")
+        Log.d(TAG, "   Categories: ${intent.categories}")
+        Log.d(TAG, "   Flags: 0x${Integer.toHexString(intent.flags)}")
+        Log.d(TAG, "   Component: ${intent.component} (应为 null，让系统自动匹配)")
 
         // 3. 构建通知
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -145,7 +135,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)  // ✅ 点击后自动消失
-            .setContentIntent(pendingIntent)  // ✅ 使用我们的 ACTION_VIEW Intent
+            .setContentIntent(pendingIntent)  // ✅ 使用隐式 Intent 的 PendingIntent
             .build()
 
         // 4. 显示通知
@@ -161,6 +151,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "MyFCMService"
-        private const val CHANNEL_ID = "swaply_high_importance"
+        // ✅ 与 AndroidManifest.xml 中的 default_notification_channel_id 保持一致
+        private const val CHANNEL_ID = "swaply_notifications"
     }
 }
