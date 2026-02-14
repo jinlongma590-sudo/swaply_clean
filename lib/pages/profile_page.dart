@@ -638,7 +638,7 @@ class _ProfilePageState extends State<ProfilePage>
                                 _ProfileOptionEnhanced(
                                   key: const Key(QaKeys.profileRewardCenterEntry),
                                   icon: Icons.emoji_events_rounded,
-                                  title: 'My Rewards',
+                                  title: 'Reward Center',
                                   color: Colors.purple,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
