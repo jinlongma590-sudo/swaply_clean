@@ -3,6 +3,7 @@
 // ✅ [推送通知] 集成 Firebase Cloud Messaging
 // ✅ [自我通知过滤] 过滤自己发给自己的通知
 // ✅ [Offer消息修复] 实现createOfferNotification以在通知中显示message
+// ✅ [崩溃修复] 修复 deleteNotification 中 result.isEmpty 对 null 调用的崩溃问题
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -13,8 +14,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:swaply/services/edge_functions_client.dart';
 
 typedef NotificationEventCallback = void Function(
-  Map<String, dynamic> notification,
-);
+    Map<String, dynamic> notification,
+    );
 
 enum NotificationType {
   offer('offer'),
@@ -34,7 +35,7 @@ class NotificationService {
 
   // ======= ✅ UI 单一数据源（页面只监听它） =======
   static final ValueNotifier<List<Map<String, dynamic>>> listNotifier =
-      ValueNotifier<List<Map<String, dynamic>>>(const []);
+  ValueNotifier<List<Map<String, dynamic>>>(const []);
 
   static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
@@ -106,7 +107,7 @@ class NotificationService {
 
     // ✅ 【持久化修复】加载持久化状态（应用重启后保留）
     await _loadPersistentState();
-    
+
     loadingNotifier.value = true;
     try {
       final list = await getUserNotifications(
@@ -115,31 +116,50 @@ class NotificationService {
         offset: offset,
         includeRead: includeRead,
       );
-      
+
+      // 1. 提取服务器返回的所有 ID
+      final serverIds = list.map((e) => e['id'].toString()).toSet();
+
+      // 2. 🚨 智能清洗：如果服务器返回了某个 ID，说明它现在是"活着"的
+      // 即使本地记录它"已删除"，也要以服务器为准，强制移除本地的删除标记
+      final resurrectedIds = _locallyDeletedIds.intersection(serverIds);
+
+      if (resurrectedIds.isNotEmpty) {
+        _debugPrint('♻️ 检测到服务器复活通知 (Message Resurrection)，强制清除本地删除标记: $resurrectedIds');
+        
+        // 从内存集合移除
+        _locallyDeletedIds.removeAll(resurrectedIds);
+        
+        // 从持久化存储移除
+        _persistentDeletedIds.removeAll(resurrectedIds);
+        // 别忘了保存到磁盘
+        await _savePersistentDeletedIds();
+      }
+
       // ✅ 【关键修复】合并本地状态，防止刷新后还原已删除/已读的通知
       // 1. 使用本地已删除ID集合过滤（包含持久化已删除ID）
       final filteredList = list.where((item) {
         final id = (item['id'] ?? '').toString();
         final shouldFilter = !_locallyDeletedIds.contains(id);
-        
+
         // 调试日志
         if (!shouldFilter) {
           _debugPrint('🔍 过滤已删除通知: $id');
         }
-        
+
         return shouldFilter;
       }).toList();
-      
+
       // 调试日志
       _debugPrint('🔍 refresh统计:');
       _debugPrint('   - 服务器返回: ${list.length}条');
       _debugPrint('   - 本地已删除ID数量: ${_locallyDeletedIds.length}');
       _debugPrint('   - 过滤后: ${filteredList.length}条');
       _debugPrint('   - 持久化已读状态数量: ${_persistentReadStatus.length}');
-      
+
       // 2. 应用已读状态：合并当前列表 + 持久化已读状态
       final readStatus = <String, bool>{};
-      
+
       // 2.1 从当前列表获取已读状态
       final currentList = listNotifier.value;
       for (final item in currentList) {
@@ -148,14 +168,14 @@ class NotificationService {
           readStatus[id] = true;
         }
       }
-      
+
       // 2.2 从持久化存储获取已读状态（应用重启后仍然有效）
       for (final entry in _persistentReadStatus.entries) {
         if (entry.value == true) {
           readStatus[entry.key] = true;
         }
       }
-      
+
       // 3. 更新服务器列表中的已读状态
       for (final item in filteredList) {
         final id = (item['id'] ?? '').toString();
@@ -167,7 +187,7 @@ class NotificationService {
           }
         }
       }
-      
+
       _setList(filteredList);
     } finally {
       loadingNotifier.value = false;
@@ -191,15 +211,15 @@ class NotificationService {
       final type = (record['type'] ?? '').toString();
       final meta = (record['metadata'] ?? {}) as Map<String, dynamic>;
       final fromMeta = (meta['payload'] ??
-              meta['deep_link'] ??
-              meta['deeplink'] ??
-              meta['link'])
+          meta['deep_link'] ??
+          meta['deeplink'] ??
+          meta['link'])
           ?.toString();
 
       if (fromMeta != null && fromMeta.isNotEmpty) return fromMeta;
 
       final listingId =
-          (record['listing_id'] ?? meta['listing_id'])?.toString();
+      (record['listing_id'] ?? meta['listing_id'])?.toString();
       final offerId = (record['offer_id'] ?? meta['offer_id'])?.toString();
 
       if (type == 'offer' && offerId != null && listingId != null) {
@@ -222,7 +242,7 @@ class NotificationService {
 
   // ===== 全局广播流 =====
   static final StreamController<Map<String, dynamic>> _controller =
-      StreamController<Map<String, dynamic>>.broadcast();
+  StreamController<Map<String, dynamic>>.broadcast();
   static Stream<Map<String, dynamic>> get stream => _controller.stream;
 
   // 简单去重，避免同一通知重复推送
@@ -297,7 +317,7 @@ class NotificationService {
             .delete()
             .eq('fcm_token', token)
             .eq('platform', platform);
-        
+
         _debugPrint('FCM: 🧹 已清理同一设备上的旧 token 记录');
         if (kDebugMode) {
           _debugPrint('  删除结果: $deleteResult');
@@ -357,9 +377,9 @@ class NotificationService {
   // ================================================
 
   static Future<void> subscribeUser(
-    String userId, {
-    NotificationEventCallback? onEvent,
-  }) async {
+      String userId, {
+        NotificationEventCallback? onEvent,
+      }) async {
     if (_currentUserId == userId && _channel != null) {
       _debugPrint('Already subscribed for user: $userId');
       return;
@@ -474,7 +494,7 @@ class NotificationService {
       final safeName = (likerName?.trim().isNotEmpty == true)
           ? likerName!.trim()
           : (currentUser?.userMetadata?['full_name'] as String?) ??
-              (currentUser?.email ?? 'Someone');
+          (currentUser?.email ?? 'Someone');
 
       // 自己收藏自己就不发
       if (sellerId == (likerId ?? currentUser?.id)) {
@@ -575,10 +595,10 @@ class NotificationService {
       String notificationMessage;
       if (message != null && message.isNotEmpty) {
         notificationMessage =
-            '$displayName offered \$${offerAmount.toStringAsFixed(2)}\n\n"$message"';
+        '$displayName offered \$${offerAmount.toStringAsFixed(2)}\n\n"$message"';
       } else {
         notificationMessage =
-            '$displayName offered \$${offerAmount.toStringAsFixed(2)}';
+        '$displayName offered \$${offerAmount.toStringAsFixed(2)}';
       }
 
       // 构建payload
@@ -691,7 +711,7 @@ class NotificationService {
         _debugPrint('⚠️ 警告：查询返回 $deletedCount 条已删除(is_deleted=true)的通知');
       }
       _debugPrint('🔍 getUserNotifications 返回 ${filtered.length} 条通知');
-      
+
       return List<Map<String, dynamic>>.from(
         filtered.map((e) => Map<String, dynamic>.from(e)),
       );
@@ -743,9 +763,9 @@ class NotificationService {
       await _client
           .from(_tableName)
           .update({
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          })
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      })
           .eq('id', notificationId)
           .eq('recipient_id', currentUserId);
 
@@ -775,9 +795,9 @@ class NotificationService {
       await _client
           .from(_tableName)
           .update({
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          })
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      })
           .eq('recipient_id', targetUserId)
           .eq('is_read', false);
 
@@ -785,7 +805,7 @@ class NotificationService {
       for (var n in cur) {
         n['is_read'] = true;
         n['read_at'] = DateTime.now().toIso8601String();
-        
+
         // ✅ 持久化记录已读状态
         final id = (n['id'] ?? '').toString();
         if (id.isNotEmpty) {
@@ -793,7 +813,7 @@ class NotificationService {
         }
       }
       _setList(cur);
-      
+
       // ✅ 批量保存持久化已读状态
       await _savePersistentReadStatus();
 
@@ -804,26 +824,64 @@ class NotificationService {
     }
   }
 
+  // ✅ [崩溃修复] 该方法已修改，解决 result.isEmpty 在 null 上的调用
   static Future<bool> deleteNotification(String notificationId) async {
     try {
       final currentUserId = _client.auth.currentUser?.id;
-      if (currentUserId == null || currentUserId.isEmpty) return false;
+      if (currentUserId == null || currentUserId.isEmpty) {
+        _debugPrint('❌ 删除失败：用户未登录');
+        return false;
+      }
 
-      _debugPrint('Deleting notification: $notificationId');
+      _debugPrint('🗑️ 删除通知: $notificationId (用户: $currentUserId)');
 
-      await _client
+      // 记录当前通知状态 (Debug用途)
+      if (kDebugMode) {
+        try {
+          final current = await _client
+              .from(_tableName)
+              .select('id, recipient_id, is_deleted')
+              .eq('id', notificationId)
+              .single();
+          _debugPrint('📊 通知当前状态: $current');
+        } catch (e) {
+          _debugPrint('⚠️ 无法获取通知状态: $e');
+        }
+      }
+
+      // ✅ 关键修改1：添加 .select() 确保 update 操作返回受影响的数据
+      final result = await _client
           .from(_tableName)
           .update({'is_deleted': true})
           .eq('id', notificationId)
-          .eq('recipient_id', currentUserId);
+          .eq('recipient_id', currentUserId)
+          .select();
+
+      // ✅ 关键修改2：添加空安全检查，处理 result 为 null 或空列表的情况
+      // Supabase Dart 可能会返回 null (如果类型推断失败) 或 空列表 (如果未找到行)
+      if (result == null || (result as List).isEmpty) {
+        _debugPrint('⚠️ 删除结果为空：未找到通知或用户无权限 (notificationId: $notificationId)');
+        return false;
+      }
+
+      _debugPrint('✅ 数据库更新成功，影响 ${result.length} 行');
 
       // ✅ 添加到本地已删除集合，防止刷新后还原
       await _addPersistentDeletedId(notificationId);
       _removeLocalById(notificationId);
 
+      _debugPrint('✅ 删除成功 (notificationId: $notificationId)');
       return true;
     } catch (e) {
-      _debugPrint('Error deleting notification: $e');
+      _debugPrint('❌ 删除通知异常: $e');
+      _debugPrint('❌ 异常类型: ${e.runtimeType}');
+      if (e is PostgrestException) {
+        _debugPrint('❌ PostgrestException 详情:');
+        _debugPrint('   消息: ${e.message}');
+        _debugPrint('   代码: ${e.code}');
+        _debugPrint('   详情: ${e.details}');
+        _debugPrint('   提示: ${e.hint}');
+      }
       return false;
     }
   }
@@ -840,7 +898,7 @@ class NotificationService {
           .update({'is_deleted': true}).eq('recipient_id', targetUserId);
 
       _setList([]);
-      
+
       // ✅ 清除持久化状态（用户清空所有通知）
       await clearPersistentState();
 
@@ -855,9 +913,9 @@ class NotificationService {
     try {
       final currentUserId = _client.auth.currentUser?.id;
       if (currentUserId == null || currentUserId.isEmpty) return false;
-      
+
       _debugPrint('Marking offer notifications as read: $offerId');
-      
+
       // 查询与offer相关的通知
       final response = await _client
           .from(_tableName)
@@ -865,26 +923,26 @@ class NotificationService {
           .eq('recipient_id', currentUserId)
           .eq('offer_id', offerId)
           .eq('is_read', false);
-      
+
       // Supabase Dart 返回的是 PostgrestList，不是 PostgrestResponse
       // 直接使用结果，错误通过 try-catch 处理
-      if (response.isEmpty) {
+      if (response == null || (response as List).isEmpty) {
         _debugPrint('No unread offer notifications found');
         return true;
       }
-      
+
       final notificationIds = response.map<String>((n) => n['id'].toString()).toList();
-      
+
       // 批量标记为已读
       await _client
           .from(_tableName)
           .update({
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          })
+        'is_read': true,
+        'read_at': DateTime.now().toIso8601String(),
+      })
           .inFilter('id', notificationIds)
           .eq('recipient_id', currentUserId);
-      
+
       // 更新本地状态
       final cur = List<Map<String, dynamic>>.from(listNotifier.value);
       for (var n in cur) {
@@ -894,7 +952,7 @@ class NotificationService {
         }
       }
       _setList(cur);
-      
+
       _debugPrint('Marked ${notificationIds.length} offer notifications as read');
       return true;
     } catch (e) {
@@ -989,7 +1047,7 @@ class NotificationService {
   static Future<void> _loadPersistentState() async {
     final userId = _getCurrentUserIdForPersistence();
     if (userId == null) return;
-    
+
     // 检查用户是否切换：如果用户ID变化，需要重新加载
     if (_lastLoadedUserId != null && _lastLoadedUserId != userId) {
       _debugPrint('🔄 用户切换检测: $_lastLoadedUserId → $userId，重置持久化状态');
@@ -998,19 +1056,19 @@ class NotificationService {
       _persistentReadStatus.clear();
       _locallyDeletedIds.clear();
     }
-    
+
     if (_persistentStateLoaded) {
       _debugPrint('📚 用户[$userId]持久化状态已加载，跳过重复加载');
       return;
     }
-    
+
     // 使用用户ID特定的键，避免多用户冲突
     final deletedKey = 'notification_deleted_ids_$userId';
     final readKey = 'notification_read_status_$userId';
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // 加载已删除ID
       final deletedIdsJson = prefs.getString(deletedKey);
       if (deletedIdsJson != null && deletedIdsJson.isNotEmpty) {
@@ -1020,7 +1078,7 @@ class NotificationService {
         _locallyDeletedIds.addAll(ids); // 同时更新内存集合
         _debugPrint('✅ 加载用户[$userId]持久化已删除ID: ${_persistentDeletedIds.length}个');
       }
-      
+
       // 加载已读状态
       final readStatusJson = prefs.getString(readKey);
       if (readStatusJson != null && readStatusJson.isNotEmpty) {
@@ -1036,7 +1094,7 @@ class NotificationService {
         }
         _debugPrint('✅ 加载用户[$userId]持久化已读状态: ${_persistentReadStatus.length}条');
       }
-      
+
       _lastLoadedUserId = userId;
       _persistentStateLoaded = true;
       _debugPrint('🎉 用户[$userId]持久化状态加载完成');
@@ -1049,7 +1107,7 @@ class NotificationService {
   static Future<void> _savePersistentDeletedIds() async {
     final userId = _getCurrentUserIdForPersistence();
     if (userId == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final ids = _persistentDeletedIds.join(',');
@@ -1065,7 +1123,7 @@ class NotificationService {
   static Future<void> _savePersistentReadStatus() async {
     final userId = _getCurrentUserIdForPersistence();
     if (userId == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final entries = _persistentReadStatus.entries
@@ -1082,7 +1140,7 @@ class NotificationService {
   /// 添加已删除ID到持久化存储
   static Future<void> _addPersistentDeletedId(String id) async {
     if (id.isEmpty) return;
-    
+
     _persistentDeletedIds.add(id);
     _locallyDeletedIds.add(id);
     await _savePersistentDeletedIds();
@@ -1092,7 +1150,7 @@ class NotificationService {
   /// 添加已读状态到持久化存储
   static Future<void> _addPersistentReadStatus(String id, bool isRead) async {
     if (id.isEmpty) return;
-    
+
     _persistentReadStatus[id] = isRead;
     await _savePersistentReadStatus();
     _debugPrint('📖 持久化记录已读状态: $id -> $isRead');
@@ -1102,21 +1160,21 @@ class NotificationService {
   static Future<void> clearPersistentState() async {
     final userId = _getCurrentUserIdForPersistence();
     if (userId == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final deletedKey = 'notification_deleted_ids_$userId';
       final readKey = 'notification_read_status_$userId';
-      
+
       await prefs.remove(deletedKey);
       await prefs.remove(readKey);
-      
+
       _persistentDeletedIds.clear();
       _persistentReadStatus.clear();
       _locallyDeletedIds.clear();
       _persistentStateLoaded = false;
       _lastLoadedUserId = null;
-      
+
       _debugPrint('🧹 清除用户[$userId]持久化状态完成');
     } catch (e) {
       _debugPrint('⚠️ 清除持久化状态失败: $e');

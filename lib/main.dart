@@ -21,6 +21,9 @@ import 'package:swaply/services/deep_link_service.dart';
 // ✅ [P0 修复] OAuth 状态恢复
 import 'package:swaply/services/oauth_entry.dart';
 
+// 通知服务（用于前台消息刷新）
+import 'package:swaply/services/notification_service.dart';
+
 // 引入你的 App 入口
 import 'package:swaply/core/app.dart';
 
@@ -239,10 +242,19 @@ Future<void> _initFirebaseMessaging() async {
 
     // 4. ✅ 前台消息处理（显示本地通知）
     // 后台消息由 MyFirebaseMessagingService 处理
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint('🔔 [Foreground] 收到前台消息');
       debugPrint('📦 [Foreground] Data: ${message.data}');
       _showLocalNotification(message);
+      
+      // ✅ [修复：新消息不刷新] 收到前台消息时刷新通知列表
+      try {
+        debugPrint('🔄 [Foreground] 尝试刷新通知列表...');
+        await NotificationService.refresh(limit: 100, includeRead: true);
+        debugPrint('✅ [Foreground] 通知列表刷新成功');
+      } catch (e) {
+        debugPrint('⚠️ [Foreground] 刷新通知列表失败（可能用户未登录）: $e');
+      }
     });
 
     _fcmInitialized = true;

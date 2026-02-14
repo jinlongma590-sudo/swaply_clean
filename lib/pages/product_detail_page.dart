@@ -40,6 +40,7 @@ import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/rewards/reward_bottom_sheet.dart';
 import 'package:swaply/services/reward_after_publish.dart';
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
@@ -1018,6 +1019,29 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
   }
 
+  // 🚨 智能号码清洗与转换（与入库清洗逻辑保持一致）
+  String _cleanPhoneForWhatsApp(String raw) {
+    if (raw.isEmpty) return '';
+    String rawTrimmed = raw.trim();
+    String clean = rawTrimmed.replaceAll(RegExp(r'[^\d]'), '');
+
+    // A. 如果原始输入带 + 号，信任其区号，仅去除非数字，不触发补齐
+    if (rawTrimmed.startsWith('+')) return clean;
+
+    // B. 津巴布韦 10 位本地格式 (077...) -> 转 26377...
+    if (clean.startsWith('0') && clean.length == 10) {
+      return '263' + clean.substring(1);
+    }
+
+    // C. 津巴布韦 9 位短号格式 (77...) -> 转 26377...
+    if (clean.length == 9 && (clean.startsWith('71') || clean.startsWith('77') || clean.startsWith('78'))) {
+      return '263' + clean;
+    }
+
+    // D. 其他情况返回清洗后的数字（可能为空）
+    return clean;
+  }
+
   Future<void> _openWhatsApp() async {
     if (!await _ensureAllowedForContact(actionName: 'contact via WhatsApp')) {
       return;
@@ -1032,7 +1056,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     final message =
         "Hi, I'm interested in your ${product['title'] ?? 'item'} listed on Swaply for ${product['price'] ?? 'the listed price'}. Is it still available?";
     final encMsg = Uri.encodeComponent(message);
-    final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // 🚨 智能号码清洗与转换（与入库清洗逻辑保持一致）
+    String digits = _cleanPhoneForWhatsApp(raw);
 
     Future<bool> tryLaunch(Uri u) async {
       if (await canLaunchUrl(u)) {
@@ -1042,15 +1068,26 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       return false;
     }
 
-    if (digits.length >= 7) {
-      if (await tryLaunch(
-          Uri.parse('whatsapp://send?phone=$digits&text=$encMsg'))) {
+    // 长度校验 (WhatsApp 要求至少 10 位有效数字)
+    if (digits.length >= 10) {
+      // 使用 https 链接兼容性更好，确保不包含 + 号（只保留纯数字）
+      final uri = Uri.parse('https://wa.me/$digits?text=$encMsg');
+      if (await tryLaunch(uri)) {
         return;
       }
     }
-    if (await tryLaunch(Uri.parse('whatsapp://send?text=$encMsg'))) {
-      return;
+
+    // 降级处理 (提示用户号码无效，仅打开 App)
+    if (digits.isNotEmpty && digits.length < 5) {
+        _toast('Seller phone number invalid ($raw). Opening WhatsApp main page.');
     }
+    
+    // 打开不带号码的链接
+    final fallbackUri = Uri.parse('https://wa.me/?text=$encMsg');
+    if (await tryLaunch(fallbackUri)) return;
+
+    // 最老的回退方案
+    if (await tryLaunch(Uri.parse('whatsapp://send?text=$encMsg'))) return;
 
     final market = Uri.parse('market://details?id=com.whatsapp');
     final playWeb =
@@ -2202,7 +2239,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 enabled: false,
                 child: imageUrl.startsWith('http')
                     ? Image.network(
-                        imageUrl,
+                        SupabaseImageConfig.getDetailUrl(imageUrl),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         cacheWidth: (MediaQuery.of(context).size.width *
@@ -2550,7 +2587,7 @@ class _SafeImageViewerState extends State<_SafeImageViewer> {
                   child: Center(
                     child: isNet
                         ? Image.network(
-                            url,
+                            SupabaseImageConfig.getDetailUrl(url),
                             fit: BoxFit.contain,
                             gaplessPlayback: true,
                             loadingBuilder: (context, child, loadingProgress) {

@@ -15,6 +15,7 @@ import 'package:swaply/services/listing_service.dart';
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:swaply/core/qa_keys.dart';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class SearchResultsPage extends StatefulWidget {
   final String keyword;
@@ -628,7 +629,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
     if (src.startsWith('http')) {
       imageWidget = CachedNetworkImage(
-        imageUrl: src,
+        imageUrl: SupabaseImageConfig.getThumbnailUrl(src),
+        cacheKey: SupabaseImageConfig.getThumbnailUrl(src),
         fit: BoxFit.cover,
         alignment: Alignment.center,
         memCacheWidth: 600,

@@ -145,6 +145,11 @@ async function sendFCM(
   for (const [k, v] of Object.entries(p.data ?? {})) {
     data[k] = String(v);
   }
+  
+  // ✅ 为 Android 添加 TRAMPOLINE_CLICK 以保持 Splash Screen Logo 效果
+  if (platform === "android") {
+    data.click_action = "cc.swaply.app.action.TRAMPOLINE_CLICK";
+  }
 
   const message: any = {
     token,
@@ -152,19 +157,22 @@ async function sendFCM(
   };
 
   if (platform === "android") {
-    // ✅✅✅ Android：纯 data message
-    // 不设置 notification 字段
-    // 原生层（MyFirebaseMessagingService）会自己创建通知
+    // ✅✅✅ Android：使用 notification 字段以支持 Trampoline Activity
     message.android = {
       priority: "HIGH",
+      notification: {
+        click_action: "cc.swaply.app.action.TRAMPOLINE_CLICK",
+        icon: "@mipmap/ic_launcher",
+      },
     };
 
-    console.log("=== Android FCM Debug (Data-Only) ===");
+    console.log("=== Android FCM Debug (Trampoline) ===");
     console.log("Platform: Android");
-    console.log("Strategy: Data-only message (no notification field)");
+    console.log("Strategy: Notification with Trampoline click_action");
     console.log("data.payload:", data.payload);
+    console.log("data.click_action:", data.click_action);
     console.log("all data keys:", Object.keys(data));
-    console.log("Native layer will create ACTION_VIEW notification");
+    console.log("android.notification.click_action: cc.swaply.app.action.TRAMPOLINE_CLICK");
     console.log("======================================");
 
   } else if (platform === "ios") {

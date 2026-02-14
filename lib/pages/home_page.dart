@@ -21,6 +21,7 @@ import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1466,7 +1467,8 @@ class _HomePageState extends State<HomePage>
     return ClipRRect(
       borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
       child: CachedNetworkImage(
-        imageUrl: src,
+        imageUrl: SupabaseImageConfig.getThumbnailUrl(src),
+        cacheKey: SupabaseImageConfig.getThumbnailUrl(src),
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,

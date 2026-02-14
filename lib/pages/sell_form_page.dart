@@ -22,6 +22,7 @@ import 'package:swaply/services/reward_service.dart';
 import 'package:swaply/services/verification_guard.dart';
 import 'package:swaply/services/reward_after_publish.dart'; // ✅ 新增
 import 'package:swaply/router/root_nav.dart';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 // 统一主色
 const Color _PRIMARY_BLUE = Color(0xFF2196F3);
@@ -46,10 +47,12 @@ String _guessMime(String? ext) {
 
 class SellFormPage extends StatefulWidget {
   final bool isGuest;
+  final Map<String, dynamic>? editingListing;
 
   const SellFormPage({
     super.key,
     this.isGuest = false,
+    this.editingListing,
   });
 
   @override
@@ -107,6 +110,9 @@ class _SellFormPageState extends State<SellFormPage>
   // 用 record 存每张图的 bytes + 元信息
   final List<({Uint8List bytes, String? name, String? ext, String? mime})>
       _images = [];
+
+  // 编辑模式下的混合图片列表：String (现有URL) 或 XFile (新选图片)
+  final List<dynamic> _displayImages = [];
 
   String _category = '';
   String _city = 'Harare';
@@ -181,6 +187,42 @@ class _SellFormPageState extends State<SellFormPage>
         _loadAvailableCoupons();
       }
     });
+
+    // 编辑模式：初始化表单数据
+    if (widget.editingListing != null) {
+      final listing = widget.editingListing!;
+      
+      // 文本字段
+      _titleCtrl.text = listing['title']?.toString() ?? '';
+      _priceCtrl.text = listing['price']?.toString() ?? '';
+      _descCtrl.text = listing['description']?.toString() ?? '';
+      _nameCtrl.text = listing['seller_name']?.toString() ?? '';
+      _phoneCtrl.text = listing['phone']?.toString() ?? 
+                        listing['contact_phone']?.toString() ?? '';
+      
+      // 分类和城市
+      _category = listing['category']?.toString() ?? '';
+      _city = listing['city']?.toString() ?? 'Harare';
+      
+      // 图片：将现有URL添加到显示列表（检查多个可能的字段）
+      final imageUrls = listing['image_urls'] as List?;
+      if (imageUrls != null) {
+        for (final img in imageUrls) {
+          if (img is String && img.isNotEmpty) {
+            _displayImages.add(img);
+          }
+        }
+      }
+      // 也检查 'images' 字段（旧字段名）
+      final images = listing['images'] as List?;
+      if (images != null) {
+        for (final img in images) {
+          if (img is String && img.isNotEmpty && !_displayImages.contains(img)) {
+            _displayImages.add(img);
+          }
+        }
+      }
+    }
 
     _animationController.forward();
   }
@@ -557,7 +599,7 @@ class _SellFormPageState extends State<SellFormPage>
 
     if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
-    if (_images.isEmpty) {
+    if (_displayImages.isEmpty) {
       _toast('Please upload at least one photo.');
       return;
     }
@@ -567,9 +609,13 @@ class _SellFormPageState extends State<SellFormPage>
       return;
     }
 
+    // 判断是编辑模式还是新建模式
+    final isEditing = widget.editingListing != null;
+    final String? editingId = isEditing ? widget.editingListing!['id']?.toString() : null;
+
     setState(() {
       _submitting = true;
-      _progressMsg = 'Preparing...';
+      _progressMsg = isEditing ? 'Updating...' : 'Preparing...';
     });
 
     try {
@@ -579,59 +625,74 @@ class _SellFormPageState extends State<SellFormPage>
       }
       final userId = auth.currentUser!.id;
 
-      // ===== 使用 bytes 上传, 统一转 JPG (HEIC 修复) =====
+      // ===== 处理混合图片列表 =====
       final jpgUrls = <String>[];
       final origUrls = <String>[];
-      final total = _images.length;
+      final total = _displayImages.length;
+      int newImageCount = 0;
 
-      for (var i = 0; i < _images.length; i++) {
-        final img = _images[i];
+      for (var i = 0; i < _displayImages.length; i++) {
+        final img = _displayImages[i];
         if (!mounted) return;
-        setState(() => _progressMsg = 'Uploading photos ${i + 1} / $total');
+        
+        // 更新进度
+        setState(() => _progressMsg = 'Processing photos ${i + 1} / $total');
 
-        // 1) 统一转成 JPG
-        final tempXFile = XFile.fromData(
-          img.bytes,
-          mimeType: img.mime,
-          name: img.name ?? 'upload.dat',
-        );
-        final norm = await ImageNormalizer.normalizeXFile(tempXFile);
-        final jpgBytes = norm.bytes;
-        final ts = DateTime.now().millisecondsSinceEpoch;
-        final pathJpg = '$userId/${ts}_img_$i.jpg';
+        if (img is String) {
+          // 现有 URL：直接使用
+          jpgUrls.add(img);
+          origUrls.add(img); // 原图 URL 相同
+        } else if (img is ({Uint8List bytes, String? name, String? ext, String? mime})) {
+          // 新图片：上传处理
+          newImageCount++;
+          
+          // 1) 统一转成 JPG
+          final tempXFile = XFile.fromData(
+            img.bytes,
+            mimeType: img.mime,
+            name: img.name ?? 'upload.dat',
+          );
+          final norm = await ImageNormalizer.normalizeXFile(tempXFile);
+          final jpgBytes = norm.bytes;
+          final ts = DateTime.now().millisecondsSinceEpoch;
+          final pathJpg = '$userId/${ts}_img_${newImageCount - 1}.jpg';
 
-        // 2) 上传 JPG
-        await Supabase.instance.client.storage.from('listings').uploadBinary(
-              pathJpg,
-              jpgBytes,
-              fileOptions: const FileOptions(
-                contentType: 'image/jpeg',
-                upsert: true,
-              ),
-            );
+          // 2) 上传 JPG
+          await Supabase.instance.client.storage.from('listings').uploadBinary(
+                pathJpg,
+                jpgBytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
 
-        final jpgUrl =
-            Supabase.instance.client.storage.from('listings').getPublicUrl(
-                  pathJpg,
-                );
-        jpgUrls.add(jpgUrl);
+          final jpgUrl =
+              Supabase.instance.client.storage.from('listings').getPublicUrl(
+                    pathJpg,
+                  );
+          jpgUrls.add(jpgUrl);
 
-        // 3) （可选）保留原图
-        final origExt = (img.ext?.isNotEmpty == true) ? '.${img.ext}' : '';
-        final origPath = '$userId/${ts}_raw_$i$origExt';
-        await Supabase.instance.client.storage.from('listings').uploadBinary(
-              origPath,
-              img.bytes,
-              fileOptions: FileOptions(
-                contentType: img.mime ?? 'image/*',
-                upsert: true,
-              ),
-            );
-        final origUrl =
-            Supabase.instance.client.storage.from('listings').getPublicUrl(
-                  origPath,
-                );
-        origUrls.add(origUrl);
+          // 3) （可选）保留原图
+          final origExt = (img.ext?.isNotEmpty == true) ? '.${img.ext}' : '';
+          final origPath = '$userId/${ts}_raw_${newImageCount - 1}$origExt';
+          await Supabase.instance.client.storage.from('listings').uploadBinary(
+                origPath,
+                img.bytes,
+                fileOptions: FileOptions(
+                  contentType: img.mime ?? 'image/*',
+                  upsert: true,
+                ),
+              );
+          final origUrl =
+              Supabase.instance.client.storage.from('listings').getPublicUrl(
+                    origPath,
+                  );
+          origUrls.add(origUrl);
+        } else {
+          // 未知类型，跳过
+          debugPrint('[SellForm] Unknown image type at index $i: $img');
+        }
       }
       // ===== 结束 =====
 
@@ -650,79 +711,113 @@ class _SellFormPageState extends State<SellFormPage>
           : '\n\n---\nExtras:\n${extrasLines.join('\n')}';
       final desc = '${_descCtrl.text.trim()}$extrasText';
 
-      // Insert listing
+      // 保存商品（新建或更新）
       setState(() => _progressMsg = 'Saving item...');
       final priceText = _priceCtrl.text.trim().replaceAll(',', '');
       num? price = priceText.isEmpty ? null : num.tryParse(priceText);
 
-      final row = await ListingApi.insertListing(
-        title: _titleCtrl.text.trim(),
-        price: price,
-        category: _category,
-        city: _city,
-        description: desc,
-        imageUrls: jpgUrls, // 一律 JPG, 用于展示
-        userId: userId,
-        sellerName:
-            _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
-        contactPhone:
-            _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-      );
+      Map<String, dynamic> result;
+      String? listingId;
+      
+      if (isEditing) {
+        // 更新模式
+        result = await ListingApi.updateListing(
+          id: editingId!,
+          fields: {
+            'title': _titleCtrl.text.trim(),
+            'price': price,
+            'category': _category,
+            'city': _city,
+            'description': desc,
+            'image_urls': jpgUrls,
+            'seller_name': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
+            'phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+            // 注意：不重置 status，保持原有状态
+          },
+        );
+        listingId = editingId;
+        _toast('Listing updated successfully!');
+      } else {
+        // 新建模式
+        result = await ListingApi.insertListing(
+          title: _titleCtrl.text.trim(),
+          price: price,
+          category: _category,
+          city: _city,
+          description: desc,
+          imageUrls: jpgUrls, // 一律 JPG, 用于展示
+          userId: userId,
+          sellerName:
+              _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
+          contactPhone:
+              _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
+        listingId = result['id']?.toString();
+        
+        // Handle coupon usage (✅ coupon failure should NOT block posting)
+        bool couponApplied = false;
+        if (_selectedCoupon != null &&
+            listingId != null &&
+            listingId.isNotEmpty) {
+          try {
+            await _useCouponForPinning(listingId);
+            couponApplied = true;
+          } catch (e, st) {
+            // 这里吞掉异常：发布主链路继续
+            debugPrint('[SellForm] Coupon usage failed (non-blocking): $e');
+            debugPrint('$st');
+          }
+        }
 
-      if (!mounted) return;
+        // Handle post-publish rewards
+        await _handlePostPublishRewards(userId);
 
-      // Handle coupon usage (✅ coupon failure should NOT block posting)
-      final String? listingId = row['id']?.toString();
-      bool couponApplied = false;
-
-      if (_selectedCoupon != null &&
-          listingId != null &&
-          listingId.isNotEmpty) {
-        try {
-          await _useCouponForPinning(listingId);
-          couponApplied = true;
-        } catch (e, st) {
-          // 这里吞掉异常：发布主链路继续
-          debugPrint('[SellForm] Coupon usage failed (non-blocking): $e');
-          debugPrint('$st');
+        // ✅ clearer toast
+        if (_selectedCoupon == null) {
+          _toast('Posted successfully!');
+        } else if (couponApplied) {
+          _toast('Posted successfully (Pin applied)!');
+        } else {
+          _toast(
+              'Posted successfully (Pin NOT applied — coupon may be used/expired).');
         }
       }
 
-// Handle post-publish rewards
-      await _handlePostPublishRewards(userId);
-
-// ✅ clearer toast
-      if (_selectedCoupon == null) {
-        _toast('Posted successfully!');
-      } else if (couponApplied) {
-        _toast('Posted successfully (Pin applied)!');
+      final String? newId = listingId;
+      
+      if (isEditing) {
+        // 编辑模式：不触发发布事件，直接返回成功
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+            _progressMsg = '';
+          });
+          Navigator.pop(context, true); // 返回 true 表示编辑成功
+        }
       } else {
-        _toast(
-            'Posted successfully (Pin NOT applied — coupon may be used/expired).');
-      }
+        // 新建模式：触发发布事件和奖励流程
+        ListingEventsBus.instance.emitPublished(newId);
 
-      final String? newId = row['id'] as String?;
-      ListingEventsBus.instance.emitPublished(newId);
+        // ✅ 1. 先关闭 loading 状态
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+            _progressMsg = '';
+          });
+        }
 
-      // ✅ 1. 先关闭 loading 状态
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-          _progressMsg = '';
-        });
-      }
+        // ✅ 2. 标记pending + 立即跳转（符合架构）
+        if (newId != null && newId.isNotEmpty) {
+          debugPrint('[SellForm] 📝 Marking reward pending for $newId');
+          RewardAfterPublish.I.markPending(newId);
+          
+          // 调试：确认 pending 状态
+          debugPrint('[SellForm] ✅ Pending set contains $newId: ${RewardAfterPublish.I.isPending(newId)}');
+          debugPrint('[SellForm] ✅ All pending items: ${RewardAfterPublish.I.pendingSet}');
 
-      // ✅ 2. 标记pending + 立即跳转（符合架构）
-      if (newId != null && newId.isNotEmpty) {
-        debugPrint('[SellForm] 📝 Marking reward pending for $newId');
-        RewardAfterPublish.I.markPending(newId);
-        
-        // 调试：确认 pending 状态
-        debugPrint('[SellForm] ✅ Pending set contains $newId: ${RewardAfterPublish.I.isPending(newId)}');
-        debugPrint('[SellForm] ✅ All pending items: ${RewardAfterPublish.I.pendingSet}');
-
-        debugPrint('[SellForm] 🚀 Navigating to detail page');
-        await navReplaceAll('/listing', arguments: newId);
+          debugPrint('[SellForm] 🚀 Navigating to detail page');
+          await navReplaceAll('/listing', arguments: newId);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -833,47 +928,51 @@ class _SellFormPageState extends State<SellFormPage>
         final target = (publishTask['target_count'] as num?)?.toInt() ?? 0;
 
         if (current < target) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.task_alt, color: Colors.white, size: 20.r),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      'Publishing progress: $current/$target items - Complete to earn hot pin!',
-                      style: TextStyle(fontSize: 14.sp),
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.task_alt, color: Colors.white, size: 20.r),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        'Publishing progress: $current/$target items - Complete to earn hot pin!',
+                        style: TextStyle(fontSize: 14.sp),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                backgroundColor: Colors.orange[600],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                margin: EdgeInsets.all(16.w),
               ),
-              backgroundColor: Colors.orange[600],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              margin: EdgeInsets.all(16.w),
-            ),
-          );
+            );
+          }
         } else if (current >= target) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.celebration, color: Colors.white, size: 20.r),
-                  SizedBox(width: 8.w),
-                  const Text(
-                      '🎉 Congratulations! Publishing task completed - Hot pin earned!'),
-                ],
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.celebration, color: Colors.white, size: 20.r),
+                    SizedBox(width: 8.w),
+                    const Text(
+                        '🎉 Congratulations! Publishing task completed - Hot pin earned!'),
+                  ],
+                ),
+                backgroundColor: Colors.green[600],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                margin: EdgeInsets.all(16.w),
               ),
-              backgroundColor: Colors.green[600],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              margin: EdgeInsets.all(16.w),
-            ),
-          );
+            );
+          }
         }
       }
     } catch (e) {
@@ -885,7 +984,7 @@ class _SellFormPageState extends State<SellFormPage>
   /* ---------- Image Picker UI ---------- */
 
   Future<void> _pickImage() async {
-    if (_images.length >= _maxPhotos) {
+    if (_displayImages.length >= _maxPhotos) {
       _toast('You can upload up to $_maxPhotos photos.');
       return;
     }
@@ -935,19 +1034,23 @@ class _SellFormPageState extends State<SellFormPage>
                             imageQuality: 80,
                           );
                           if (file != null && mounted) {
-                            if (_images.length >= _maxPhotos) {
+                            if (_displayImages.length >= _maxPhotos) {
                               _toast(
                                   'You can upload up to $_maxPhotos photos.');
                               return;
                             }
                             final bytes = await file.readAsBytes();
-                            setState(() => _images.add((
-                                  bytes: bytes,
-                                  name:
-                                      'camera_${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                  ext: 'jpg',
-                                  mime: 'image/jpeg',
-                                )));
+                            final record = (
+                              bytes: bytes,
+                              name:
+                                  'camera_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                              ext: 'jpg',
+                              mime: 'image/jpeg',
+                            );
+                            setState(() {
+                              _images.add(record);
+                              _displayImages.add(record);
+                            });
                           }
                         },
                       ),
@@ -965,11 +1068,14 @@ class _SellFormPageState extends State<SellFormPage>
                             return;
                           }
                           if (!mounted) return;
-                          if (_images.length >= _maxPhotos) {
+                          if (_displayImages.length >= _maxPhotos) {
                             _toast('You can upload up to $_maxPhotos photos.');
                             return;
                           }
-                          setState(() => _images.add(picked));
+                          setState(() {
+                            _images.add(picked);
+                            _displayImages.add(picked);
+                          });
                         },
                       ),
                     ),
@@ -1189,12 +1295,12 @@ class _SellFormPageState extends State<SellFormPage>
               spacing: 6.w,
               runSpacing: 6.h,
               children: [
-                ..._images.asMap().entries.map((entry) {
+                ..._displayImages.asMap().entries.map((entry) {
                   final index = entry.key;
                   final img = entry.value;
-                  return _buildImagePreview(index, img.bytes);
+                  return _buildDisplayImage(index, img);
                 }),
-                if (_images.length < _maxPhotos) _buildAddPhotoButton(),
+                if (_displayImages.length < _maxPhotos) _buildAddPhotoButton(),
               ],
             ),
           ),
@@ -1308,6 +1414,117 @@ class _SellFormPageState extends State<SellFormPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDisplayImage(int index, dynamic img) {
+    // 处理两种类型：String (URL) 或记录类型
+    Widget imageWidget;
+    if (img is String) {
+      // 现有 Supabase URL - 使用优化缩略图
+      imageWidget = Image.network(
+        SupabaseImageConfig.getThumbnailUrl(img),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+        cacheWidth: _px(context, 60.w),
+      );
+    } else if (img is ({Uint8List bytes, String? name, String? ext, String? mime})) {
+      // 新选的本地图片
+      imageWidget = Image.memory(
+        img.bytes,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+        cacheWidth: _px(context, 60.w),
+      );
+    } else {
+      // 未知类型，显示占位符
+      imageWidget = Container(
+        color: Colors.grey[200],
+        child: Icon(Icons.error, size: 20.r, color: Colors.grey[400]),
+      );
+    }
+
+    return Stack(
+      children: [
+        Container(
+          width: 60.w,
+          height: 60.w,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10.r),
+            border:
+                index == 0 ? Border.all(color: _PRIMARY_BLUE, width: 2) : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                imageWidget,
+                if (index == 0)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_PRIMARY_BLUE, Color(0xFF1976D2)],
+                        ),
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(10.r),
+                          bottomRight: Radius.circular(10.r),
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 2.h),
+                      child: Text(
+                        'Main',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          right: -3,
+          top: -3,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                // 从显示列表中移除
+                _displayImages.removeAt(index);
+                // 如果也在_images中，也移除（仅对新图片）
+                if (img is ({Uint8List bytes, String? name, String? ext, String? mime})) {
+                  final idx = _images.indexWhere((element) => element == img);
+                  if (idx != -1) _images.removeAt(idx);
+                }
+              });
+            },
+            child: Container(
+              padding: EdgeInsets.all(3.r),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 2.r,
+                  ),
+                ],
+              ),
+              child: Icon(Icons.close, size: 10.r, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1858,6 +2075,19 @@ class _SellFormPageState extends State<SellFormPage>
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Required';
+              
+              // 🚨 验证电话号码格式（WhatsApp 兼容性要求）
+              final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+              
+              if (digits.length < 10) {
+                return 'Phone number must contain at least 10 digits';
+              }
+              
+              // 建议用户使用国际格式以获得最佳 WhatsApp 兼容性
+              if (!v.contains('+263') && digits.startsWith('0')) {
+                return 'For best WhatsApp compatibility, please use international format (+263...)';
+              }
+              
               return null;
             },
           ),

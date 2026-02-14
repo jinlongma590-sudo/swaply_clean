@@ -17,6 +17,7 @@ import '../services/deep_link_service.dart'; // ✅ [热启动修复] 添加导�
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue
 import 'package:swaply/core/qa_mode.dart'; // kQaMode
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class SavedPage extends StatefulWidget {
   final bool isGuest;
@@ -631,7 +632,7 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
                     color: Colors.grey[100],
                     child: imageUrl.startsWith('http')
                         ? Image.network(
-                            imageUrl,
+                            SupabaseImageConfig.getThumbnailUrl(imageUrl),
                             fit: BoxFit.cover,
                             loadingBuilder: (context, child, prog) {
                               if (prog == null) return child;

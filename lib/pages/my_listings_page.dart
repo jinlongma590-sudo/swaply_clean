@@ -14,6 +14,7 @@ import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/pages/sell_form_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class MyListingsPage extends StatefulWidget {
   const MyListingsPage({super.key});
@@ -80,7 +81,7 @@ class _MyListingsPageState extends State<MyListingsPage>
       final response = await Supabase.instance.client
           .from('listings')
           .select(
-              'id, title, images, image_urls, price, city, created_at, views_count')
+              'id, title, description, category, city, price, seller_name, phone, contact_phone, images, image_urls, created_at, views_count')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .order('created_at', ascending: false)
@@ -835,7 +836,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                             borderRadius: BorderRadius.circular(8.r),
                             child: firstImage.startsWith('http')
                                 ? Image.network(
-                                    firstImage,
+                                    SupabaseImageConfig.getThumbnailUrl(firstImage),
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Icon(Icons.image_rounded,
@@ -925,9 +926,14 @@ class _MyListingsPageState extends State<MyListingsPage>
                                   SafeNavigator.push(
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          const SellFormPage(),
+                                          SellFormPage(editingListing: listing),
                                     ),
-                                  );
+                                  ).then((value) {
+                                    if (value == true) {
+                                      // 编辑成功，刷新列表
+                                      _loadListings();
+                                    }
+                                  });
                                   break;
                                 case 'delete':
                                   _showDeleteDialog(listing, index);
@@ -1401,7 +1407,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                             borderRadius: BorderRadius.circular(8.r),
                             child: firstImage.startsWith('http')
                                 ? Image.network(
-                                    firstImage,
+                                    SupabaseImageConfig.getThumbnailUrl(firstImage),
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Icon(Icons.image_rounded,

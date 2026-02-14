@@ -11,6 +11,7 @@ import 'package:swaply/widgets/verified_avatar.dart';
 
 // 新增：改为通过 RPC 读取认证状态
 import 'package:swaply/services/email_verification_service.dart';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class SellerProfileViewPage extends StatefulWidget {
   final String sellerId;
@@ -458,7 +459,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
                 aspectRatio: 1.25, // 宽:高 ≈ 1.25，更贴近 Jiji 卡片观感
                 child: imageUrl.isNotEmpty
                     ? Image.network(
-                        imageUrl,
+                        SupabaseImageConfig.getThumbnailUrl(imageUrl),
                         fit: BoxFit.cover, // ✅ 关键：铺满裁剪
                         width: double.infinity,
                         height: double.infinity,

@@ -1,6 +1,7 @@
 // lib/widgets/pinned_ad_card.dart
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class PinnedAdCard extends StatelessWidget {
   final Map<String, dynamic> listingData;
@@ -295,7 +296,7 @@ class PinnedAdCard extends StatelessWidget {
     // 网络图片
     if (imageUrl.startsWith('http')) {
       return Image.network(
-        imageUrl,
+        SupabaseImageConfig.getThumbnailUrl(imageUrl),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _buildPlaceholder(),
         loadingBuilder: (context, child, loadingProgress) {

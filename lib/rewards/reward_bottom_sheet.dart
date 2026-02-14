@@ -241,16 +241,21 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       return _WheelItem(mainText: main, subText: 'BOOST');
     }
 
-    // 3) 空奖/再来一次
+    // 3) 空奖/再来一次（理论上不应出现，保留兼容性）
     if (lower.contains('none') ||
         lower.contains('try') ||
         lower.contains('again') ||
         lower.contains('no reward') ||
         lower.contains('better luck')) {
-      return _WheelItem(mainText: 'TRY', subText: 'AGAIN');
+      return _WheelItem(mainText: '\$1', subText: 'AIR'); // 改为$1大奖显示
     }
 
-    // 4) Airtime/Points/Credits
+    // 4) $1 Airtime大奖特殊处理
+    if (lower.contains('\$1') || t.contains('\$1') || lower.contains('100 pts') || lower.contains('100 points')) {
+      return _WheelItem(mainText: '\$1', subText: 'AIR');
+    }
+    
+    // 5) Airtime/Points/Credits
     if (lower.contains('airtime')) return _WheelItem(mainText: 'AIRTIME', subText: 'POINTS');
     if (lower.contains('points')) return _WheelItem(mainText: 'POINTS', subText: '');
     if (lower.contains('credit')) return _WheelItem(mainText: 'CREDIT', subText: '');
@@ -484,7 +489,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
         _WheelItem(mainText: 'CAT', subText: 'BOOST'),
         _WheelItem(mainText: '10', subText: 'POINTS'),
         _WheelItem(mainText: 'SEARCH', subText: 'BOOST'),
-        _WheelItem(mainText: 'TRY', subText: 'AGAIN'),
+        _WheelItem(mainText: '\$1', subText: 'AIR'),
         _WheelItem(mainText: 'TREND', subText: 'BOOST'),
       ];
     }
@@ -1080,7 +1085,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       iconColor = Colors.amber;
     } else {
       title = 'Keep Going!';
-      subtitle = 'No reward this time. Try again!';
+      subtitle = 'Reward claimed! Check your rewards.';
       icon = Icons.trending_up;
       iconColor = Colors.orange;
     }

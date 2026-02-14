@@ -12,6 +12,7 @@ import 'package:swaply/services/favorites_update_service.dart';
 // === 全局路由 & 常量 & API ===
 // navPush / navReplaceAll
 import 'package:swaply/theme/constants.dart'; // kPrimaryBlue / kCustomHeaderHeight
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 // 保留用于其他可能的引用，主要逻辑已切回 DualFavoritesService
 
 class WishlistPage extends StatefulWidget {
@@ -250,7 +251,7 @@ class _WishlistPageState extends State<WishlistPage> {
                       ),
                       child: imageUrl.startsWith('http')
                           ? Image.network(
-                              imageUrl,
+                              SupabaseImageConfig.getThumbnailUrl(imageUrl),
                               fit: BoxFit.cover,
                               loadingBuilder:
                                   (context, child, loadingProgress) {

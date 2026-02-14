@@ -16,6 +16,7 @@ import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/widgets/pinned_ad_card.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class CategoryProductsPage extends StatefulWidget {
   final String categoryId;
@@ -1093,7 +1094,8 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     if (src.startsWith('http')) {
       // ✅ 修复：使用 CachedNetworkImage 替代 Image.network
       imageWidget = CachedNetworkImage(
-        imageUrl: src,
+        imageUrl: SupabaseImageConfig.getThumbnailUrl(src),
+        cacheKey: SupabaseImageConfig.getThumbnailUrl(src),
         fit: BoxFit.cover,
         alignment: Alignment.center,
         memCacheWidth: 600, // ✅ 性能优化：限制内存缓存大小

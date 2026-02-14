@@ -1135,8 +1135,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
     [Color(0xFF4CAF50), Color(0xFF66BB6A)],
     [Color(0xFF2196F3), Color(0xFF42A5F5)],
     [Color(0xFF43A047), Color(0xFF66BB6A)],
-    [Color(0xFFFF6F00), Color(0xFFFF8F00)],
-    [Color(0xFF616161), Color(0xFF9E9E9E)],
+    [Color(0xFFFF8A00), Color(0xFFFFB300)],
+    [Color(0xFFFFD700), Color(0xFFFFA500)],
     [Color(0xFFD81B60), Color(0xFFEC407A)],
   ];
 
@@ -1145,7 +1145,7 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
     _WheelItem(mainText: 'CAT', subText: 'BOOST', type: 'boost', scope: 'category'),
     _WheelItem(mainText: '10', subText: 'POINTS', type: 'points', value: 10),
     _WheelItem(mainText: 'SEARCH', subText: 'BOOST', type: 'boost', scope: 'search'),
-    _WheelItem(mainText: 'TRY', subText: 'AGAIN', type: 'none', value: 0),
+    _WheelItem(mainText: '\$1', subText: 'AIR', type: 'points', value: 100),
     _WheelItem(mainText: 'TREND', subText: 'BOOST', type: 'boost', scope: 'trending'),
   ];
 
@@ -1667,10 +1667,11 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
         _pendingTitle = 'Boost Unlocked!';
         _pendingMessage = 'You got $days Days ${scope.toUpperCase()} Boost!';
       } else {
-        final idx = _items.indexWhere((item) => item.type == 'none');
+        // 备用情况：理论上不会发生，因为所有奖品都有类型
+        final idx = _items.indexWhere((item) => item.type == 'points' && item.value == 100);
         if (idx != -1) targetIndex = idx;
-        _pendingTitle = 'Try Again';
-        _pendingMessage = 'Better luck next time!';
+        _pendingTitle = 'Reward Claimed!';
+        _pendingMessage = 'Check your rewards for details.';
       }
 
       _selected.add(targetIndex);

@@ -30,6 +30,29 @@ class ListingApi {
     }
   }
 
+  // 🚨 电话号码清洗：去除非数字，转换本地格式为国际格式
+  static String? _cleanPhoneForDb(String? phone) {
+    if (phone == null) return null;
+    String raw = phone.trim();
+    String clean = raw.replaceAll(RegExp(r'[^\d]'), '');
+
+    // A. 如果原始输入带 + 号，信任其区号，仅去除非数字，不触发补齐
+    if (raw.startsWith('+')) return clean;
+
+    // B. 津巴布韦 10 位本地格式 (077...) -> 转 26377...
+    if (clean.startsWith('0') && clean.length == 10) {
+      return '263' + clean.substring(1);
+    }
+
+    // C. 津巴布韦 9 位短号格式 (77...) -> 转 26377...
+    if (clean.length == 9 && (clean.startsWith('71') || clean.startsWith('77') || clean.startsWith('78'))) {
+      return '263' + clean;
+    }
+
+    // D. 其他情况保持 10-15 位长度校验
+    return (clean.length >= 10 && clean.length <= 15) ? clean : null;
+  }
+
   /// 统一规范化 Supabase 返回：无论是 List 还是 {data: List}
   static List _rowsOf(dynamic resp) {
     if (resp is List) return resp;
@@ -106,6 +129,9 @@ class ListingApi {
   }) async {
 // 兼容：phone 以 contactPhone 为准，未传则用 phone
     final finalPhone = contactPhone ?? phone;
+    // 🚨 入库前清洗电话号码
+    final cleanedPhone = _cleanPhoneForDb(finalPhone);
+    
     final payload = <String, dynamic>{
       'user_id': userId,
       'title': title,
@@ -118,7 +144,7 @@ class ListingApi {
       'status': status,
       'attributes': attributes,
       'seller_name': sellerName, // 若表里没有该列可以删掉
-      'phone': finalPhone, // 若你的列名不同，改成对应字段
+      'phone': cleanedPhone, // 使用清洗后的电话号码
     }..removeWhere((k, v) => v == null);
 
     print('[POST_AD] payload=$payload'); // ✅ 打印完整 map
@@ -149,6 +175,15 @@ class ListingApi {
   }) async {
     final dataToUpdate = Map<String, dynamic>.from(fields ?? {})
       ..removeWhere((k, v) => v == null);
+
+    // ✅ 清洗电话号码字段（如果更新中包含 phone）
+    if (dataToUpdate.containsKey('phone')) {
+      final cleanedPhone = _cleanPhoneForDb(dataToUpdate['phone']);
+      dataToUpdate['phone'] = cleanedPhone;
+      if (cleanedPhone == null) {
+        dataToUpdate.remove('phone');
+      }
+    }
 
     // ✅ 硬校验 price 字段，杜绝 numeric 溢出（如果更新中包含 price）
     if (dataToUpdate.containsKey('price')) {

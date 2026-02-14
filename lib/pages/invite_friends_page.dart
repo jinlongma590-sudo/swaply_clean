@@ -646,7 +646,7 @@ Download: https://www.swaply.cc
           ),
           SizedBox(height: 12.h),
           Text(
-            'Invite friends to join Swaply and earn valuable pin coupons when they publish their first listing.',
+            'Invite Friends, Win \$1 Airtime!\n\nInstant Reward: Get 1 Free Spin for EVERY friend who posts.\n\nMilestone Reward: Get Boost Cards when you reach 1, 5, 10 friends.\n\nNo Empty Spins: Every spin wins!',
             style: TextStyle(
               color: Colors.white.withOpacity(0.95),
               fontSize: 14.sp,

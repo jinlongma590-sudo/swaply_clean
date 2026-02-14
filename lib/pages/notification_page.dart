@@ -12,6 +12,7 @@ import 'package:swaply/services/notification_service.dart';
 import 'package:swaply/services/message_service.dart'; // 方案B：动态查询最新消息
 import 'package:swaply/services/offer_detail_cache.dart'; // 🚀 新增缓存预取
 import 'package:swaply/core/qa_keys.dart';
+import 'package:swaply/pages/system_notification_detail_page.dart'; // ✅ 新增：系统通知详情页
 
 // ⬇️ 统一配置：Offer 详情页的路由名 —— 与 AppRouter 保持一致
 const String _kOfferDetailRoute = '/offer-detail';
@@ -140,7 +141,7 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-  Future<void> _deleteNotification(
+  Future<bool> _deleteNotification(
       int index, List<Map<String, dynamic>> notifications) async {
     final l10n = AppLocalizations.of(context)!;
     final notification = notifications[index];
@@ -171,12 +172,34 @@ class _NotificationPageState extends State<NotificationPage> {
             duration: const Duration(seconds: 2),
           ),
         );
+        return true;
+      } else if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    color: Colors.white, size: 14.sp),
+                SizedBox(width: 6.w),
+                const Expanded(child: Text('Failed to delete notification')),
+              ],
+            ),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
+            margin: EdgeInsets.all(8.w),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return false;
       }
+      return success;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[Notifications] _deleteNotification error: $e');
       }
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -195,6 +218,7 @@ class _NotificationPageState extends State<NotificationPage> {
           duration: const Duration(seconds: 2),
         ),
       );
+      return false;
     }
   }
 
@@ -327,6 +351,17 @@ class _NotificationPageState extends State<NotificationPage> {
 
     final type = notification['type']?.toString() ?? '';
 
+    // ✅ 系统通知跳转到专门的详情页面
+    if (type == 'system') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SystemNotificationDetailPage(notification: notification),
+        ),
+      );
+      return;
+    }
+
     // 统一解析 ID
     String? listingId = _getId(notification, 'listing_id');
     String? offerId = _getId(notification, 'offer_id');
@@ -371,14 +406,7 @@ class _NotificationPageState extends State<NotificationPage> {
         }
         break;
 
-      case 'system':
-        if (listingId != null && listingId.isNotEmpty) {
-          await navPush('/listing', arguments: listingId);
-        } else {
-          _showSnack('Cannot open notification: missing listing ID',
-              isError: true);
-        }
-        break;
+      // case 'system': removed - handled earlier
 
       case 'wishlist':
       case 'price_drop':
@@ -735,8 +763,9 @@ class _NotificationPageState extends State<NotificationPage> {
                                 color: Colors.white, size: 20.r),
                           ),
                           direction: DismissDirection.endToStart,
-                          onDismissed: (direction) =>
-                              _deleteNotification(index, notifications),
+                          confirmDismiss: (direction) async {
+                            return await _deleteNotification(index, notifications);
+                          },
                           child: Container(
                             color: isRead
                                 ? Colors.white

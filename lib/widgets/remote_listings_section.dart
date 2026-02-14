@@ -6,6 +6,7 @@ import 'package:swaply/pages/category_products_page.dart';
 // 使用集中路由：引入 root_nav 的 navPush（命名路由）
 import 'package:swaply/router/root_nav.dart';
 import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 /// 首页/专区用的远端卡片列表区块
 /// - [title] 区块标题
@@ -350,7 +351,7 @@ class _RemoteListingsSectionState extends State<RemoteListingsSection> {
     Widget thumb;
     if (imgs.isNotEmpty && imgs.first.toString().startsWith('http')) {
       thumb = Image.network(
-        imgs.first,
+        SupabaseImageConfig.getThumbnailUrl(imgs.first.toString()),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _placeholder(),
       );

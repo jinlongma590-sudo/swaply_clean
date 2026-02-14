@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:swaply/models/verification_types.dart' as vt;
 import 'package:swaply/widgets/verification_badge.dart' as vb;
+import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 /// 带认证角标的头像组件
 class VerifiedAvatar extends StatelessWidget {
@@ -78,7 +79,7 @@ class VerifiedAvatar extends StatelessWidget {
   Widget _buildAvatarImage() {
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return Image.network(
-        avatarUrl!,
+        SupabaseImageConfig.getAvatarUrl(avatarUrl!),
         width: radius * 2,
         height: radius * 2,
         fit: BoxFit.cover,

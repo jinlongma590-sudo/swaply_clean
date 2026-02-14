@@ -28,24 +28,41 @@ class RewardRulesPage extends StatelessWidget {
           
           _buildSectionTitle('No purchase necessary'),
           _buildCard(
-            'No purchase is necessary to participate. Spins are earned by publishing qualified listings in the app.',
+            'No purchase is necessary to participate. Spins are earned by:\n'
+            '• Publishing qualified listings in the app\n'
+            '• Inviting friends to join Swaply',
           ),
           
           _buildSectionTitle('How to earn spins'),
           _buildCard(
+            'Spins are earned through two main ways:\n\n'
+            '📱 Publish Qualified Listings\n'
             'Spins are granted when you publish qualified listings. Milestone rewards:\n'
             '• Listing #1: 1 spin\n'
             '• Listing #5: 1 spin\n' 
             '• Listing #10: 1 spin\n'
             '• Listing #20: 1 spin\n'
             '• Listing #30: 1 spin\n\n'
-            'After 40 qualified listings, you will receive 1 spin for every 10 additional listings.',
+            'After 40 qualified listings, you will receive 1 spin for every 10 additional listings.\n\n'
+            '👥 Invite Friends (New!)\n'
+            'Get FREE spins for inviting friends to Swaply:\n'
+            '• Instant Reward: 1 Free Spin for EVERY friend who posts their first listing\n'
+            '• Milestone Reward: Boost Cards when you reach 1, 5, 10 successful referrals\n\n'
+            '🎉 No Empty Spins: Every spin wins a prize!',
           ),
           
           _buildSectionTitle('Prize types'),
           _buildCard(
-            '• Airtime Points: Points cannot be withdrawn or transferred. They can only be redeemed for airtime within the app according to redemption rules.\n\n'
-            '• Boost Coupons: Boost coupons can be used to promote listings in Category, Search, or Trending sections. They are valid for 3 days, non-transferable, and must be used before expiration.',
+            '💰 Airtime Points\n'
+            '• 5 Points: Small airtime reward\n'
+            '• 10 Points: Medium airtime reward\n'
+            '• 100 Points: Major airtime jackpot (New!)\n'
+            'Points cannot be withdrawn or transferred. They can only be redeemed for airtime within the app according to redemption rules.\n\n'
+            '🚀 Boost Coupons\n'
+            '• Category Boost: Promote your listing in the category section for 3 days\n'
+            '• Search Boost: Make your listing appear higher in search results for 3 days\n'
+            '• Trending Boost: Feature your listing in the trending section for 3 days\n'
+            'Boost coupons are valid for 3 days, non-transferable, and must be used before expiration.',
           ),
           
           _buildSectionTitle('Odds / Prize Pool'),
@@ -77,7 +94,7 @@ class RewardRulesPage extends StatelessWidget {
           ),
           
           _buildSectionTitle('Last updated'),
-          _buildCard('2026-02-07'),
+          _buildCard('2026-02-14'),
           
           const SizedBox(height: 32),
         ],
