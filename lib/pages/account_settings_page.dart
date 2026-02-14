@@ -334,7 +334,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 'Check for Updates',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Manually check for app updates',
                 style: TextStyle(fontSize: 15, color: Colors.grey[600]),
               ),

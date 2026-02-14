@@ -151,8 +151,8 @@ class AppUpdateService {
         context: context,
         barrierDismissible: !force,
         builder: (ctx) {
-          return WillPopScope(
-            onWillPop: () async => !force,
+          return PopScope(
+            canPop: !force,
             child: AlertDialog(
               title: Text(force ? 'Update Required' : 'New Version Available'),
               content: Text(
