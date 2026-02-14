@@ -14,6 +14,7 @@ import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/pages/search_results_page.dart';
 import 'package:swaply/pages/sell_form_page.dart';
 import 'package:swaply/services/coupon_service.dart';
+import 'package:swaply/services/app_update_service.dart';
 import 'package:swaply/listing_api.dart';
 import 'dart:async';
 import 'package:swaply/services/listing_events_bus.dart';
@@ -129,6 +130,14 @@ class _HomePageState extends State<HomePage>
     _listingPubSub = ListingEventsBus.instance.stream.listen((e) {
       if (e is ListingPublishedEvent) {
         _loadTrending(bypassCache: true);
+      }
+    });
+
+    // ✅ 保底更新检查：因为有会话锁，即使隐形触发器先跑了也会被安全拦截
+    // 如果隐形触发器没跑，这行代码就是救命稻草
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppUpdateService.checkForUpdates(context);
       }
     });
   }

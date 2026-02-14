@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/services/auth_service.dart';
 // 鉁?鏂板锛氱粺涓€璧?AuthService 鐧诲嚭
 import 'package:swaply/services/auth_flow_observer.dart';
+import 'package:swaply/services/app_update_service.dart';
 // 鉁?鏂板 Observer
 import 'package:swaply/router/root_nav.dart';
 
@@ -323,6 +324,21 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 style: TextStyle(fontSize: 15, color: Colors.grey[600]),
               ),
               onTap: () {},
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.update),
+              title: const Text(
+                'Check for Updates',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Manually check for app updates',
+                style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+              ),
+              onTap: () => AppUpdateService.checkForUpdates(context, force: true),
             ),
           ),
           const SizedBox(height: 16),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 服务器返回的更新信息
 class AppUpdateInfo {
@@ -47,17 +48,49 @@ class AppUpdateService {
   // 你刚才上线的地址
   static const String _configUrl = 'https://swaply.cc/app/app-update.json';
 
-  // 防重复（一次冷启动只弹一次）
-  static bool _checkedThisLaunch = false;
+  // 会话锁：本次App启动是否已检查（内存锁）
+  static bool _hasCheckedSession = false;
 
   /// 在页面渲染后调用；发现新版本时弹窗提示（默认非强制）
   static Future<void> checkForUpdates(
     BuildContext context, {
+    bool force = false,
     bool showNoUpdateToast = false,
   }) async {
-    if (_checkedThisLaunch) return;
-    _checkedThisLaunch = true;
+    // 1. 如果是手动点击(force=true)，无视所有锁
+    if (force) {
+      await _doCheck(context, showNoUpdateToast: showNoUpdateToast);
+      return;
+    }
 
+    // 2. 会话锁：如果本次启动已经查过了，直接返回（防止幽灵触发器+显式调用导致双弹窗）
+    if (_hasCheckedSession) return;
+
+    // 3. 日期锁：使用 SharedPreferences 检查 last_check_time
+    // 如果 24小时内已经自动检查过，直接返回（防止每天打开App多次都被骚扰）
+    final prefs = await SharedPreferences.getInstance();
+    final lastCheckMs = prefs.getInt('app_update_last_check_ms') ?? 0;
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    
+    if (lastCheckMs > 0 && (nowMs - lastCheckMs) < twentyFourHoursMs) {
+      if (kDebugMode) {
+        print('[AppUpdateService] 24小时内已自动检查过，跳过');
+      }
+      return;
+    }
+
+    // 执行检查
+    _hasCheckedSession = true;
+    await prefs.setInt('app_update_last_check_ms', nowMs);
+    await _doCheck(context, showNoUpdateToast: showNoUpdateToast);
+  }
+
+  /// 核心检查逻辑
+  static Future<void> _doCheck(
+    BuildContext context, {
+    bool showNoUpdateToast = false,
+  }) async {
     try {
       // 当前 App 版本（buildNumber 对应 pubspec 的 +N）
       final info = await PackageInfo.fromPlatform();
@@ -100,7 +133,7 @@ class AppUpdateService {
     required bool force,
   }) {
     final String body = [
-      if (info.latestVersion.isNotEmpty) '发现新版本：${info.latestVersion}',
+      if (info.latestVersion.isNotEmpty) 'New version available: ${info.latestVersion}',
       if ((info.changelog ?? '').trim().isNotEmpty) '',
       if ((info.changelog ?? '').trim().isNotEmpty) info.changelog!.trim(),
     ].join('\n');
@@ -121,15 +154,15 @@ class AppUpdateService {
           return WillPopScope(
             onWillPop: () async => !force,
             child: AlertDialog(
-              title: Text(force ? '必须更新才能继续使用' : '发现新版本'),
+              title: Text(force ? 'Update Required' : 'New Version Available'),
               content: Text(
-                body.isEmpty ? 'Swaply 有新版本，可以前往下载最新安装包。' : body,
+                body.isEmpty ? 'A new version of Swaply is available. Please update for the best experience.' : body,
               ),
               actions: [
                 if (!force)
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('以后再说'),
+                    child: const Text('Later'),
                   ),
                 TextButton(
                   onPressed: () async {
@@ -149,7 +182,7 @@ class AppUpdateService {
                       Navigator.of(ctx).pop();
                     }
                   },
-                  child: const Text('立即更新'),
+                  child: const Text('Update Now'),
                 ),
               ],
             ),
