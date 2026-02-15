@@ -155,7 +155,7 @@ serve(async (req) => {
 
         const { data: st } = await supabase
           .from("user_reward_state")
-          .select("spins_balance, airtime_points, qualified_listings_count")
+          .select("spins_balance, airtime_points, qualified_listings_count, lifetime_spins")
           .eq("user_id", user.id)
           .eq("campaign_code", campaignCode)
           .maybeSingle();
@@ -215,7 +215,7 @@ serve(async (req) => {
     // ------------------------------------------------------------
     const { data: st2, error: st2Err } = await supabase
       .from("user_reward_state")
-      .select("qualified_listings_count, airtime_points, spins_balance")
+      .select("qualified_listings_count, airtime_points, spins_balance, lifetime_spins")
       .eq("user_id", user.id)
       .eq("campaign_code", campaignCode)
       .maybeSingle();
@@ -297,7 +297,24 @@ serve(async (req) => {
       throw new Error("No pool configured");
     }
 
-    const selected = pickWeighted(pool);
+    // Get lifetime spins count for new user script
+    const lifetimeSpins = Number(st2?.lifetime_spins ?? 0);
+    let selected: PoolRow;
+    
+    // New user script: first 3 spins are fixed rewards
+    if (lifetimeSpins === 0) {
+      // First spin: 10 Points
+      selected = pool.find(item => item.title.includes("10 Airtime Points")) || pool[0];
+    } else if (lifetimeSpins === 1) {
+      // Second spin: 5 Points
+      selected = pool.find(item => item.title.includes("5 Airtime Points")) || pool[0];
+    } else if (lifetimeSpins === 2) {
+      // Third spin: Category Boost
+      selected = pool.find(item => item.title.includes("Category Boost")) || pool[0];
+    } else {
+      // From 4th spin onwards: normal weighted random
+      selected = pickWeighted(pool);
+    }
 
     // ------------------------------------------------------------
     // ✅ Step 5: Issue reward (仍然只写 reward_spin_requests，不写 reward_entries)
@@ -414,6 +431,22 @@ serve(async (req) => {
     // ✅ Step 6: Finalize request record (幂等回放关键)
     // ------------------------------------------------------------
     await finalizeRequest(rewardType, rewardPayload);
+
+    // ------------------------------------------------------------
+    // ✅ Step 7: Update lifetime spins count (for new user script)
+    // ------------------------------------------------------------
+    try {
+      const { error: updateErr } = await supabase
+        .from("user_reward_state")
+        .update({ lifetime_spins: (lifetimeSpins + 1) })
+        .eq("user_id", user.id)
+        .eq("campaign_code", campaignCode);
+      if (updateErr) {
+        console.error(`[Spin] Failed to update lifetime_spins: ${updateErr.message}`);
+      }
+    } catch (updateErr) {
+      console.error(`[Spin] Exception updating lifetime_spins: ${updateErr}`);
+    }
 
     // ------------------------------------------------------------
     // ✅ Response

@@ -192,13 +192,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     return names[scope.toLowerCase()] ?? scope;
   }
 
-  String _probOf(Map<String, dynamic> item) {
-    final total = pool.fold<int>(0, (s, x) => s + _toInt(x['weight']));
-    if (total <= 0) return '—';
-    final w = _toInt(item['weight']);
-    final p = (w / total) * 100;
-    return '${p.toStringAsFixed(1)}%';
-  }
+
 
   Map<String, dynamic> _asMap(dynamic v) {
     if (v is Map<String, dynamic>) return v;
@@ -247,20 +241,27 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
         lower.contains('again') ||
         lower.contains('no reward') ||
         lower.contains('better luck')) {
-      return _WheelItem(mainText: '\$1', subText: 'AIR'); // 改为$1大奖显示
+      return _WheelItem(mainText: '100 PTS', subText: 'AIR'); // 改为100 PTS大奖显示
     }
 
     // 4) $1 Airtime大奖特殊处理
     if (lower.contains('\$1') || t.contains('\$1') || lower.contains('100 pts') || lower.contains('100 points')) {
-      return _WheelItem(mainText: '\$1', subText: 'AIR');
+      return _WheelItem(mainText: '100 PTS', subText: 'AIR');
     }
     
-    // 5) Airtime/Points/Credits
+    // 5) Airtime points with numbers: "5 Airtime Points" -> "5 PTS"
+    final pointsMatch = RegExp(r'^(\d+)\s+(?:airtime\s+)?points?', caseSensitive: false).firstMatch(lower);
+    if (pointsMatch != null) {
+      final number = pointsMatch.group(1) ?? '';
+      if (number.isNotEmpty) return _WheelItem(mainText: '$number PTS', subText: 'POINTS');
+    }
+    
+    // 6) Airtime/Points/Credits (generic fallback)
     if (lower.contains('airtime')) return _WheelItem(mainText: 'AIRTIME', subText: 'POINTS');
     if (lower.contains('points')) return _WheelItem(mainText: 'POINTS', subText: '');
     if (lower.contains('credit')) return _WheelItem(mainText: 'CREDIT', subText: '');
 
-    // 5) 3-day / 5 day
+    // 7) 3-day / 5 day
     final dayMatch = RegExp(r'(\d+)\s*-\s*day|\b(\d+)\s*day\b', caseSensitive: false)
         .firstMatch(t);
     if (dayMatch != null) {
@@ -268,7 +269,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       if (n.isNotEmpty) return _WheelItem(mainText: '$n-DAY', subText: 'BOOST');
     }
 
-    // 6) 默认：主词<=8，其余<=10
+    // 8) 默认：主词<=8，其余<=10
     final words = t.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
     if (words.length == 1) {
       final w = words.first.toUpperCase();
@@ -821,44 +822,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     );
   }
 
-  Widget _poolPanel() {
-    if (pool.isEmpty) return const SizedBox.shrink();
 
-    final poolItems = pool.take(12).toList();
-
-    return ExpansionTile(
-      key: const Key(QaKeys.rewardPoolTile),
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(top: 6, bottom: 6),
-      title: const Text(
-        'Prize Pool & Probability',
-        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-      ),
-      children: [
-        LimitedBox(
-          maxHeight: 200, // 限制最大高度，防止溢出
-          child: SingleChildScrollView(
-            key: const Key(QaKeys.rewardPoolScroll),
-            child: Column(
-              children: poolItems.map((it) {
-                final title = (it['title'] ?? it['id'] ?? 'Reward').toString();
-                final prob = _probOf(it);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
-                      Text(prob, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   // -------------------- Build --------------------
 
@@ -936,7 +900,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             _loopBox(loopHintText),
           ],
           const SizedBox(height: 12),
-          _poolPanel(),
+
         ],
       ),
     );
@@ -974,7 +938,7 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
             _loopBox(loopHintText),
           ],
           const SizedBox(height: 12),
-          _poolPanel(),
+
           const SizedBox(height: 14),
           if (!listingOk) ...[
             Container(

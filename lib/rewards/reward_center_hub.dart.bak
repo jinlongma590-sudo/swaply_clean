@@ -1162,9 +1162,56 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  String _probOf(Map<String, dynamic> item) {
+    final pool = widget.pool;
+    int toInt(dynamic v) => int.tryParse(v?.toString() ?? '') ?? 0;
 
+    final total = pool.fold<int>(0, (s, x) => s + toInt(x['weight']));
+    if (total <= 0) return '—';
+    final w = toInt(item['weight']);
+    final p = (w / total) * 100;
+    return '${p.toStringAsFixed(1)}%';
+  }
 
+  Widget _poolPanel() {
+    final pool = widget.pool;
+    if (pool.isEmpty) return const SizedBox.shrink();
 
+    final poolItems = pool.take(12).toList();
+
+    return ExpansionTile(
+      key: const Key(QaKeys.rewardPoolTile),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(top: 6, bottom: 6),
+      title: const Text(
+        'Prize Pool & Probability',
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+      children: [
+        LimitedBox(
+          maxHeight: 200,
+          child: SingleChildScrollView(
+            key: const Key(QaKeys.rewardPoolScroll),
+            child: Column(
+              children: poolItems.map((it) {
+                final title = (it['title'] ?? it['id'] ?? 'Reward').toString();
+                final prob = _probOf(it);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
+                      Text(prob, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -65,19 +65,9 @@ class RewardRulesPage extends StatelessWidget {
             'Boost coupons are valid for 3 days, non-transferable, and must be used before expiration.',
           ),
           
-          _buildSectionTitle('Odds / Prize Pool'),
-          _buildCard(
-            'Prize probabilities are determined by backend pool weights and may be adjusted. Current probabilities are shown below.',
-          ),
+
           
-          if (pool != null && pool!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _buildPrizePoolSection(pool!, totalWeight),
-          ] else ...[
-            _buildCard(
-              'Prize pool is shown in the Spin & Win sheet. Open the spin wheel to view current prize probabilities.',
-            ),
-          ],
+
           
           _buildSectionTitle('Limits & abuse'),
           _buildCard(
@@ -134,60 +124,5 @@ class RewardRulesPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPrizePoolSection(List<Map<String, dynamic>> pool, int totalWeight) {
-    return Card(
-      elevation: 2,
-      child: ExpansionTile(
-        key: const Key('reward_rules_pool_tile'),
-        title: const Text(
-          'Prize Pool & Probability',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        children: [
-          Padding(
-            key: const Key('reward_rules_pool_scroll'),
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: pool.map((item) {
-                final title = (item['title'] ?? item['id'] ?? 'Reward').toString();
-                final weight = item['weight'] as int? ?? 0;
-                final probability = totalWeight > 0 
-                    ? '${(weight * 100 / totalWeight).toStringAsFixed(1)}%'
-                    : '0.0%';
-                
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          probability,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
