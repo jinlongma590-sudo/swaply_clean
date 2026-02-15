@@ -1290,12 +1290,16 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
               children: [
                 Icon(Icons.local_fire_department, color: Colors.red, size: 20.r),
                 SizedBox(width: 8.w),
-                Text(
-                  '🔥 Win Rate Boosted! Over 50% chance to win Airtime!',
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red[800],
+                Expanded(
+                  child: Text(
+                    '🔥 Win Rate Boosted! Over 50% chance to win Airtime!',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red[800],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ],
