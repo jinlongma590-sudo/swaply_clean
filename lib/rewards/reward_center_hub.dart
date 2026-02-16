@@ -1141,11 +1141,11 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
   ];
 
   final List<_WheelItem> _items = [
-    _WheelItem(mainText: '5 PTS', subText: 'POINTS', type: 'points', value: 5),
-    _WheelItem(mainText: 'CAT', subText: 'BOOST', type: 'boost', scope: 'category'),
-    _WheelItem(mainText: '10 PTS', subText: 'POINTS', type: 'points', value: 10),
-    _WheelItem(mainText: 'SEARCH', subText: 'BOOST', type: 'boost', scope: 'search'),
     _WheelItem(mainText: '100 PTS', subText: 'AIR', type: 'points', value: 100),
+    _WheelItem(mainText: '5 PTS', subText: 'POINTS', type: 'points', value: 5),
+    _WheelItem(mainText: '10 PTS', subText: 'POINTS', type: 'points', value: 10),
+    _WheelItem(mainText: 'CAT', subText: 'BOOST', type: 'boost', scope: 'category'),
+    _WheelItem(mainText: 'SEARCH', subText: 'BOOST', type: 'boost', scope: 'search'),
     _WheelItem(mainText: 'TREND', subText: 'BOOST', type: 'boost', scope: 'trending'),
   ];
 
@@ -1632,25 +1632,42 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
 
       final reward = Map<String, dynamic>.from(data['reward'] ?? {});
       final resultType = reward['result_type']?.toString() ?? 'none';
+      
+      // 优先使用后端返回的 selected_index
       int targetIndex = 4;
-
+      final selectedIndex = (reward['selected_index'] as num?)?.toInt();
+      
+      if (selectedIndex != null && selectedIndex >= 0 && selectedIndex < _items.length) {
+        // 直接使用后端索引（现在_items顺序与后端pool一致）
+        targetIndex = selectedIndex;
+      } else {
+        // 降级：如果没有selected_index，使用旧的映射逻辑
+        if (resultType == 'airtime_points') {
+          final pts = (reward['points'] as num?)?.toInt() ?? 0;
+          final idx = _items.indexWhere((item) => item.type == 'points' && item.value == pts);
+          if (idx != -1) targetIndex = idx;
+        } else if (resultType == 'boost_coupon') {
+          final scope = (reward['pin_scope'] ?? '').toString();
+          final idx = _items.indexWhere((item) => item.type == 'boost' && item.scope == scope);
+          if (idx != -1) targetIndex = idx;
+        } else {
+          // 备用情况：理论上不会发生，因为所有奖品都有类型
+          final idx = _items.indexWhere((item) => item.type == 'points' && item.value == 100);
+          if (idx != -1) targetIndex = idx;
+        }
+      }
+      
+      // 设置消息
       if (resultType == 'airtime_points') {
         final pts = (reward['points'] as num?)?.toInt() ?? 0;
-        final idx = _items.indexWhere((item) => item.type == 'points' && item.value == pts);
-        if (idx != -1) targetIndex = idx;
         _pendingTitle = 'Points Earned!';
         _pendingMessage = 'You earned +$pts Airtime Points!';
       } else if (resultType == 'boost_coupon') {
         final scope = (reward['pin_scope'] ?? '').toString();
         final days = (reward['pin_days'] as num?)?.toInt() ?? 3;
-        final idx = _items.indexWhere((item) => item.type == 'boost' && item.scope == scope);
-        if (idx != -1) targetIndex = idx;
         _pendingTitle = 'Boost Unlocked!';
         _pendingMessage = 'You got $days Days ${scope.toUpperCase()} Boost!';
       } else {
-        // 备用情况：理论上不会发生，因为所有奖品都有类型
-        final idx = _items.indexWhere((item) => item.type == 'points' && item.value == 100);
-        if (idx != -1) targetIndex = idx;
         _pendingTitle = 'Reward Claimed!';
         _pendingMessage = 'Check your rewards for details.';
       }

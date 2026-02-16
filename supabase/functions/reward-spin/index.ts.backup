@@ -300,30 +300,20 @@ serve(async (req) => {
     // Get lifetime spins count for new user script
     const lifetimeSpins = Number(st2?.lifetime_spins ?? 0);
     let selected: PoolRow;
-    let selectedIndex: number;
     
     // New user script: first 3 spins are fixed rewards
     if (lifetimeSpins === 0) {
       // First spin: 10 Points
       selected = pool.find(item => item.title.includes("10 Airtime Points")) || pool[0];
-      selectedIndex = pool.findIndex(item => item.title.includes("10 Airtime Points"));
-      if (selectedIndex === -1) selectedIndex = 0;
     } else if (lifetimeSpins === 1) {
       // Second spin: 5 Points
       selected = pool.find(item => item.title.includes("5 Airtime Points")) || pool[0];
-      selectedIndex = pool.findIndex(item => item.title.includes("5 Airtime Points"));
-      if (selectedIndex === -1) selectedIndex = 0;
     } else if (lifetimeSpins === 2) {
       // Third spin: Category Boost
       selected = pool.find(item => item.title.includes("Category Boost")) || pool[0];
-      selectedIndex = pool.findIndex(item => item.title.includes("Category Boost"));
-      if (selectedIndex === -1) selectedIndex = 0;
     } else {
       // From 4th spin onwards: normal weighted random
       selected = pickWeighted(pool);
-      // Find index of selected item in pool
-      selectedIndex = pool.findIndex(item => item.id === selected.id);
-      if (selectedIndex === -1) selectedIndex = 0;
     }
 
     // ------------------------------------------------------------
@@ -362,7 +352,7 @@ serve(async (req) => {
         }
 
         latestPoints = Number(newPoints ?? latestPoints);
-        rewardPayload = { result_type: "airtime_points", points: pts, new_points: newPoints, reason: "spin", selected_index: selectedIndex };
+        rewardPayload = { result_type: "airtime_points", points: pts, new_points: newPoints, reason: "spin" };
       } else {
         rewardType = "none";
         rewardPayload = { result_type: "none" };
@@ -431,7 +421,7 @@ serve(async (req) => {
 
       if (updErr) console.error(`[Spin] Failed to update coupon scope: ${updErr.message}`);
 
-      rewardPayload = { result_type: "boost_coupon", coupon_id: couponId, pin_scope: scope, pin_days: pinDays, selected_index: selectedIndex };
+      rewardPayload = { result_type: "boost_coupon", coupon_id: couponId, pin_scope: scope, pin_days: pinDays };
     } else {
       rewardType = "none";
       rewardPayload = { result_type: "none" };

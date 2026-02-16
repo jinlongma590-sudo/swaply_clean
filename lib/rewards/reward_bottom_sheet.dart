@@ -355,13 +355,15 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
     });
 
     final items = _getWheelItems();
-    final targetIndex = Random().nextInt(items.length);
+    // Try to get selected_index from existing reward data
+    final r = reward ?? <String, dynamic>{};
+    final selectedIndex = _toInt(r['selected_index']);
+    final targetIndex = selectedIndex >= 0 && selectedIndex < items.length ? selectedIndex : Random().nextInt(items.length);
     _selected.add(targetIndex);
 
     await Future.delayed(const Duration(milliseconds: 4500));
     if (!mounted) return;
 
-    final r = reward ?? <String, dynamic>{};
     final resp = <String, dynamic>{
       'ok': true,
       'spins_left': 0,
@@ -412,10 +414,6 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
       _spinResp = null;
     });
 
-    final items = _getWheelItems();
-    final targetIndex = Random().nextInt(items.length);
-    _selected.add(targetIndex);
-
     try {
       final resp = await RewardAfterPublish.I.spin(
         requestId: const Uuid().v4(),
@@ -423,10 +421,24 @@ class _RewardBottomSheetState extends State<RewardBottomSheet>
         listingId: widget.listingId,
       );
 
+      final map = _asMap(resp);
+      
+      if (map['ok'] == true) {
+        // Get selected index from backend response
+        final reward = map['reward'] is Map ? Map<String, dynamic>.from(map['reward'] as Map) : <String, dynamic>{};
+        final selectedIndex = _toInt(reward['selected_index']);
+        final items = _getWheelItems();
+        final targetIndex = selectedIndex >= 0 && selectedIndex < items.length ? selectedIndex : 0;
+        _selected.add(targetIndex);
+      } else {
+        // Fallback to random if backend doesn't provide index
+        final items = _getWheelItems();
+        final targetIndex = Random().nextInt(items.length);
+        _selected.add(targetIndex);
+      }
+
       await Future.delayed(const Duration(milliseconds: 4500));
       if (!mounted) return;
-
-      final map = _asMap(resp);
 
       if (map['ok'] == true) {
         if (map.containsKey('spins_left')) _data['spins'] = _toInt(map['spins_left']);
