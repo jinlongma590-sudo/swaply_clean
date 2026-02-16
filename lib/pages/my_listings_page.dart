@@ -65,6 +65,9 @@ class _MyListingsPageState extends State<MyListingsPage>
   Future<void> _loadListings() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
+      if (kDebugMode) {
+        print('[MyListings] ERROR: No authenticated user');
+      }
       setState(() {
         _isLoadingListings = false;
         _errorMessage = 'Please login to view your listings';
@@ -73,6 +76,10 @@ class _MyListingsPageState extends State<MyListingsPage>
     }
 
     try {
+      if (kDebugMode) {
+        print('[MyListings] Loading listings for user: ${user.id}');
+      }
+      
       setState(() {
         _isLoadingListings = true;
         _errorMessage = null;
@@ -81,9 +88,9 @@ class _MyListingsPageState extends State<MyListingsPage>
       final response = await Supabase.instance.client
           .from('listings')
           .select(
-              'id, title, description, category, city, price, seller_name, phone, contact_phone, images, image_urls, created_at, views_count')
+              'id, title, description, category, city, price, seller_name, phone, contact_phone, images, image_urls, created_at, views_count, status, is_active')
           .eq('user_id', user.id)
-          .eq('status', 'active')
+          .neq('status', 'deleted')
           .order('created_at', ascending: false)
           .limit(100);
 
@@ -102,12 +109,20 @@ class _MyListingsPageState extends State<MyListingsPage>
         });
 
         if (kDebugMode) {
-          print('Loaded ${_listings.length} listings with view counts');
+          print('[MyListings] Loaded ${_listings.length} listings with view counts');
+          // 记录状态分布用于调试
+          final statusCounts = <String, int>{};
+          for (final listing in _listings) {
+            final status = listing['status'] ?? 'unknown';
+            statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+          }
+          print('[MyListings] Status distribution: $statusCounts');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error loading listings: $e');
+        print('[MyListings] ERROR loading listings: $e');
+        print('[MyListings] Stack trace: ${e is Error ? (e as Error).stackTrace : "No stack trace"}');
       }
 
       if (mounted) {
@@ -776,6 +791,7 @@ class _MyListingsPageState extends State<MyListingsPage>
     final createdAt = listing['created_at']?.toString() ?? '';
     final listingId = listing['id']?.toString() ?? '';
     final viewsCount = listing['views_count'] ?? 0;
+    final status = listing['status']?.toString() ?? 'active';
 
     String timeAgo = 'Recently';
     if (createdAt.isNotEmpty) {
@@ -834,25 +850,53 @@ class _MyListingsPageState extends State<MyListingsPage>
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8.r),
-                            child: firstImage.startsWith('http')
-                                ? Image.network(
-                                    SupabaseImageConfig.getThumbnailUrl(firstImage),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(Icons.image_rounded,
-                                          color: Colors.grey.shade400,
-                                          size: 20.w);
-                                    },
-                                  )
-                                : Image.asset(
-                                    firstImage,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(Icons.image_rounded,
-                                          color: Colors.grey.shade400,
-                                          size: 20.w);
-                                    },
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                firstImage.startsWith('http')
+                                    ? Image.network(
+                                        SupabaseImageConfig.getThumbnailUrl(firstImage),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Icon(Icons.image_rounded,
+                                              color: Colors.grey.shade400,
+                                              size: 20.w);
+                                        },
+                                      )
+                                    : Image.asset(
+                                        firstImage,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Icon(Icons.image_rounded,
+                                              color: Colors.grey.shade400,
+                                              size: 20.w);
+                                        },
+                                      ),
+                                if (status == 'sold')
+                                  Container(
+                                    color: Colors.black45,
+                                    child: Center(
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 6.w, vertical: 2.h),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(4.r),
+                                        ),
+                                        child: Text(
+                                          'SOLD',
+                                          style: TextStyle(
+                                            fontSize: 8.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
+                              ],
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -865,7 +909,7 @@ class _MyListingsPageState extends State<MyListingsPage>
                                 style: TextStyle(
                                   fontSize: 15.sp,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
+                                  color: status == 'sold' ? Colors.grey : Colors.black87,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -935,6 +979,35 @@ class _MyListingsPageState extends State<MyListingsPage>
                                     }
                                   });
                                   break;
+                                case 'update_status':
+                                  final newStatus = status == 'active' ? 'sold' : 'active';
+                                  try {
+                                    await ListingService.updateListingStatus(
+                                      listingId: listingId,
+                                      newStatus: newStatus,
+                                    );
+                                    // 更新本地列表状态
+                                    setState(() {
+                                      listing['status'] = newStatus;
+                                    });
+                                    // 显示成功提示
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(newStatus == 'sold'
+                                          ? 'Item marked as sold'
+                                          : 'Item marked as available'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Status update failed: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                  break;
                                 case 'delete':
                                   _showDeleteDialog(listing, index);
                                   break;
@@ -956,6 +1029,26 @@ class _MyListingsPageState extends State<MyListingsPage>
                                     const Text('Edit',
                                         style: TextStyle(
                                             fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'update_status',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 16.r,
+                                      color: status == 'active' ? Colors.green : Colors.blue,
+                                    ),
+                                    SizedBox(width: 8.w),
+                                    Text(
+                                      status == 'active' ? 'Mark as Sold' : 'Mark as Available',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: status == 'active' ? Colors.green : Colors.blue,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),

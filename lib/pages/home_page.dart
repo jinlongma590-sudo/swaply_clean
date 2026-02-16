@@ -21,7 +21,6 @@ import 'package:swaply/services/listing_events_bus.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:carousel_slider/carousel_slider.dart'; // v1.0.1: 轮播组件
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
 import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
@@ -808,21 +807,28 @@ class _HomePageState extends State<HomePage>
     required bool isLoading,
   }) {
     if (isLoading) {
-      // 加载状态显示骨架屏 - 使用SliverToBoxAdapter
-      return SliverToBoxAdapter(
-        child: Container(
-          height: 220.h,
-          padding: EdgeInsets.symmetric(horizontal: 12.w),
-          child: Row(
-            children: List.generate(3, (index) => Expanded(
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 4.w),
+      // 加载状态显示骨架屏 - 使用SliverPadding包裹SliverGrid
+      // 与普通商品网格完全一致的布局（一行两个，显示4个骨架屏）
+      final skeletonCount = 4;
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        sliver: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, // 一行两个
+            childAspectRatio: 0.66, // 与普通商品卡片完全一致
+            crossAxisSpacing: 8.w, // 横向间距
+            mainAxisSpacing: 8.h, // 纵向间距
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              return Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(10.r),
                 ),
-              ),
-            )),
+              );
+            },
+            childCount: skeletonCount,
           ),
         ),
       );
@@ -871,19 +877,22 @@ class _HomePageState extends State<HomePage>
     // 显示20个随机置顶商品（10行×2列）
     final displayItems = items.take(20).toList(); // 最多显示20个
     
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 一行两个
-        childAspectRatio: 0.66, // 与普通商品卡片完全一致
-        crossAxisSpacing: 8.w, // 横向间距
-        mainAxisSpacing: 8.h, // 纵向间距
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final item = displayItems[index];
-          return _buildPremiumCard(item);
-        },
-        childCount: displayItems.length,
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, // 一行两个
+          childAspectRatio: 0.66, // 与普通商品卡片完全一致
+          crossAxisSpacing: 8.w, // 横向间距
+          mainAxisSpacing: 8.h, // 纵向间距
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final item = displayItems[index];
+            return _buildPremiumCard(item);
+          },
+          childCount: displayItems.length,
+        ),
       ),
     );
   }
@@ -1581,8 +1590,6 @@ class _HomePageState extends State<HomePage>
         alignment: Alignment.center,
         maxHeightDiskCache: 400,
         maxWidthDiskCache: 400,
-        memCacheWidth: 400,
-        memCacheHeight: 400,
         fadeInDuration: const Duration(milliseconds: 200),
         placeholder: (context, url) => Shimmer.fromColors(
           baseColor: Colors.grey[300]!,

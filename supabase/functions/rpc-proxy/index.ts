@@ -266,7 +266,9 @@ serve(async (req) => {
           
         case "redeem_search_popular_coupon":
         case "use_coupon_for_pinning":
-          // These should be user-specific by design
+          // Functions have 3 parameters: in_coupon_id, in_listing_id, in_note
+          // They handle user identity via auth.uid() or coupons table lookup
+          // No need to add extra parameters
           break;
           
         case "get_seller_contact":

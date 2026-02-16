@@ -633,8 +633,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         cacheKey: SupabaseImageConfig.getThumbnailUrl(src),
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        memCacheWidth: 600,
-        memCacheHeight: 600,
         placeholder: (context, url) => Container(
           color: Colors.grey[200],
           child: Center(

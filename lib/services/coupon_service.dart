@@ -67,6 +67,35 @@ class CouponService {
     }
   }
 
+  /// ✅ P1: 查询重试函数（最大2次，退避延迟）
+  static Future<dynamic?> _fetchListingWithRetry(String listingId, {int maxRetries = 2}) async {
+    if (listingId.isEmpty) return null;
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final result = await _client.from('listings')
+            .select('id, title, price, city, category, images, image_urls, created_at, description, name, phone')
+            .eq('id', listingId)
+            .maybeSingle()
+            .timeout(const Duration(seconds: 3));
+        
+        if (result != null) {
+          _debugPrint('重试成功: listing $listingId (尝试 $attempt)');
+          return result;
+        }
+      } catch (e) {
+        _debugPrint('重试失败: listing $listingId (尝试 $attempt): $e');
+      }
+      
+      // 退避延迟：300ms, 800ms
+      if (attempt < maxRetries) {
+        await Future.delayed(Duration(milliseconds: attempt == 1 ? 300 : 800));
+      }
+    }
+    
+    return null;
+  }
+
   /// ✅【关键】统一判断 RPC 是否成功：兼容 null / bool / Map(ok|success) / String(true)
   static bool _rpcOk(dynamic res) {
     if (res == null) return false; // ❌ null 不再视为成功
@@ -831,70 +860,188 @@ class CouponService {
 
     final future = () async {
       try {
-        // v1.0.1: 改为 ORDER BY RANDOM() LIMIT 20 实现无限池轮播
-        final queryBuilder = _client
-            .from('pinned_ads')
-            .select('''
-              *,
-              listings:listing_id (
-                id,
-                title,
-                price,
-                city,
-                category,
-                images,
-                image_urls,
-                created_at,
-                description,
-                name,
-                phone
-              ),
-              coupons:coupon_id (
-                id,
-                code,
-                type,
-                title
-              )
-            ''')
-            .eq('status', 'active')
-            .eq('pinning_type', 'trending')
-            .gt('expires_at', DateTime.now().toIso8601String())
-            .order('random()')  // 数据库随机排序
-            .limit(effectiveLimit); // 直接限制为需要的数量
-
-        final response = await queryBuilder;
-        final ads = response;
-
-        final filteredAds = <Map<String, dynamic>>[];
+        // v1.0.1: 使用 RPC 函数 get_random_trending_ads 实现真正的数据库随机
+        _debugPrint('调用 RPC get_random_trending_ads，limit=$effectiveLimit');
+        
+        // 1. 通过 RPC 获取随机 pinned_ads 记录
+        final ads = await _client.rpc('get_random_trending_ads', params: {
+          'limit_count': effectiveLimit,
+        }) as List<dynamic>;
+        _debugPrint('RPC 返回 ${ads.length} 条 pinned_ads 记录');
+        
+        // 2. 为每个 pinned_ad 查询关联的 listings 和 coupons
+        final enrichedAds = <Map<String, dynamic>>[];
         for (final ad in ads) {
+          final adMap = Map<String, dynamic>.from(ad);
+          final listingId = adMap['listing_id']?.toString();
+          final couponId = adMap['coupon_id']?.toString();
+          
+          dynamic listing;
+          dynamic coupon;
+          bool listingQueryFailed = false;
+          
           try {
-            final adMap = Map<String, dynamic>.from(ad);
-            final listings = adMap['listings'];
-            // 必须有 listing 数据
-            if (listings == null || listings is! Map) continue;
-            final listingsMap = Map<String, dynamic>.from(listings);
-
-            // Dart 端按城市过滤
+            // 并行查询 listing 和 coupon
+            Future<dynamic?> listingFuture;
+            if (listingId != null) {
+              listingFuture = _client.from('listings')
+                  .select('id, title, price, city, category, images, image_urls, created_at, description, name, phone')
+                  .eq('id', listingId)
+                  .maybeSingle();
+            } else {
+              listingFuture = Future.value(null);
+            }
+                
+            Future<dynamic?> couponFuture;
+            if (couponId != null) {
+              couponFuture = _client.from('coupons')
+                  .select('id, code, type, title')
+                  .eq('id', couponId)
+                  .maybeSingle();
+            } else {
+              couponFuture = Future.value(null);
+            }
+            
+            final futures = <Future<dynamic?>>[listingFuture, couponFuture];
+            final results = await Future.wait(futures);
+            listing = results[0];
+            coupon = results[1];
+            
+            // 记录查询失败情况
+            if (listingId != null && listing == null) {
+              _debugPrint('警告: listing $listingId 查询失败，使用pinned_ad基础数据');
+              listingQueryFailed = true;
+            }
+          } catch (e) {
+            _debugPrint('处理置顶广告查询错误，使用降级数据: $e');
+            listingQueryFailed = true;
+            // 查询失败时，listing和coupon保持为null
+          }
+          
+          // 如果listing查询失败，先尝试重试（P1）
+          if (listingQueryFailed && listingId != null && listingId.isNotEmpty) {
+            dynamic retriedListing;
+            
+            // ✅ P1: 尝试重试获取listing数据（最多2次，退避延迟）
+            try {
+              retriedListing = await _fetchListingWithRetry(listingId);
+              if (retriedListing != null) {
+                _debugPrint('重试成功，使用重试获取的listing数据: $listingId');
+                listing = retriedListing;
+                listingQueryFailed = false; // 重试成功，不再降级
+                
+                // ✅ 使用重试成功的数据继续正常流程
+                // 城市过滤
+                if (city != null && city.isNotEmpty) {
+                  final listingCity = listing?['city']?.toString();
+                  if (listingCity == null || listingCity != city) continue;
+                }
+                
+                // 构建完整数据
+                final enrichedAd = Map<String, dynamic>.from(adMap);
+                if (listing != null) enrichedAd['listings'] = listing;
+                if (coupon != null) enrichedAd['coupons'] = coupon;
+                enrichedAds.add(enrichedAd);
+                continue; // 跳过降级显示和后续处理
+              }
+            } catch (e) {
+              _debugPrint('重试过程异常: $e');
+            }
+          }
+          
+          // 重试后仍然失败，检查metadata中是否有商品快照（P2）
+          if (listingQueryFailed) {
+            // ✅ P2: 首先检查metadata中是否有商品快照
+            final metadata = adMap['metadata'] as Map<String, dynamic>?;
+            final snapshot = metadata?['listing_snapshot'] as Map<String, dynamic>?;
+            
+            if (snapshot != null) {
+              _debugPrint('使用metadata中的商品快照: $listingId');
+              // 使用快照数据构建listing对象
+              final snapshotAd = Map<String, dynamic>.from(adMap);
+              snapshotAd['listings'] = {
+                'id': listingId,
+                'title': snapshot['title'] ?? 'Product',
+                'price': snapshot['price'] ?? 0,
+                'city': snapshot['city'] ?? adMap['city'] ?? 'Unknown',
+                'category': snapshot['category'] ?? adMap['category'] ?? 'general',
+                'images': snapshot['images'] ?? [],
+                'image_urls': snapshot['image_urls'] ?? [],
+                'has_snapshot': true, // 标记为快照数据
+              };
+              
+              // 应用城市过滤
+              if (city != null && city.isNotEmpty) {
+                final listingCity = snapshotAd['listings']['city']?.toString();
+                if (listingCity == null || listingCity != city) continue;
+              }
+              
+              if (coupon != null) snapshotAd['coupons'] = coupon;
+              enrichedAds.add(snapshotAd);
+              continue;
+            }
+            
+            // ✅ P0: 没有快照，使用改进的降级显示
+            final fallbackAd = Map<String, dynamic>.from(adMap);
+            fallbackAd['listings'] = {
+              'id': listingId,
+              'title': 'Loading product...',  // 更积极的文案
+              'city': adMap['city'] ?? 'Unknown',
+              'price': '--',                  // 更简洁的占位符
+              'images': [],                   // 空数组，前端显示默认占位图
+              'image_urls': [],
+              'is_fallback': true,            // 标记为降级数据，便于前端特殊处理
+              'category': adMap['category'] ?? 'general',
+            };
+            
+            // 应用城市过滤（降级数据的城市为Unknown或pinned_ad中的city）
             if (city != null && city.isNotEmpty) {
-              final listingCity = listingsMap['city']?.toString();
+              final listingCity = fallbackAd['listings']['city']?.toString();
               if (listingCity == null || listingCity != city) continue;
             }
-
-            filteredAds.add(adMap);
-          } catch (e) {
-            _debugPrint('处理热门置顶广告错误: $e');
+            
+            if (coupon != null) fallbackAd['coupons'] = coupon;
+            enrichedAds.add(fallbackAd);
+            
+            // ✅ 后台异步重试（不阻塞当前请求）
+            if (listingId != null && listingId.isNotEmpty) {
+              Future.microtask(() async {
+                try {
+                  final lateListing = await _fetchListingWithRetry(listingId);
+                  if (lateListing != null) {
+                    _debugPrint('后台重试成功: $listingId (已降级显示)');
+                    // 注意：由于数据已返回，无法更新本次响应
+                    // 但下次请求（30秒缓存过期后）会获取正确数据
+                  }
+                } catch (e) {
+                  // 忽略后台重试错误
+                }
+              });
+            }
+            
             continue;
           }
+          
+          // ✅ 正常情况：listing查询成功
+          // 城市过滤
+          if (city != null && city.isNotEmpty) {
+            final listingCity = listing?['city']?.toString();
+            if (listingCity == null || listingCity != city) continue;
+          }
+          
+          // 构建完整数据
+          final enrichedAd = Map<String, dynamic>.from(adMap);
+          if (listing != null) enrichedAd['listings'] = listing;
+          if (coupon != null) enrichedAd['coupons'] = coupon;
+          
+          enrichedAds.add(enrichedAd);
         }
-
-        // 不再需要随机洗牌，数据库已经随机排序
-        final finalList = filteredAds.take(effectiveLimit).toList();
-
+        
         if (kDebugMode && _kLogCacheHit) {
           debugPrint(
-              '[CouponService] 成功获取 ${finalList.length} 个首页热门置顶广告（随机抽取$effectiveLimit个）');
+              '[CouponService] 成功获取 ${enrichedAds.length} 个首页热门置顶广告（数据库随机抽取$effectiveLimit个）');
         }
-        return finalList;
+        return enrichedAds;
       } catch (e) {
         _debugPrint('获取首页热门置顶广告失败: $e');
         return <Map<String, dynamic>>[];
@@ -926,67 +1073,203 @@ class CouponService {
     try {
       _debugPrint('获取分类置顶广告: category=$category, city=$city, limit=$limit');
 
-      final queryBuilder = _client
-          .from('pinned_ads')
-          .select('''
-            *,
-            listings:listing_id (
-              id,
-              title,
-              price,
-              city,
-              category,
-              images,
-              image_urls,
-              created_at,
-              description,
-              name,
-              phone
-            ),
-            coupons:coupon_id (
-              id,
-              code,
-              type,
-              title
-            )
-          ''')
-          .eq('status', 'active')
-          .eq('pinning_type', 'category')
-          .eq('category', category) // v1.0.1: 添加分类过滤
-          .gt('expires_at', DateTime.now().toIso8601String())
-          .order('random()') // v1.0.1: 改为随机排序
-          .limit(limit ?? 20); // 直接限制
-
-      final response = await queryBuilder;
-      final ads = response;
-
-      final filteredAds = <Map<String, dynamic>>[];
+      // v1.0.1: 使用 RPC 函数 get_random_category_ads 实现真正的数据库随机
+      final effectiveLimit = limit ?? 20;
+      _debugPrint('调用 RPC get_random_category_ads，category=$category, limit=$effectiveLimit');
+      
+      // 1. 通过 RPC 获取随机 pinned_ads 记录
+      final ads = await _client.rpc('get_random_category_ads', params: {
+        'target_category': category,
+        'limit_count': effectiveLimit,
+      }) as List<dynamic>;
+      _debugPrint('RPC 返回 ${ads.length} 条分类 $category 的 pinned_ads 记录');
+      
+      // 2. 为每个 pinned_ad 查询关联的 listings 和 coupons
+      final enrichedAds = <Map<String, dynamic>>[];
       for (final ad in ads) {
+        final adMap = Map<String, dynamic>.from(ad);
+        final listingId = adMap['listing_id']?.toString();
+        final couponId = adMap['coupon_id']?.toString();
+        
+        dynamic listing;
+        dynamic coupon;
+        bool listingQueryFailed = false;
+        
         try {
-          final adMap = Map<String, dynamic>.from(ad);
-          final listings = adMap['listings'];
-          if (listings == null || listings is! Map) continue;
-          final listingsMap = Map<String, dynamic>.from(listings);
-
-          // 分类过滤
-          final listingCategory = listingsMap['category']?.toString();
+          // 并行查询 listing 和 coupon
+          Future<dynamic?> listingFuture;
+          if (listingId != null) {
+            listingFuture = _client.from('listings')
+                .select('id, title, price, city, category, images, image_urls, created_at, description, name, phone')
+                .eq('id', listingId)
+                .maybeSingle();
+          } else {
+            listingFuture = Future.value(null);
+          }
+              
+          Future<dynamic?> couponFuture;
+          if (couponId != null) {
+            couponFuture = _client.from('coupons')
+                .select('id, code, type, title')
+                .eq('id', couponId)
+                .maybeSingle();
+          } else {
+            couponFuture = Future.value(null);
+          }
+          
+          final futures = <Future<dynamic?>>[listingFuture, couponFuture];
+          final results = await Future.wait(futures);
+          listing = results[0];
+          coupon = results[1];
+          
+          // 记录查询失败情况
+          if (listingId != null && listing == null) {
+            _debugPrint('警告: 分类页 listing $listingId 查询失败，使用pinned_ad基础数据');
+            listingQueryFailed = true;
+          }
+        } catch (e) {
+          _debugPrint('处理分类置顶广告查询错误，使用降级数据: $e');
+          listingQueryFailed = true;
+          // 查询失败时，listing和coupon保持为null
+        }
+        
+        // 如果listing查询失败，先尝试重试（P1）
+        if (listingQueryFailed && listingId != null && listingId.isNotEmpty) {
+          dynamic retriedListing;
+          
+          // ✅ P1: 尝试重试获取listing数据（最多2次，退避延迟）
+          try {
+            retriedListing = await _fetchListingWithRetry(listingId);
+            if (retriedListing != null) {
+              _debugPrint('分类页重试成功，使用重试获取的listing数据: $listingId');
+              listing = retriedListing;
+              listingQueryFailed = false; // 重试成功，不再降级
+              
+              // ✅ 使用重试成功的数据继续正常流程
+              // 二次分类过滤（RPC 已过滤，这里做安全校验）
+              final listingCategory = listing?['category']?.toString();
+              if (listingCategory == null || listingCategory != category) continue;
+              
+              // 城市过滤
+              if (city != null && city.isNotEmpty) {
+                final listingCity = listing?['city']?.toString();
+                if (listingCity == null || listingCity != city) continue;
+              }
+              
+              // 构建完整数据
+              final enrichedAd = Map<String, dynamic>.from(adMap);
+              if (listing != null) enrichedAd['listings'] = listing;
+              if (coupon != null) enrichedAd['coupons'] = coupon;
+              enrichedAds.add(enrichedAd);
+              continue; // 跳过降级显示和后续处理
+            }
+          } catch (e) {
+            _debugPrint('分类页重试过程异常: $e');
+          }
+        }
+        
+        // 重试后仍然失败，检查metadata中是否有商品快照（P2）
+        if (listingQueryFailed) {
+          // ✅ P2: 首先检查metadata中是否有商品快照
+          final metadata = adMap['metadata'] as Map<String, dynamic>?;
+          final snapshot = metadata?['listing_snapshot'] as Map<String, dynamic>?;
+          
+          if (snapshot != null) {
+            _debugPrint('分类页使用metadata中的商品快照: $listingId');
+            // 使用快照数据构建listing对象
+            final snapshotAd = Map<String, dynamic>.from(adMap);
+            snapshotAd['listings'] = {
+              'id': listingId,
+              'title': snapshot['title'] ?? 'Product',
+              'price': snapshot['price'] ?? 0,
+              'city': snapshot['city'] ?? adMap['city'] ?? 'Unknown',
+              'category': snapshot['category'] ?? adMap['category'] ?? category,
+              'images': snapshot['images'] ?? [],
+              'image_urls': snapshot['image_urls'] ?? [],
+              'has_snapshot': true, // 标记为快照数据
+            };
+            
+            // 分类过滤（快照数据使用快照中的category）
+            final listingCategory = snapshotAd['listings']['category']?.toString();
+            if (listingCategory == null || listingCategory != category) continue;
+            
+            // 城市过滤
+            if (city != null && city.isNotEmpty) {
+              final listingCity = snapshotAd['listings']['city']?.toString();
+              if (listingCity == null || listingCity != city) continue;
+            }
+            
+            if (coupon != null) snapshotAd['coupons'] = coupon;
+            enrichedAds.add(snapshotAd);
+            continue;
+          }
+          
+          // ✅ P0: 没有快照，使用改进的降级显示
+          final fallbackAd = Map<String, dynamic>.from(adMap);
+          fallbackAd['listings'] = {
+            'id': listingId,
+            'title': 'Loading product...',  // 更积极的文案
+            'city': adMap['city'] ?? 'Unknown',
+            'category': adMap['category'] ?? category, // 使用RPC返回的category或目标category
+            'price': '--',                  // 更简洁的占位符
+            'images': [],                   // 空数组，前端显示默认占位图
+            'image_urls': [],
+            'is_fallback': true,            // 标记为降级数据，便于前端特殊处理
+          };
+          
+          // 分类过滤（降级数据使用预设category）
+          final listingCategory = fallbackAd['listings']['category']?.toString();
           if (listingCategory == null || listingCategory != category) continue;
-
+          
           // 城市过滤
           if (city != null && city.isNotEmpty) {
-            final listingCity = listingsMap['city']?.toString();
+            final listingCity = fallbackAd['listings']['city']?.toString();
             if (listingCity == null || listingCity != city) continue;
           }
-
-          filteredAds.add(adMap);
-        } catch (e) {
-          _debugPrint('处理分类置顶广告错误: $e');
+          
+          if (coupon != null) fallbackAd['coupons'] = coupon;
+          enrichedAds.add(fallbackAd);
+          
+          // ✅ 后台异步重试（不阻塞当前请求）
+          if (listingId != null && listingId.isNotEmpty) {
+            Future.microtask(() async {
+              try {
+                final lateListing = await _fetchListingWithRetry(listingId);
+                if (lateListing != null) {
+                  _debugPrint('分类页后台重试成功: $listingId (已降级显示)');
+                  // 注意：由于数据已返回，无法更新本次响应
+                  // 但下次请求（30秒缓存过期后）会获取正确数据
+                }
+              } catch (e) {
+                // 忽略后台重试错误
+              }
+            });
+          }
+          
           continue;
         }
+        
+        // ✅ 正常情况：listing查询成功
+        // 二次分类过滤（RPC 已过滤，这里做安全校验）
+        final listingCategory = listing?['category']?.toString();
+        if (listingCategory == null || listingCategory != category) continue;
+        
+        // 城市过滤
+        if (city != null && city.isNotEmpty) {
+          final listingCity = listing?['city']?.toString();
+          if (listingCity == null || listingCity != city) continue;
+        }
+        
+        // 构建完整数据
+        final enrichedAd = Map<String, dynamic>.from(adMap);
+        if (listing != null) enrichedAd['listings'] = listing;
+        if (coupon != null) enrichedAd['coupons'] = coupon;
+        
+        enrichedAds.add(enrichedAd);
       }
-
-      _debugPrint('成功获取 ${filteredAds.length} 个分类 $category 的置顶广告');
-      return filteredAds;
+      
+      _debugPrint('成功获取 ${enrichedAds.length} 个分类 $category 的置顶广告（数据库随机抽取$effectiveLimit个）');
+      return enrichedAds;
     } catch (e) {
       _debugPrint('获取分类置顶广告失败: $e');
       return [];

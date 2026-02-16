@@ -10,13 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:carousel_slider/carousel_slider.dart'; // v1.0.1: 轮播组件
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/listing_api.dart';
 import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/widgets/pinned_ad_card.dart';
 import 'package:swaply/router/safe_navigator.dart';
-import 'package:swaply/core/qa_keys.dart'; // QaKeys
 import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
 class CategoryProductsPage extends StatefulWidget {
@@ -45,7 +43,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
 
   // Facebook亮蓝色配色方案
   static const Color _primaryBlue = Color(0xFF1877F2); // Facebook亮蓝色
-  static const Color _lightBlue = Color(0xFFE3F2FD);
   static const Color _successGreen = Color(0xFF4CAF50);
 
   final List<String> _locations = const [
@@ -1005,32 +1002,35 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
     // 显示20个随机置顶商品（10行×2列）
     final displayAds = _pinnedAds.take(20).toList(); // 最多显示20个
     
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 一行两个
-        childAspectRatio: 0.66, // 与普通商品卡片完全一致
-        crossAxisSpacing: 8.w, // 横向间距
-        mainAxisSpacing: 8.h, // 纵向间距
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final pinnedAd = displayAds[index];
-          final listing = pinnedAd['listings'] as Map<String, dynamic>;
-          
-          return PinnedAdCard(
-            listingData: listing,
-            pinnedData: pinnedAd,
-            onTap: () => _openDetail({
-              'id': listing['id'],
-              'title': listing['title'],
-              'price': _formatPrice(listing['price']),
-              'location': listing['city'],
-              'images': listing['images'],
-              'full': listing,
-            }),
-          );
-        },
-        childCount: displayAds.length,
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, // 一行两个
+          childAspectRatio: 0.66, // 与普通商品卡片完全一致
+          crossAxisSpacing: 8.w, // 横向间距
+          mainAxisSpacing: 8.h, // 纵向间距
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final pinnedAd = displayAds[index];
+            final listing = pinnedAd['listings'] as Map<String, dynamic>;
+            
+            return PinnedAdCard(
+              listingData: listing,
+              pinnedData: pinnedAd,
+              onTap: () => _openDetail({
+                'id': listing['id'],
+                'title': listing['title'],
+                'price': _formatPrice(listing['price']),
+                'location': listing['city'],
+                'images': listing['images'],
+                'full': listing,
+              }),
+            );
+          },
+          childCount: displayAds.length,
+        ),
       ),
     );
   }
@@ -1213,8 +1213,6 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         cacheKey: SupabaseImageConfig.getThumbnailUrl(src),
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        memCacheWidth: 600, // ✅ 性能优化：限制内存缓存大小
-        memCacheHeight: 600,
         placeholder: (context, url) => Container(
           color: Colors.grey[200],
           child: Center(

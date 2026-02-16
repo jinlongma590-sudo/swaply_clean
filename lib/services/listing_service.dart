@@ -11,6 +11,7 @@
 //   import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/listing_api.dart';
 
@@ -102,6 +103,47 @@ class ListingService {
     }..removeWhere((k, v) => v == null);
 
     return ListingApi.updateListing(id: id, fields: data);
+  }
+
+  /// 更新商品状态（专门用于标记已售出/重新上架）
+  static Future<void> updateListingStatus({
+    required String listingId,
+    required String newStatus,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print('[updateListingStatus] Starting update for listing $listingId to status $newStatus');
+        print('[updateListingStatus] Current auth user: ${_sb.auth.currentUser?.id}');
+      }
+      
+      final response = await _sb
+          .from('listings')
+          .update({
+            'status': newStatus,
+            'updated_at': DateTime.now().toUtc().toIso8601String()
+          })
+          .eq('id', listingId)
+          .select() // <--- 关键：请求返回更新后的数据
+          .maybeSingle(); // 获取单条记录
+
+      if (response == null) {
+        final errorMsg = 'Permission denied or item not found (Update count: 0)';
+        if (kDebugMode) {
+          print('[updateListingStatus] ERROR: $errorMsg');
+        }
+        throw Exception(errorMsg);
+      }
+      
+      if (kDebugMode) {
+        print('[updateListingStatus] SUCCESS: Updated listing $listingId to $newStatus');
+        print('[updateListingStatus] Response: $response');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('[updateListingStatus] EXCEPTION: $e');
+      }
+      rethrow;
+    }
   }
 
   /// 删除 listing，尽量把存储里的对象也删掉（容错）

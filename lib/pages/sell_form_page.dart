@@ -736,7 +736,29 @@ class _SellFormPageState extends State<SellFormPage>
           },
         );
         listingId = editingId;
-        _toast('Listing updated successfully!');
+        
+        // ✅ 编辑模式也支持使用优惠券置顶
+        bool couponApplied = false;
+        if (_selectedCoupon != null && listingId.isNotEmpty) {
+          try {
+            await _useCouponForPinning(listingId);
+            couponApplied = true;
+          } catch (e, st) {
+            // 这里吞掉异常：编辑主链路继续
+            debugPrint('[SellForm] Edit mode coupon usage failed (non-blocking): $e');
+            debugPrint('$st');
+          }
+        }
+        
+        // ✅ clearer toast for edit mode
+        if (_selectedCoupon == null) {
+          _toast('Listing updated successfully!');
+        } else if (couponApplied) {
+          _toast('Listing updated (Pin applied)!');
+        } else {
+          _toast(
+              'Listing updated (Pin NOT applied — coupon may be used/expired).');
+        }
       } else {
         // 新建模式
         result = await ListingApi.insertListing(
