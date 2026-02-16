@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:swaply/router/root_nav.dart';
@@ -730,6 +731,26 @@ class _ProfilePageState extends State<ProfilePage>
                                       const AccountSettingsPage(),
                                     ),
                                   ),
+                                ),
+                                const SizedBox(height: 14),
+                                _ProfileOptionEnhanced(
+                                  icon: FontAwesomeIcons.whatsapp,
+                                  title: 'Chat with Us',
+                                  subtitle: 'Chat with us on WhatsApp',
+                                  color: Colors.teal,
+                                  onTap: () async {
+                                    const url = 'https://wa.me/263782823290?text=Hello%20Swaply%2C%20I%20need%20help%20with...';
+                                    if (await canLaunchUrl(Uri.parse(url))) {
+                                      await launchUrl(Uri.parse(url));
+                                    } else {
+                                      // 如果无法打开，显示错误
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Could not open WhatsApp'),
+                                        ),
+                                      );
+                                    }
+                                  },
                                 ),
                                 const SizedBox(height: 14),
 

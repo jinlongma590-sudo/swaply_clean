@@ -161,6 +161,8 @@ async function sendFCM(
     message.android = {
       priority: "HIGH",
       notification: {
+        title: p.title,
+        body: p.body,
         click_action: "cc.swaply.app.action.TRAMPOLINE_CLICK",
         icon: "@mipmap/ic_launcher",
       },
@@ -253,8 +255,20 @@ async function claimDelivery(
   if (!notificationId) return { mode: "disabled" as const, claimed: true, skipped: false, reason: "no_message_id" };
 
   // 如果你表里 notification_id 是 uuid，而你传的是非 uuid，会直接 22P02
-  if (!UUID_RE.test(notificationId)) {
-    return { mode: "disabled" as const, claimed: true, skipped: false, reason: "message_id_not_uuid" };
+  // 临时放宽检查以支持组合ID格式（如 "670-2"），实际插入可能因类型不匹配失败
+  // if (!UUID_RE.test(notificationId)) {
+  //   return { mode: "disabled" as const, claimed: true, skipped: false, reason: "message_id_not_uuid" };
+  // }
+
+  // 尝试解析组合ID（如 "670-2"）为数字部分
+  let normalizedId = notificationId;
+  const dashIndex = notificationId.indexOf('-');
+  if (dashIndex > 0) {
+    const numPart = notificationId.substring(0, dashIndex);
+    if (/^\d+$/.test(numPart)) {
+      normalizedId = numPart;
+      console.log(`Normalized notification ID: "${notificationId}" -> ${normalizedId}`);
+    }
   }
 
   const nowIso = new Date().toISOString();
@@ -263,7 +277,7 @@ async function claimDelivery(
   const ins = await supabase
     .from("notification_push_deliveries")
     .insert({
-      notification_id: notificationId,
+      notification_id: normalizedId,
       token_id: tokenId,
       status: "sending",
       sent_at: nowIso,
@@ -290,7 +304,7 @@ async function claimDelivery(
       const cur = await supabase
         .from("notification_push_deliveries")
         .select("status,sent_at")
-        .eq("notification_id", notificationId)
+        .eq("notification_id", normalizedId)
         .eq("token_id", tokenId)
         .maybeSingle();
 
@@ -306,7 +320,7 @@ async function claimDelivery(
       const takeover = await supabase
         .from("notification_push_deliveries")
         .update({ status: "sending", sent_at: nowIso })
-        .eq("notification_id", notificationId)
+        .eq("notification_id", normalizedId)
         .eq("token_id", tokenId)
         .eq("status", "sending")
         .lt("sent_at", expiredIso)
@@ -336,7 +350,19 @@ async function finishDelivery(
   ok: boolean,
   errorText: string | null,
 ) {
-  if (!notificationId || !UUID_RE.test(notificationId)) return;
+  if (!notificationId) return; // 临时移除UUID检查以支持组合ID格式（如 "670-2"）
+  
+  // 使用相同的规范化逻辑（与claimDelivery一致）
+  let normalizedId = notificationId;
+  const dashIndex = notificationId.indexOf('-');
+  if (dashIndex > 0) {
+    const numPart = notificationId.substring(0, dashIndex);
+    if (/^\d+$/.test(numPart)) {
+      normalizedId = numPart;
+      console.log(`[finishDelivery] Normalized notification ID: "${notificationId}" -> ${normalizedId}`);
+    }
+  }
+
   await supabase
     .from("notification_push_deliveries")
     .update({
@@ -344,7 +370,7 @@ async function finishDelivery(
       error_message: ok ? null : (errorText ?? "").slice(0, 500),
       sent_at: new Date().toISOString(),
     })
-    .eq("notification_id", notificationId)
+    .eq("notification_id", normalizedId)
     .eq("token_id", tokenId);
 }
 

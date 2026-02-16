@@ -1,7 +1,7 @@
 name: swaply
 description: A marketplace app for Zimbabwe
 publish_to: 'none'
-version: 1.0.2+9
+version: 1.0.2+10
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -40,6 +40,7 @@ dependencies:
   share_plus:
   http:
   package_info_plus:
+  font_awesome_flutter: ^10.5.0
 
   # Supabase / OAuth（固定 2.x）
   supabase_flutter: ^2.10.3
