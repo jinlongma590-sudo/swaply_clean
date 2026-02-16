@@ -21,6 +21,7 @@ import 'package:swaply/services/listing_events_bus.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:carousel_slider/carousel_slider.dart'; // v1.0.1: 轮播组件
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
 import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
 
@@ -38,7 +39,7 @@ class _HomePageState extends State<HomePage>
   @override
   bool get wantKeepAlive => true;
 
-  static const int _featuredAdsLimit = 10;
+  static const int _featuredAdsLimit = 20; // v1.0.1: 改为20，实现无限池轮播
   static const int _popularItemsLimit = 100;
   static const int _minFeaturedPlaceholder = 2;
 
@@ -140,6 +141,18 @@ class _HomePageState extends State<HomePage>
         AppUpdateService.checkForUpdates(context);
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // 当应用从暂停或非活动状态恢复时，刷新置顶广告数据
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 [TabSwitch] 应用恢复，静默刷新置顶广告数据');
+      // 静默刷新，不显示加载状态
+      _loadTrending(bypassCache: true, showLoading: false);
+    }
   }
 
   @override
@@ -606,14 +619,10 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                 ),
-                SliverPadding(
-                  key: const ValueKey('featured_ads_grid'),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  sliver: _buildHybridGrid(
-                    items: pinnedItems,
-                    isPinned: true,
-                    isLoading: _isFirstLoad,
-                  ),
+                // v1.0.1: 将Featured Ads网格替换为垂直网格广告墙（SliverGrid）
+                _buildFeaturedCarousel(
+                  items: pinnedItems,
+                  isLoading: _isFirstLoad,
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -787,6 +796,94 @@ class _HomePageState extends State<HomePage>
           );
         },
         childCount: items.length,
+      ),
+    );
+  }
+
+  // v1.0.1: Featured Ads轮播组件
+  /// 构建Featured Ads的SliverGrid（垂直网格广告墙）
+  /// 返回Sliver（SliverGrid或SliverToBoxAdapter）
+  Widget _buildFeaturedCarousel({
+    required List<Map<String, dynamic>> items,
+    required bool isLoading,
+  }) {
+    if (isLoading) {
+      // 加载状态显示骨架屏 - 使用SliverToBoxAdapter
+      return SliverToBoxAdapter(
+        child: Container(
+          height: 220.h,
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          child: Row(
+            children: List.generate(3, (index) => Expanded(
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: 4.w),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+            )),
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      // 空状态 - 使用SliverToBoxAdapter
+      return SliverToBoxAdapter(
+        child: Container(
+          height: 180.h,
+          margin: EdgeInsets.symmetric(horizontal: 12.w),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.stars, size: 36.sp, color: Colors.grey[400]),
+                SizedBox(height: 8.h),
+                Text(
+                  'No featured ads yet',
+                  style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'Be the first to feature your ad!',
+                  style: TextStyle(fontSize: 10.sp, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 垂直网格广告墙 - 使用SliverGrid
+    // 显示20个随机置顶商品（10行×2列）
+    final displayItems = items.take(20).toList(); // 最多显示20个
+    
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, // 一行两个
+        childAspectRatio: 0.66, // 与普通商品卡片完全一致
+        crossAxisSpacing: 8.w, // 横向间距
+        mainAxisSpacing: 8.h, // 纵向间距
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final item = displayItems[index];
+          return _buildPremiumCard(item);
+        },
+        childCount: displayItems.length,
       ),
     );
   }

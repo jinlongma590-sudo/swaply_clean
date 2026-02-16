@@ -484,22 +484,23 @@ class CouponService {
           .gt('expires_at', nowIso);
 
       final usedCount = (rows as List).length;
-      const maxTrendingSlots = 20;
+      // v1.0.1: 移除容量限制，允许无限写入
+      const maxTrendingSlots = 10000; // 象征性的大数字，表示无限
 
       return {
         'used_count': usedCount,
         'max_count': maxTrendingSlots,
-        'available': usedCount < maxTrendingSlots,
-        'remaining': (maxTrendingSlots - usedCount).clamp(0, maxTrendingSlots),
+        'available': true, // 总是可用
+        'remaining': 10000, // 象征性的大数字
         'success': true,
       };
     } catch (e) {
       _debugPrint('获取 trending 配额状态失败: $e');
       return {
         'used_count': 0,
-        'max_count': 20,
+        'max_count': 10000,
         'available': true,
-        'remaining': 20,
+        'remaining': 10000,
         'success': false,
         'error': e.toString(),
       };
@@ -830,6 +831,7 @@ class CouponService {
 
     final future = () async {
       try {
+        // v1.0.1: 改为 ORDER BY RANDOM() LIMIT 20 实现无限池轮播
         final queryBuilder = _client
             .from('pinned_ads')
             .select('''
@@ -857,7 +859,8 @@ class CouponService {
             .eq('status', 'active')
             .eq('pinning_type', 'trending')
             .gt('expires_at', DateTime.now().toIso8601String())
-            .limit(250); // ✅ 安全上限，避免全表扫描
+            .order('random()')  // 数据库随机排序
+            .limit(effectiveLimit); // 直接限制为需要的数量
 
         final response = await queryBuilder;
         final ads = response;
@@ -884,14 +887,12 @@ class CouponService {
           }
         }
 
-        // 随机洗牌
-        filteredAds.shuffle();
-        // 截取需要的数量
+        // 不再需要随机洗牌，数据库已经随机排序
         final finalList = filteredAds.take(effectiveLimit).toList();
 
         if (kDebugMode && _kLogCacheHit) {
           debugPrint(
-              '[CouponService] 成功获取 ${finalList.length} 个首页热门置顶广告（最多$effectiveLimit个）');
+              '[CouponService] 成功获取 ${finalList.length} 个首页热门置顶广告（随机抽取$effectiveLimit个）');
         }
         return finalList;
       } catch (e) {
@@ -920,7 +921,7 @@ class CouponService {
   static Future<List<Map<String, dynamic>>> getCategoryPinnedAds({
     required String category,
     String? city,
-    int? limit = 5,
+    int? limit = 20, // v1.0.1: 默认改为20，实现无限池轮播
   }) async {
     try {
       _debugPrint('获取分类置顶广告: category=$category, city=$city, limit=$limit');
@@ -951,12 +952,10 @@ class CouponService {
           ''')
           .eq('status', 'active')
           .eq('pinning_type', 'category')
+          .eq('category', category) // v1.0.1: 添加分类过滤
           .gt('expires_at', DateTime.now().toIso8601String())
-          .order('created_at', ascending: false);
-
-      if (limit != null && limit > 0) {
-        queryBuilder.limit(limit);
-      }
+          .order('random()') // v1.0.1: 改为随机排序
+          .limit(limit ?? 20); // 直接限制
 
       final response = await queryBuilder;
       final ads = response;
@@ -1035,34 +1034,10 @@ class CouponService {
 
       final pinningType = _getPinningTypeFromCouponType(couponType);
 
-      if (pinningType == 'trending') {
-        final quotaStatus = await getTrendingQuotaStatus();
-        if (!(quotaStatus['available'] as bool? ?? false)) {
-          return {
-            'eligible': false,
-            'reason': 'Trending pin quota reached (20/20)',
-            'quota_status': quotaStatus,
-          };
-        }
-      }
-
-      if (pinningType == 'category') {
-        // 这里保守仅限制全站 category pin 的总量（若需按分类限额，可在 DB 端加字段/索引）
-        final categoryPins = await _client
-            .from('pinned_ads')
-            .select('id')
-            .eq('pinning_type', 'category')
-            .eq('status', 'active');
-
-        final categoryPinsList = categoryPins;
-        if (categoryPinsList.length >= 50) {
-          return {
-            'eligible': false,
-            'reason': 'Category pin limit reached',
-            'current_count': categoryPinsList.length,
-          };
-        }
-      }
+      // v1.0.1: 移除容量限制，允许无限写入
+      // trending 和 category 都不再检查配额
+      // if (pinningType == 'trending') { ... }
+      // if (pinningType == 'category') { ... }
 
       if (pinningType == 'boost') {
         return {

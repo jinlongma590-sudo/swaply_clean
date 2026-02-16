@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:carousel_slider/carousel_slider.dart'; // v1.0.1: 轮播组件
 import 'package:swaply/pages/product_detail_page.dart';
 import 'package:swaply/listing_api.dart';
 import 'package:swaply/services/coupon_service.dart';
@@ -33,7 +34,7 @@ class CategoryProductsPage extends StatefulWidget {
 }
 
 class _CategoryProductsPageState extends State<CategoryProductsPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   String _selectedSort = 'newest';
   String _selectedLocation = 'All Zimbabwe';
 
@@ -81,6 +82,8 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -122,7 +125,20 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // 当应用从暂停或非活动状态恢复时，刷新置顶广告数据
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 [CategoryTabSwitch] 应用恢复，静默刷新置顶广告数据');
+      // 静默刷新，不显示加载状态
+      _loadPinnedAds();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
     _slideController.dispose();
     _fadeController.dispose();
@@ -193,7 +209,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
       final pinnedAds = await CouponService.getCategoryPinnedAds(
         category: categoryDb,
         city: city,
-        limit: 6,
+        limit: 20, // v1.0.1: 改为20，实现无限池轮播
       );
 
       setState(() => _pinnedAds = pinnedAds);
@@ -773,9 +789,60 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
         child: CustomScrollView(
           controller: _scroll,
           slivers: [
-            // 特色广告区域
-            if (_pinnedAds.isNotEmpty || _loadingPinned)
-              SliverToBoxAdapter(child: _buildFeaturedSection()),
+            // 特色广告区域 - 垂直网格广告墙
+            if (_pinnedAds.isNotEmpty || _loadingPinned) ...[
+              // 标题
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 6.h),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(4.w),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[100],
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Icon(Icons.star, color: Colors.orange[600], size: 14.sp),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'Featured Ads',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      SizedBox(width: 4.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[600],
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Text(
+                          'PREMIUM',
+                          style: TextStyle(
+                            fontSize: 6.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 内容 - 根据状态显示SliverGrid或加载状态
+              if (_loadingPinned)
+                SliverToBoxAdapter(child: _buildPinnedAdsLoading())
+              else if (_pinnedAds.isEmpty)
+                SliverToBoxAdapter(child: const SizedBox.shrink())
+              else
+                _buildPinnedAdsSliver(),
+            ],
 
             // 常规广告区域
             if (_items.isNotEmpty)
@@ -887,22 +954,30 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
   }
 
   Widget _buildPinnedAdsGrid() {
+    if (_pinnedAds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // 改为和普通商品卡片一致的网格布局（一行两个，不横向滑动）
+    // 显示20个随机置顶商品（10行×2列）
+    final displayAds = _pinnedAds.take(20).toList(); // 最多显示20个
+    
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
       child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(), // 禁止滚动
         shrinkWrap: true,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.66,
-          crossAxisSpacing: 8.w,
-          mainAxisSpacing: 8.h,
+          crossAxisCount: 2, // 一行两个
+          childAspectRatio: 0.66, // 与普通商品卡片完全一致
+          crossAxisSpacing: 8.w, // 横向间距
+          mainAxisSpacing: 8.h, // 纵向间距
         ),
-        itemCount: _pinnedAds.length,
+        itemCount: displayAds.length,
         itemBuilder: (context, index) {
-          final pinnedAd = _pinnedAds[index];
+          final pinnedAd = displayAds[index];
           final listing = pinnedAd['listings'] as Map<String, dynamic>;
-
+          
           return PinnedAdCard(
             listingData: listing,
             pinnedData: pinnedAd,
@@ -916,6 +991,46 @@ class _CategoryProductsPageState extends State<CategoryProductsPage>
             }),
           );
         },
+      ),
+    );
+  }
+
+  /// 构建置顶广告的SliverGrid（垂直网格广告墙）
+  /// 返回SliverGrid，用于直接插入CustomScrollView
+  Widget _buildPinnedAdsSliver() {
+    if (_pinnedAds.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    
+    // 显示20个随机置顶商品（10行×2列）
+    final displayAds = _pinnedAds.take(20).toList(); // 最多显示20个
+    
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, // 一行两个
+        childAspectRatio: 0.66, // 与普通商品卡片完全一致
+        crossAxisSpacing: 8.w, // 横向间距
+        mainAxisSpacing: 8.h, // 纵向间距
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final pinnedAd = displayAds[index];
+          final listing = pinnedAd['listings'] as Map<String, dynamic>;
+          
+          return PinnedAdCard(
+            listingData: listing,
+            pinnedData: pinnedAd,
+            onTap: () => _openDetail({
+              'id': listing['id'],
+              'title': listing['title'],
+              'price': _formatPrice(listing['price']),
+              'location': listing['city'],
+              'images': listing['images'],
+              'full': listing,
+            }),
+          );
+        },
+        childCount: displayAds.length,
       ),
     );
   }

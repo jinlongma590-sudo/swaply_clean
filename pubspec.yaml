@@ -1,7 +1,7 @@
 name: swaply
 description: A marketplace app for Zimbabwe
 publish_to: 'none'
-version: 1.0.2+6
+version: 1.0.2+7
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -55,6 +55,7 @@ dependencies:
   rxdart: ^0.27.7
   cupertino_icons:
   cached_network_image: ^3.4.1
+  carousel_slider: ^4.2.1  # v1.0.1: 首页和分类页轮播
   webview_flutter: ^4.7.0
 
   flutter_native_splash: ^2.4.1
