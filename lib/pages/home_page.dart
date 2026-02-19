@@ -17,6 +17,8 @@ import 'package:swaply/services/coupon_service.dart';
 import 'package:swaply/services/app_update_service.dart';
 import 'package:swaply/listing_api.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:swaply/services/listing_events_bus.dart';
 import 'package:swaply/router/safe_navigator.dart';
 import 'package:shimmer/shimmer.dart';
@@ -39,7 +41,7 @@ class _HomePageState extends State<HomePage>
   bool get wantKeepAlive => true;
 
   static const int _featuredAdsLimit = 20; // v1.0.1: 改为20，实现无限池轮播
-  static const int _popularItemsLimit = 100;
+  static const int _popularItemsLimit = 12;
   static const int _minFeaturedPlaceholder = 2;
 
   final ScrollController _scrollController = ScrollController();
@@ -50,6 +52,9 @@ class _HomePageState extends State<HomePage>
   List<Map<String, dynamic>> _trendingRemote = [];
   bool _isFirstLoad = true;
   bool _isBackgroundRefreshing = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _latestOffset = 0;
   StreamSubscription? _listingPubSub;
 
   static const Color _primaryBlue = Color(0xFF1877F2);
@@ -59,6 +64,10 @@ class _HomePageState extends State<HomePage>
   static DateTime? _cacheTime;
   static String? _cachedLocation;
   static const _cacheDuration = Duration(minutes: 2);
+  
+  // 离线缓存键
+  static const String _cacheKeyHomeItems = 'cache_home_items';
+  static const String _cacheKeyMyListings = 'cache_my_listings';
 
   static const List<String> _locations = [
     'All Zimbabwe',
@@ -126,6 +135,14 @@ class _HomePageState extends State<HomePage>
     WidgetsBinding.instance.addObserver(this);
 
     _loadTrending(showLoading: true);
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= 
+          _scrollController.position.maxScrollExtent * 0.8 && 
+          !_isLoadingMore && _hasMore) {
+        _loadMoreTrending();
+      }
+    });
 
     _listingPubSub = ListingEventsBus.instance.stream.listen((e) {
       if (e is ListingPublishedEvent) {
@@ -265,6 +282,31 @@ class _HomePageState extends State<HomePage>
       {bool bypassCache = false, bool showLoading = true}) async {
     final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
     final cacheKey = city ?? 'All Zimbabwe';
+    
+    // ✅ 离线缓存：先从本地存储读取数据，立即渲染，避免白屏
+    if (!bypassCache && _trendingRemote.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString(_cacheKeyHomeItems);
+        if (cachedJson != null && cachedJson.isNotEmpty) {
+          final cachedData = jsonDecode(cachedJson) as List;
+          if (cachedData is List<dynamic>) {
+            final cachedItems = cachedData.cast<Map<String, dynamic>>().toList();
+            if (cachedItems.isNotEmpty && mounted) {
+              debugPrint('✅ [离线缓存] 从本地存储加载 ${cachedItems.length} 条数据');
+              setState(() {
+                _trendingRemote = cachedItems;
+                _isFirstLoad = false;
+              });
+              // 继续执行网络请求，静默更新
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('❌ [离线缓存] 读取失败: $e');
+        // 忽略错误，继续网络请求
+      }
+    }
 
     if (!bypassCache &&
         _cachedTrending != null &&
@@ -313,12 +355,24 @@ class _HomePageState extends State<HomePage>
           _trendingRemote = rows;
           _isFirstLoad = false;
           _isBackgroundRefreshing = false;
+          _latestOffset = _popularItemsLimit; // 初始加载后，下一批从第12条开始
+          _hasMore = rows.length >= _popularItemsLimit; // 如果返回数量不足，可能没有更多数据
         });
 
         _cachedTrending = rows;
         _cacheTime = DateTime.now();
         _cachedLocation = cacheKey;
         debugPrint('✅ [Cache] 缓存已更新 (${rows.length}条)');
+        
+        // ✅ 离线缓存：保存到本地存储
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final jsonData = jsonEncode(rows);
+          await prefs.setString(_cacheKeyHomeItems, jsonData);
+          debugPrint('✅ [离线缓存] 已保存 ${rows.length} 条数据到本地存储');
+        } catch (e) {
+          debugPrint('❌ [离线缓存] 保存失败: $e');
+        }
       }
     } catch (e) {
       debugPrint('❌ [Error] 加载数据失败: $e');
@@ -327,6 +381,65 @@ class _HomePageState extends State<HomePage>
           _isFirstLoad = false;
           _isBackgroundRefreshing = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadMoreTrending() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() => _isLoadingMore = true);
+    
+    try {
+      final city = _selectedLocation == 'All Zimbabwe' ? null : _selectedLocation;
+      final moreListings = await ListingApi.fetchListings(
+        city: city,
+        limit: _popularItemsLimit,
+        offset: _latestOffset,
+        orderBy: 'created_at',
+        ascending: false,
+        status: 'active',
+        forceNetwork: true,
+      ).timeout(const Duration(seconds: 10));
+      
+      if (moreListings.isEmpty) {
+        setState(() => _hasMore = false);
+      } else {
+        // 过滤掉已经显示的商品（避免重复）
+        final existingIds = Set<String>.from(_trendingRemote.map((item) => item['id'].toString()));
+        final newItems = <Map<String, dynamic>>[];
+        
+        for (final listing in moreListings) {
+          final id = listing['id']?.toString();
+          if (id == null || existingIds.contains(id)) continue;
+          
+          final imgs = (listing['images'] as List?) ?? (listing['image_urls'] as List?) ?? const [];
+          newItems.add({
+            'id': listing['id'],
+            'title': listing['title'],
+            'price': listing['price'],
+            'images': imgs,
+            'city': listing['city'],
+            'created_at': listing['created_at'],
+            'pinned': false,
+          });
+        }
+        
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _trendingRemote.addAll(newItems);
+            _latestOffset += moreListings.length;
+          });
+        } else {
+          // 如果没有新商品，可能是重复数据，仍然增加offset避免死循环
+          _latestOffset += _popularItemsLimit;
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [Error] 加载更多商品失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
       }
     }
   }
@@ -375,10 +488,13 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _navigateToProductDetail(String productId) {
+  void _navigateToProductDetail(Map<String, dynamic> product) {
     SafeNavigator.push(
       MaterialPageRoute(
-          builder: (_) => ProductDetailPage(productId: productId)),
+          builder: (_) => ProductDetailPage(
+                productId: product['id']?.toString(),
+                productData: product,
+              )),
     );
   }
 
@@ -1337,7 +1453,7 @@ class _HomePageState extends State<HomePage>
     final img = images.isNotEmpty ? images.first.toString() : null;
     final priceText = _formatPrice(r['price']);
     return GestureDetector(
-      onTap: () => _navigateToProductDetail(r['id'].toString()),
+      onTap: () => _navigateToProductDetail(r),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1457,7 +1573,7 @@ class _HomePageState extends State<HomePage>
     final img = images.isNotEmpty ? images.first.toString() : null;
     final priceText = _formatPrice(r['price']);
     return GestureDetector(
-      onTap: () => _navigateToProductDetail(r['id'].toString()),
+      onTap: () => _navigateToProductDetail(r),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1588,8 +1704,6 @@ class _HomePageState extends State<HomePage>
         height: double.infinity,
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        maxHeightDiskCache: 400,
-        maxWidthDiskCache: 400,
         fadeInDuration: const Duration(milliseconds: 200),
         placeholder: (context, url) => Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
@@ -1646,6 +1760,7 @@ class _SearchInputPage extends StatefulWidget {
 class _SearchInputPageState extends State<_SearchInputPage> {
   late TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
+  Timer? _searchDebounce;
   static const Color _primaryBlue = Color(0xFF1877F2);
 
   @override
@@ -1668,9 +1783,23 @@ class _SearchInputPageState extends State<_SearchInputPage> {
   @override
   void dispose() {
     debugPrint('[SearchInputPage] Disposing...');
+    _searchDebounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchInputChanged(String query) {
+    // 每次输入都取消上一次的定时器
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    
+    // 设定 500ms 的延迟
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (query.trim().isNotEmpty) {
+        debugPrint('[SearchInputPage] 🔍 防抖触发搜索: "$query"');
+        _handleSearch();
+      }
+    });
   }
 
   void _handleSearch() {

@@ -41,6 +41,7 @@ import 'package:swaply/rewards/reward_bottom_sheet.dart';
 import 'package:swaply/services/reward_after_publish.dart';
 import 'package:swaply/core/qa_keys.dart'; // QaKeys
 import 'package:swaply/utils/image_utils.dart'; // 图片优化工具
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
@@ -306,7 +307,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       final imageUrl = productImages[i];
       if (imageUrl.startsWith('http')) {
         precacheImage(
-          NetworkImage(imageUrl),
+          NetworkImage(SupabaseImageConfig.getDetailUrl(imageUrl)),
           context,
           onError: (exception, stackTrace) {
             if (kDebugMode) {
@@ -335,7 +336,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
       final imageUrl = productImages[index];
       if (imageUrl.startsWith('http')) {
-        precacheImage(NetworkImage(imageUrl), context);
+        precacheImage(NetworkImage(SupabaseImageConfig.getDetailUrl(imageUrl)), context);
         _precachedIndices.add(index);
 
         if (kDebugMode) {
@@ -2238,35 +2239,31 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               child: HeroMode(
                 enabled: false,
                 child: imageUrl.startsWith('http')
-                    ? Image.network(
-                        SupabaseImageConfig.getDetailUrl(imageUrl),
+                    ? CachedNetworkImage(
+                        imageUrl: SupabaseImageConfig.getDetailUrl(imageUrl),
+                        cacheKey: SupabaseImageConfig.getDetailUrl(imageUrl),
                         fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        cacheWidth: (MediaQuery.of(context).size.width *
-                                MediaQuery.of(context).devicePixelRatio)
-                            .round(),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: Colors.grey[100],
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes !=
-                                        null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                                strokeWidth: 2,
-                                color: _primaryBlue,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => Container(
+                        memCacheWidth: 1080,
+                        placeholder: (context, url) => Container(
                           color: Colors.grey[100],
                           child: Center(
-                            child: Icon(Icons.broken_image,
-                                size: 40.sp, color: Colors.grey[400]),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _primaryBlue,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey[300],
+                          height: 250,
+                          width: double.infinity,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                              SizedBox(height: 8),
+                              Text('Offline: Image not cached', style: TextStyle(color: Colors.black54)),
+                            ],
                           ),
                         ),
                       )
@@ -2586,31 +2583,24 @@ class _SafeImageViewerState extends State<_SafeImageViewer> {
                   maxScale: 4.0,
                   child: Center(
                     child: isNet
-                        ? Image.network(
-                            SupabaseImageConfig.getDetailUrl(url),
+                        ? CachedNetworkImage(
+                            imageUrl: SupabaseImageConfig.getDetailUrl(url),
+                            cacheKey: SupabaseImageConfig.getDetailUrl(url),
                             fit: BoxFit.contain,
-                            gaplessPlayback: true,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  color: Colors.white,
-                                ),
-                              );
-                            },
-                            errorBuilder: (_, __, ___) => const Center(
+                            memCacheWidth: 1080,
+                            placeholder: (context, url) => Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.broken_image,
+                                  Icon(Icons.wifi_off,
                                       color: Colors.white54, size: 48),
                                   SizedBox(height: 8),
-                                  Text('Failed to load image',
+                                  Text('Offline: Image not cached',
                                       style: TextStyle(color: Colors.white54)),
                                 ],
                               ),

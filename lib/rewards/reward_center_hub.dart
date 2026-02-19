@@ -620,7 +620,7 @@ class _RewardCenterHubState extends State<RewardCenterHub>
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1272,6 +1272,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                     color: kDarkGreen,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -1299,7 +1301,7 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                       color: Colors.red[800],
                     ),
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                    maxLines: 2,
                   ),
                 ),
               ],
@@ -1362,8 +1364,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                         return FortuneItem(
                           child: Center(
                             child: Padding(
-                              // ✅ 不要太大的 top padding，会挤压 slice 的可用高度
-                              padding: EdgeInsets.only(top: 18.r, bottom: 6.r),
+                              // ✅ 增加 top padding 让文字更靠外，避免被中心按钮遮挡
+                              padding: EdgeInsets.only(top: 26.r, bottom: 4.r),
                               child: FittedBox(
                                 fit: BoxFit.scaleDown, // ✅ 关键：超出就缩小，不再 overflow
                                 child: Column(
@@ -1429,8 +1431,8 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                   GestureDetector(
                     onTap: _isSpinning ? null : _spinLogic,
                     child: Container(
-                      width: 85.r,
-                      height: 85.r,
+                      width: 78.r,
+                      height: 78.r,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
@@ -1482,7 +1484,7 @@ class _SpinSheetState extends State<_SpinSheet> with TickerProviderStateMixin {
                             'SPIN',
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
-                              fontSize: 15.sp,
+                              fontSize: 14.sp,
                               color: Colors.white,
                               letterSpacing: 1.5,
                             ),

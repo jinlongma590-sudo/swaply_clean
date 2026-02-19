@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:swaply/services/listing_service.dart';
 import 'package:swaply/services/offer_service.dart';
 import 'package:swaply/services/notification_service.dart';
@@ -62,6 +64,38 @@ class _MyListingsPageState extends State<MyListingsPage>
     _animationController.forward();
   }
 
+  // 1. 缓存读写核心逻辑
+  Future<void> _cacheMyListings(String userId, List<Map<String, dynamic>> products) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String cacheKey = 'my_listings_$userId';
+    final String jsonString = jsonEncode(products);
+    await prefs.setString(cacheKey, jsonString);
+    if (kDebugMode) {
+      print('[MyListings Cache] 已缓存 ${products.length} 条数据 for user: $userId');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> _getCachedMyListings(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String cacheKey = 'my_listings_$userId';
+    final String? jsonString = prefs.getString(cacheKey);
+    if (jsonString != null && jsonString.isNotEmpty) {
+      try {
+        final List<dynamic> decodedList = jsonDecode(jsonString);
+        final cachedData = decodedList.cast<Map<String, dynamic>>().toList();
+        if (kDebugMode) {
+          print('[MyListings Cache] 从缓存读取 ${cachedData.length} 条数据 for user: $userId');
+        }
+        return cachedData;
+      } catch (e) {
+        if (kDebugMode) {
+          print('[MyListings Cache] 缓存数据解析失败: $e');
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> _loadListings() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
@@ -75,44 +109,63 @@ class _MyListingsPageState extends State<MyListingsPage>
       return;
     }
 
-    try {
+    final userId = user.id;
+    
+    // 2. 页面加载业务流 - 优先从缓存读取并瞬间渲染
+    final cachedData = await _getCachedMyListings(userId);
+    if (cachedData != null && cachedData.isNotEmpty) {
       if (kDebugMode) {
-        print('[MyListings] Loading listings for user: ${user.id}');
+        print('[MyListings] 从缓存加载 ${cachedData.length} 条数据，立即渲染');
       }
-      
+      setState(() { 
+        _listings = cachedData;
+        _isLoadingListings = false;
+      });
+    } else {
       setState(() {
         _isLoadingListings = true;
         _errorMessage = null;
       });
+    }
+
+    // 后台静默请求网络更新
+    try {
+      if (kDebugMode) {
+        print('[MyListings] 后台静默请求网络更新 for user: $userId');
+      }
 
       final response = await Supabase.instance.client
           .from('listings')
           .select(
               'id, title, description, category, city, price, seller_name, phone, contact_phone, images, image_urls, created_at, views_count, status, is_active')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .neq('status', 'deleted')
           .order('created_at', ascending: false)
           .limit(100);
 
       if (mounted) {
+        final freshData = (response as List).map<Map<String, dynamic>>((item) {
+          if (item is Map<String, dynamic>) {
+            return item;
+          } else if (item is Map) {
+            return Map<String, dynamic>.from(item);
+          } else {
+            return <String, dynamic>{};
+          }
+        }).toList();
+        
         setState(() {
-          _listings = (response as List).map<Map<String, dynamic>>((item) {
-            if (item is Map<String, dynamic>) {
-              return item;
-            } else if (item is Map) {
-              return Map<String, dynamic>.from(item);
-            } else {
-              return <String, dynamic>{};
-            }
-          }).toList();
+          _listings = freshData;
           _isLoadingListings = false;
         });
 
+        // 更新缓存
+        await _cacheMyListings(userId, freshData);
+        
         if (kDebugMode) {
-          print('[MyListings] Loaded ${_listings.length} listings with view counts');
-          // 记录状态分布用于调试
+          print('[MyListings] 网络更新完成，加载 ${freshData.length} 条数据，缓存已更新');
           final statusCounts = <String, int>{};
-          for (final listing in _listings) {
+          for (final listing in freshData) {
             final status = listing['status'] ?? 'unknown';
             statusCounts[status] = (statusCounts[status] ?? 0) + 1;
           }
@@ -120,16 +173,29 @@ class _MyListingsPageState extends State<MyListingsPage>
         }
       }
     } catch (e) {
+      // 断网降级处理：保留缓存 UI，给出轻量提示
       if (kDebugMode) {
-        print('[MyListings] ERROR loading listings: $e');
-        print('[MyListings] Stack trace: ${e is Error ? (e as Error).stackTrace : "No stack trace"}');
+        print('[MyListings] 网络请求失败，使用缓存数据: $e');
       }
-
-      if (mounted) {
-        setState(() {
-          _isLoadingListings = false;
-          _errorMessage = 'Failed to load listings. Please try again.';
-        });
+      
+      if (cachedData == null || cachedData.isEmpty) {
+        // 如果没有缓存数据，显示错误信息
+        if (mounted) {
+          setState(() {
+            _isLoadingListings = false;
+            _errorMessage = 'Failed to load listings. Please check your connection.';
+          });
+        }
+      } else {
+        // 有缓存数据，显示离线模式提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Offline mode: Showing cached listings'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     }
   }

@@ -6,6 +6,8 @@
 // ✅ [关键修复] 移除 OAuth 超时限制 - OAuth 是用户交互流程，不应强制超时
 import 'package:swaply/services/oauth_entry.dart';
 import 'package:swaply/router/root_nav.dart';
+import 'package:swaply/router/safe_navigator.dart';
+import 'package:swaply/pages/web/in_app_webview_page.dart';
 
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
@@ -16,6 +18,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swaply/config/auth_config.dart';
 import 'dart:async';
 import 'dart:io'; // ✅ 用于网络错误检测
+
+const _kTermsUrl = 'https://www.swaply.cc/terms';
+const _kPrivacyUrl = 'https://www.swaply.cc/privacy';
 
 class RegisterScreen extends StatefulWidget {
   final String? invitationCode;
@@ -573,9 +578,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {
-                                // TODO: 显示服务条款
-                              },
+                              onTap: () => SafeNavigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => InAppWebViewPage(
+                                    title: 'Terms of Service',
+                                    url: _kTermsUrl,
+                                  ),
+                                ),
+                              ),
                               child: Text(
                                 'Terms of Service',
                                 style: TextStyle(
@@ -593,9 +603,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {
-                                // TODO: 显示隐私政策
-                              },
+                              onTap: () => SafeNavigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => InAppWebViewPage(
+                                    title: 'Privacy Policy',
+                                    url: _kPrivacyUrl,
+                                  ),
+                                ),
+                              ),
                               child: Text(
                                 'Privacy Policy',
                                 style: TextStyle(
