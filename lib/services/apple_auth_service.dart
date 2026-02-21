@@ -90,7 +90,7 @@ class AppleAuthService {
           // ✅ [P1 修复] 先检查是否已有 profile
           final existing = await _sb
               .from('profiles')
-              .select('id, full_name')
+              .select('id, full_name, verification_type, is_verified')
               .eq('id', user.id)
               .maybeSingle();
 
@@ -100,17 +100,35 @@ class AppleAuthService {
               'id': user.id,
               if (fullName.isNotEmpty) 'full_name': fullName,
               if (email.isNotEmpty) 'email': email,
+              'verification_type': 'verified',
+              'is_verified': true,
               'created_at': DateTime.now().toIso8601String(),
               'updated_at': DateTime.now().toIso8601String(),
             });
-            debugPrint('[AppleAuth] 新用户 profile 已创建');
+            debugPrint('[AppleAuth] 新用户 profile 已创建（自动认证已设置）');
           } else {
-            // ✅ 已有用户：只更新 email 和时间戳，不覆盖 full_name
-            await _sb.from('profiles').update({
+            // ✅ 已有用户：更新 email、时间戳和验证状态（只在当前状态为 none 时更新），不覆盖 full_name
+            final currentType = existing['verification_type'] as String?;
+            final currentVerified = existing['is_verified'] as bool?;
+            final shouldUpdate = currentType == null || currentType == 'none' || currentVerified != true;
+            
+            final updateData = <String, dynamic>{
               if (email.isNotEmpty) 'email': email,
               'updated_at': DateTime.now().toIso8601String(),
-            }).eq('id', user.id);
-            debugPrint('[AppleAuth] 已有用户 profile 已更新（保留 full_name）');
+            };
+            
+            if (shouldUpdate) {
+              updateData['verification_type'] = 'verified';
+              updateData['is_verified'] = true;
+            }
+            
+            await _sb.from('profiles').update(updateData).eq('id', user.id);
+            
+            if (shouldUpdate) {
+              debugPrint('[AppleAuth] 已有用户 profile 已更新（自动认证已设置，从 $currentType 升级）');
+            } else {
+              debugPrint('[AppleAuth] ℹ️ 用户已认证: verification_type="$currentType"，跳过自动认证');
+            }
           }
         } catch (e) {
           debugPrint('[AppleAuth] profile update error: $e');

@@ -87,7 +87,7 @@ async function verifyByOidc(accessToken: string): Promise<Identity | null> {
 
   console.log("🔄 [OIDC] Verifying as OIDC JWT (Limited Login) ...");
 
-  // Meta 的 JWKS（公钥集合）—— 用于验签（关键：必须验签，不能只 decode）
+  // Meta 的 JWKS（公钥集合）-- 用于验签（关键：必须验签，不能只 decode）
   // 注：Meta 未来可能调整 jwks 地址；如果你发现验签失败且日志提示无法获取 jwks，
   // 再进一步按 Meta 文档换地址即可。
   const jwksUrl = new URL("https://www.facebook.com/.well-known/oauth/openid/jwks/");
@@ -95,7 +95,7 @@ async function verifyByOidc(accessToken: string): Promise<Identity | null> {
 
   try {
     const { payload, protectedHeader } = await jwtVerify(accessToken, JWKS, {
-      // aud/iss 校验：不同 App 配置可能不同，先只做“存在性与基本格式”校验，
+      // aud/iss 校验：不同 App 配置可能不同，先只做"存在性与基本格式"校验，
       // 同时把 payload 打日志，方便你后续收紧。
       // 如果你知道你 App 的 Client ID，可在这里加 aud: "<FACEBOOK_APP_ID>"
       // 如果你知道 issuer 固定值，可在这里加 issuer: "https://www.facebook.com"
@@ -192,6 +192,43 @@ async function upsertIdentityAndGetUser(
       // 不致命：用户已能登录
     }
 
+    // ✅ 自动认证：只在当前状态为 none 时更新为 verified
+    const { data: currentProfile, error: fetchErr } = await adminClient
+      .from("profiles")
+      .select("verification_type, is_verified")
+      .eq("id", existing.user_id)
+      .single()
+      .catch(() => ({ data: null, error: null }));
+
+    if (fetchErr) {
+      console.warn("⚠️ [AUTH] 无法获取当前profile状态:", fetchErr.message);
+    }
+
+    // 只在当前状态为 none 或未验证时更新
+    const currentType = currentProfile?.verification_type;
+    const currentVerified = currentProfile?.is_verified;
+    const shouldUpdate = !currentType || currentType === 'none' || !currentVerified;
+
+    if (shouldUpdate) {
+      const { error: profileErr } = await adminClient
+        .from("profiles")
+        .update({
+          verification_type: "verified",
+          is_verified: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.user_id);
+
+      if (profileErr) {
+        console.error("❌ [DB] update profiles error:", profileErr);
+        // 不致命：用户已能登录，但可能没有自动认证
+      } else {
+        console.log("✅ [AUTH] 自动认证已设置: verification_type='verified' (从 none 升级)");
+      }
+    } else {
+      console.log(`ℹ️ [AUTH] 用户已认证: verification_type='${currentType}', is_verified=${currentVerified}，跳过自动认证`);
+    }
+
     return {
       email: existing.email || finalEmail,
       password: tempPassword,
@@ -235,8 +272,45 @@ async function upsertIdentityAndGetUser(
 
     if (insErr) {
       console.error("❌ [DB] insert auth_identities error:", insErr);
-      // 理论上不该发生；发生就抛错避免“创建了用户但没映射”导致后续混乱
+      // 理论上不该发生；发生就抛错避免"创建了用户但没映射"导致后续混乱
       throw new Error("Identity mapping insert failed");
+    }
+
+    // ✅ 自动认证：新创建的用户设置为已验证（先检查状态）
+    const { data: currentProfile, error: fetchErr } = await adminClient
+      .from("profiles")
+      .select("verification_type, is_verified")
+      .eq("id", newUser.user.id)
+      .single()
+      .catch(() => ({ data: null, error: null }));
+
+    if (fetchErr) {
+      console.warn("⚠️ [AUTH] 无法获取新用户profile状态:", fetchErr.message);
+    }
+
+    // 新用户通常为 none/null，但安全起见检查
+    const currentType = currentProfile?.verification_type;
+    const currentVerified = currentProfile?.is_verified;
+    const shouldUpdate = !currentType || currentType === 'none' || !currentVerified;
+
+    if (shouldUpdate) {
+      const { error: profileErr } = await adminClient
+        .from("profiles")
+        .update({
+          verification_type: "verified",
+          is_verified: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", newUser.user.id);
+
+      if (profileErr) {
+        console.error("❌ [DB] update profiles error:", profileErr);
+        // 不致命：用户已能登录，但可能没有自动认证
+      } else {
+        console.log("✅ [AUTH] 新用户自动认证已设置: verification_type='verified'");
+      }
+    } else {
+      console.log(`ℹ️ [AUTH] 新用户已认证: verification_type='${currentType}', is_verified=${currentVerified}，跳过自动认证`);
     }
 
     return {
@@ -311,6 +385,43 @@ async function upsertIdentityAndGetUser(
   if (mapErr) {
     console.error("❌ [DB] upsert auth_identities error:", mapErr);
     throw new Error("Identity mapping upsert failed");
+  }
+
+  // ✅ 自动认证：绑定现有用户时，只在当前状态为 none 时更新为 verified
+  const { data: currentProfile, error: fetchErr } = await adminClient
+    .from("profiles")
+    .select("verification_type, is_verified")
+    .eq("id", userId)
+    .single()
+    .catch(() => ({ data: null, error: null }));
+
+  if (fetchErr) {
+    console.warn("⚠️ [AUTH] 无法获取绑定用户profile状态:", fetchErr.message);
+  }
+
+  // 只在当前状态为 none 或未验证时更新
+  const currentType = currentProfile?.verification_type;
+  const currentVerified = currentProfile?.is_verified;
+  const shouldUpdate = !currentType || currentType === 'none' || !currentVerified;
+
+  if (shouldUpdate) {
+    const { error: profileErr } = await adminClient
+      .from("profiles")
+      .update({
+        verification_type: "verified",
+        is_verified: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (profileErr) {
+      console.error("❌ [DB] update profiles error:", profileErr);
+      // 不致命：用户已能登录，但可能没有自动认证
+    } else {
+      console.log("✅ [AUTH] 绑定用户自动认证已设置: verification_type='verified' (从 none 升级)");
+    }
+  } else {
+    console.log(`ℹ️ [AUTH] 绑定用户已认证: verification_type='${currentType}', is_verified=${currentVerified}，跳过自动认证`);
   }
 
   return {

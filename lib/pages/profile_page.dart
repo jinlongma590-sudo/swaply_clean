@@ -1089,7 +1089,8 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       email.contains('@') ? Icons.email : Icons.phone,
@@ -1097,12 +1098,16 @@ class _ProfilePageState extends State<ProfilePage>
                       color: Colors.white.withOpacity(0.95),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      email,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.95),
-                        fontSize: emailFontSize,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.95),
+                          fontSize: emailFontSize,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],

@@ -239,6 +239,38 @@ class AuthService {
             user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
 
+      // ✅ 自动认证：设置 Google 登录用户为已验证（只在当前状态为 none 时更新）
+      try {
+        // 先查询当前验证状态
+        final currentProfile = await supabase
+          .from('profiles')
+          .select('verification_type, is_verified')
+          .eq('id', user.id)
+          .maybeSingle()
+          .catchError((e) {
+            debugPrint('[AuthService] ⚠️ 查询profile状态失败: $e');
+            return null;
+          });
+        
+        final currentType = currentProfile?['verification_type'] as String?;
+        final currentVerified = currentProfile?['is_verified'] as bool?;
+        final shouldUpdate = currentType == null || currentType == 'none' || currentVerified != true;
+        
+        if (shouldUpdate) {
+          await supabase.from('profiles').update({
+            'verification_type': 'verified',
+            'is_verified': true,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', user.id);
+          debugPrint('[AuthService] ✅ Google 用户自动认证已设置 (从 $currentType 升级)');
+        } else {
+          debugPrint('[AuthService] ℹ️ Google 用户已认证: verification_type="$currentType", 跳过自动认证');
+        }
+      } catch (e) {
+        debugPrint('[AuthService] ❌ Google 自动认证设置失败: $e');
+        // 不致命：用户已能登录
+      }
+
       await NotificationService.initializeFCM();
       return isNew;
     } catch (e) {
@@ -272,6 +304,38 @@ class AuthService {
         avatarUrl:
             user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
       );
+
+      // ✅ 自动认证：设置 Facebook 登录用户为已验证（只在当前状态为 none 时更新）
+      try {
+        // 先查询当前验证状态
+        final currentProfile = await supabase
+          .from('profiles')
+          .select('verification_type, is_verified')
+          .eq('id', user.id)
+          .maybeSingle()
+          .catchError((e) {
+            debugPrint('[AuthService] ⚠️ 查询profile状态失败: $e');
+            return null;
+          });
+        
+        final currentType = currentProfile?['verification_type'] as String?;
+        final currentVerified = currentProfile?['is_verified'] as bool?;
+        final shouldUpdate = currentType == null || currentType == 'none' || currentVerified != true;
+        
+        if (shouldUpdate) {
+          await supabase.from('profiles').update({
+            'verification_type': 'verified',
+            'is_verified': true,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', user.id);
+          debugPrint('[AuthService] ✅ Facebook 用户自动认证已设置 (从 $currentType 升级)');
+        } else {
+          debugPrint('[AuthService] ℹ️ Facebook 用户已认证: verification_type="$currentType", 跳过自动认证');
+        }
+      } catch (e) {
+        debugPrint('[AuthService] ❌ Facebook 自动认证设置失败: $e');
+        // 不致命：用户已能登录
+      }
 
       await NotificationService.initializeFCM();
 

@@ -147,22 +147,52 @@ class EmailVerificationService {
   }
 
   // ---------------- 查询认证行 ----------------
-  /// 读取"本人"的 user_verifications 单行（RLS：仅本人可读）
+  /// 读取"本人"的验证状态（优先 user_verifications，若无则回退到 profiles 表）
   Future<Map<String, dynamic>?> fetchVerificationRow() async {
     final uid = _sb.auth.currentUser?.id;
     if (uid == null) return null;
 
     try {
-      final dynamic row = await _sb
+      // 1. 优先查询 user_verifications 表
+      final dynamic uvRow = await _sb
           .from('user_verifications')
           .select('email, email_verified_at, verification_type, updated_at')
           .eq('user_id', uid)
           .maybeSingle();
 
       // ignore: avoid_print
-      print('[EV] fetchVerificationRow -> $row');
+      print('[EV] fetchVerificationRow (user_verifications) -> $uvRow');
 
-      return _asMap(row);
+      if (uvRow != null) {
+        return _asMap(uvRow);
+      }
+
+      // 2. user_verifications 无记录，回退到 profiles 表
+      print('[EV] user_verifications empty, fallback to profiles');
+      final dynamic profileRow = await _sb
+          .from('profiles')
+          .select('email, verification_type, is_verified, updated_at')
+          .eq('id', uid)
+          .maybeSingle();
+
+      print('[EV] fetchVerificationRow (profiles) -> $profileRow');
+
+      if (profileRow != null) {
+        final Map<String, dynamic>? map = _asMap(profileRow);
+        if (map != null) {
+          // 转换 profiles 字段为兼容格式
+          return {
+            'email': map['email'],
+            'verification_type': map['verification_type'],
+            // profiles 表可能没有 email_verified_at，但如果有 verification_type='verified' 就足够
+            'email_verified_at': null, // 明确设为 null
+            'updated_at': map['updated_at'],
+            '_source': 'profiles', // 标记来源
+          };
+        }
+      }
+
+      return null;
     } catch (e) {
       // ignore: avoid_print
       print('[EV] fetchVerificationRow error: $e');
