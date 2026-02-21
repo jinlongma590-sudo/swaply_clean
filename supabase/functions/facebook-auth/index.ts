@@ -193,15 +193,23 @@ async function upsertIdentityAndGetUser(
     }
 
     // ✅ 自动认证：只在当前状态为 none 时更新为 verified
-    const { data: currentProfile, error: fetchErr } = await adminClient
-      .from("profiles")
-      .select("verification_type, is_verified")
-      .eq("id", existing.user_id)
-      .single()
-      .catch(() => ({ data: null, error: null }));
+    let currentProfile: any = null;
+    let fetchErr: any = null;
+    try {
+      const result = await adminClient
+        .from("profiles")
+        .select("verification_type, is_verified")
+        .eq("id", existing.user_id)
+        .single();
+      currentProfile = result.data;
+      fetchErr = result.error;
+    } catch (err) {
+      fetchErr = err;
+      console.warn("⚠️ [AUTH] 无法获取当前profile状态:", err);
+    }
 
     if (fetchErr) {
-      console.warn("⚠️ [AUTH] 无法获取当前profile状态:", fetchErr.message);
+      console.warn("⚠️ [AUTH] 无法获取当前profile状态:", fetchErr.message || fetchErr);
     }
 
     // 只在当前状态为 none 或未验证时更新
@@ -277,15 +285,23 @@ async function upsertIdentityAndGetUser(
     }
 
     // ✅ 自动认证：新创建的用户设置为已验证（先检查状态）
-    const { data: currentProfile, error: fetchErr } = await adminClient
-      .from("profiles")
-      .select("verification_type, is_verified")
-      .eq("id", newUser.user.id)
-      .single()
-      .catch(() => ({ data: null, error: null }));
+    let currentProfile: any = null;
+    let fetchErr: any = null;
+    try {
+      const result = await adminClient
+        .from("profiles")
+        .select("verification_type, is_verified")
+        .eq("id", newUser.user.id)
+        .single();
+      currentProfile = result.data;
+      fetchErr = result.error;
+    } catch (err) {
+      fetchErr = err;
+      console.warn("⚠️ [AUTH] 无法获取新用户profile状态:", err);
+    }
 
     if (fetchErr) {
-      console.warn("⚠️ [AUTH] 无法获取新用户profile状态:", fetchErr.message);
+      console.warn("⚠️ [AUTH] 无法获取新用户profile状态:", fetchErr.message || fetchErr);
     }
 
     // 新用户通常为 none/null，但安全起见检查
@@ -388,15 +404,23 @@ async function upsertIdentityAndGetUser(
   }
 
   // ✅ 自动认证：绑定现有用户时，只在当前状态为 none 时更新为 verified
-  const { data: currentProfile, error: fetchErr } = await adminClient
-    .from("profiles")
-    .select("verification_type, is_verified")
-    .eq("id", userId)
-    .single()
-    .catch(() => ({ data: null, error: null }));
+  let currentProfile: any = null;
+  let fetchErr: any = null;
+  try {
+    const result = await adminClient
+      .from("profiles")
+      .select("verification_type, is_verified")
+      .eq("id", userId)
+      .single();
+    currentProfile = result.data;
+    fetchErr = result.error;
+  } catch (err) {
+    fetchErr = err;
+    console.warn("⚠️ [AUTH] 无法获取绑定用户profile状态:", err);
+  }
 
   if (fetchErr) {
-    console.warn("⚠️ [AUTH] 无法获取绑定用户profile状态:", fetchErr.message);
+    console.warn("⚠️ [AUTH] 无法获取绑定用户profile状态:", fetchErr.message || fetchErr);
   }
 
   // 只在当前状态为 none 或未验证时更新

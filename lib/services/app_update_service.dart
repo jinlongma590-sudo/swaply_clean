@@ -66,31 +66,46 @@ class AppUpdateService {
     // 2. 会话锁：如果本次启动已经查过了，直接返回（防止幽灵触发器+显式调用导致双弹窗）
     if (_hasCheckedSession) return;
 
-    // 3. 日期锁：使用 SharedPreferences 检查 last_check_time
-    // 如果 24小时内已经自动检查过，直接返回（防止每天打开App多次都被骚扰）
+    // 3. 智能日期锁：防止频繁网络请求，但保证新版本不漏
     final prefs = await SharedPreferences.getInstance();
     final lastCheckMs = prefs.getInt('app_update_last_check_ms') ?? 0;
-    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+    const sixHoursMs = 6 * 60 * 60 * 1000; // 缩短到6小时，平衡体验与网络
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     
-    if (lastCheckMs > 0 && (nowMs - lastCheckMs) < twentyFourHoursMs) {
-      if (kDebugMode) {
-        print('[AppUpdateService] 24小时内已自动检查过，跳过');
+    // 如果6小时内检查过，且上次检查时没有新版本（last_checked_build <= current_build），则跳过
+    if (lastCheckMs > 0 && (nowMs - lastCheckMs) < sixHoursMs) {
+      try {
+        final lastCheckedBuild = prefs.getInt('app_update_last_checked_build') ?? 0;
+        final info = await PackageInfo.fromPlatform();
+        final currentBuild = int.tryParse(info.buildNumber) ?? 0;
+        
+        // 如果上次检查时版本 <= 当前版本，说明当时没有新版本，可以跳过
+        if (lastCheckedBuild <= currentBuild) {
+          if (kDebugMode) {
+            print('[AppUpdateService] 6小时内已检查且无新版本，跳过');
+          }
+          return;
+        }
+        // 如果 lastCheckedBuild > currentBuild，说明上次检查时就有新版本但没弹窗？不应该发生
+      } catch (e) {
+        // 获取版本失败，继续执行检查
+        if (kDebugMode) print('[AppUpdateService] 版本检查异常，继续执行: $e');
       }
-      return;
     }
 
     // 执行检查
     _hasCheckedSession = true;
-    await prefs.setInt('app_update_last_check_ms', nowMs);
     await _doCheck(context, showNoUpdateToast: showNoUpdateToast);
   }
 
-  /// 核心检查逻辑
+  /// 核心检查逻辑（带版本记忆）
   static Future<void> _doCheck(
     BuildContext context, {
     bool showNoUpdateToast = false,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    
     try {
       // 当前 App 版本（buildNumber 对应 pubspec 的 +N）
       final info = await PackageInfo.fromPlatform();
@@ -104,13 +119,33 @@ class AppUpdateService {
 
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final cfg = AppUpdateInfo.fromJson(data);
-
+      
+      // 更新检查时间和最新版本记录
+      await prefs.setInt('app_update_last_check_ms', nowMs);
+      await prefs.setInt('app_update_last_checked_build', cfg.latestBuild);
+      
+      // 获取上次提示的版本号
+      final lastPromptedBuild = prefs.getInt('app_update_last_prompted_build') ?? 0;
+      
       // 判断是否需要提醒
       if (currentBuild < cfg.minSupportedBuild) {
+        // 强制更新：总是弹窗
         _showDialog(context, cfg, force: true);
+        // 记录已提示版本
+        await prefs.setInt('app_update_last_prompted_build', cfg.latestBuild);
       } else if (currentBuild < cfg.latestBuild) {
-        _showDialog(context, cfg, force: cfg.forceUpdate);
+        // 有新版本：检查是否已经提示过这个版本
+        if (lastPromptedBuild < cfg.latestBuild) {
+          _showDialog(context, cfg, force: cfg.forceUpdate);
+          // 记录已提示版本（即使用户点 Later，也记录，防止重复弹窗）
+          await prefs.setInt('app_update_last_prompted_build', cfg.latestBuild);
+        } else {
+          if (kDebugMode) {
+            print('[AppUpdateService] 版本 ${cfg.latestBuild} 已提示过，跳过弹窗');
+          }
+        }
       } else {
+        // 已是最新版本
         if (showNoUpdateToast && context.mounted) {
           // 需要的话可以给个轻提示：已是最新
           // ScaffoldMessenger.of(context).showSnackBar(
