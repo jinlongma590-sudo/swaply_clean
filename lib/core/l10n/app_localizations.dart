@@ -151,9 +151,9 @@ class AppLocalizations {
   // ---------- Welcome Gift (新增补齐) ----------
   String get welcomeGiftTitle => 'Welcome gift 🎁';
   String get welcomeGiftContent =>
-      'You received a special welcome coupon! Enjoy using Swaply.';
+      'You received a special welcome boost! Enjoy using Swaply.';
   String get later => 'Later';
-  String get viewCoupons => 'My Coupons';
+  String get viewCoupons => 'My Boosts';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => '';

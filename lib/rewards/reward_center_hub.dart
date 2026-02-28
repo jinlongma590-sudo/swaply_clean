@@ -686,8 +686,8 @@ class _RewardCenterHubState extends State<RewardCenterHub>
         SizedBox(height: 16.h),
         _buildNavCard(
           icon: Icons.card_giftcard,
-          title: 'My Coupons',
-          subtitle: '$_couponsCount available',
+          title: 'My Boosts',
+          subtitle: '$_couponsCount boosts available',
           color: const Color(0xFF4CAF50),
           onTap: () => _navigateToWallet(0),
         ),

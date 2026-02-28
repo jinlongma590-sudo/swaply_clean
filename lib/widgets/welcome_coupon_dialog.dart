@@ -68,7 +68,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
         s.contains('Â') ||
         s.contains('â') ||
         s.contains('�') ||
-        s.contains(RegExp(r'[€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]'));
+        s.contains(RegExp(r'[€'ƒ"…†‡ˆ‰Š‹ŒŽ''""•--˜™š›œžŸ]'));
     if (!looksBroken) return s;
     try {
       final bytes = <int>[];
@@ -104,7 +104,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
     final shortest = sz.shortestSide;
     final bool isTablet = shortest >= 600;
 
-    // —— 更紧凑的尺寸策略 —— //
+    // -- 更紧凑的尺寸策略 -- //
     final double maxWidth =
         (isTablet ? 360.0 : 320.0).w.clamp(260.0, sz.width - 32.0);
     final double maxHeight = sz.height * 0.52; // 总高 ≤ 52% 屏高（明显更小）
@@ -112,12 +112,11 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
     final String code =
         (widget.couponData['code']?.toString() ?? '').toUpperCase();
     final String title = _fixUtf8Mojibake(
-      widget.couponData['title'] ?? 'Welcome gift 🎉',
+      widget.couponData['title'] ?? 'Welcome Boost 🎉',
     );
-    final String desc = _fixUtf8Mojibake(
-      widget.couponData['description'] ??
-          'Welcome to Swaply! Pin your item for 3 days.',
-    );
+    final String rawDesc = widget.couponData['description'] ??
+        'Welcome to Swaply! Pin your item for 3 days.';
+    final String desc = _fixUtf8Mojibake(rawDesc.replaceAll('coupon', 'boost'));
 
     String expiryText = '';
     final expiresRaw = widget.couponData['expires_at'];
@@ -187,7 +186,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
 
                             // 标题（18sp）
                             Text(
-                              title.isEmpty ? 'Welcome gift 🎉' : title,
+                              title.isEmpty ? 'Welcome Boost 🎉' : title,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 18.sp,
@@ -198,75 +197,11 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                             ),
                             SizedBox(height: 6.h),
 
-                            // “Coupon Code”
-                            Text(
-                              'Coupon Code:',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: Colors.grey[700],
-                              ),
-                            ),
+// removed
+// removed
                             SizedBox(height: 6.h),
 
-                            // 券码条（紧凑、含复制按钮）
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 10.w, vertical: 8.h),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10.r),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.blue.shade50,
-                                    Colors.purple.shade50
-                                  ],
-                                ),
-                                border:
-                                    Border.all(color: const Color(0x141877F2)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: SelectableText(
-                                      code,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1.3,
-                                        color: const Color(0xFF1877F2),
-                                      ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    onTap: () async {
-                                      await Clipboard.setData(
-                                          ClipboardData(text: code));
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              const Text('Copied coupon code'),
-                                          duration: const Duration(
-                                              milliseconds: 1000),
-                                          behavior: SnackBarBehavior.floating,
-                                          margin: EdgeInsets.all(10.w),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10.r),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: EdgeInsets.all(4.w),
-                                      child: const Icon(Icons.copy_rounded,
-                                          color: Color(0xFF1877F2)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+// boost section removed
 
                             if (expiryText.isNotEmpty) ...[
                               SizedBox(height: 6.h),
@@ -295,7 +230,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
 
                             SizedBox(height: 8.h),
 
-                            // “Free Category Pinning” 小芯片（紧凑）
+                            // "Free Category Pinning" 小芯片（紧凑）
                             Container(
                               padding: EdgeInsets.symmetric(
                                   horizontal: 10.w, vertical: 6.h),

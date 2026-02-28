@@ -691,8 +691,8 @@ class _RewardWalletPageState extends State<RewardWalletPage>
         children: [
           _buildEmptyState(
             icon: Icons.card_giftcard_outlined,
-            title: 'No Reward Coupons',
-            subtitle: 'Your coupons will appear here',
+            title: 'No Reward Boosts',
+            subtitle: 'Your boosts will appear here',
           ),
         ],
       )

@@ -687,7 +687,7 @@ class _ProfilePageState extends State<ProfilePage>
                                 _ProfileOptionEnhanced(
                                   icon: Icons.person_add_alt_1_rounded,
                                   title: 'Invite Friends',
-                                  subtitle: 'Earn coupons by inviting friends',
+                                  subtitle: 'Earn boosts by inviting friends',
                                   color: Colors.orange,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(
@@ -698,8 +698,8 @@ class _ProfilePageState extends State<ProfilePage>
                                 const SizedBox(height: 14),
                                 _ProfileOptionEnhanced(
                                   icon: Icons.local_activity_rounded,
-                                  title: 'My Coupons',
-                                  subtitle: 'View and manage your coupons',
+                                  title: 'My Boosts',
+                                  subtitle: 'View and manage your boosts',
                                   color: Colors.purple,
                                   onTap: () => SafeNavigator.push(
                                     MaterialPageRoute(

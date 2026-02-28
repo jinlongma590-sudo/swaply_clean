@@ -856,7 +856,7 @@ class _SellFormPageState extends State<SellFormPage>
     if (_selectedCoupon == null) return;
 
     try {
-      setState(() => _progressMsg = 'Applying coupon...');
+      setState(() => _progressMsg = 'Applying boost...');
 
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
@@ -2155,7 +2155,7 @@ class _SellFormPageState extends State<SellFormPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Use Coupon for Pinning',
+                      'Use Boost for Pinning',
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
@@ -2203,7 +2203,7 @@ class _SellFormPageState extends State<SellFormPage>
             )
           else ...[
             Text(
-              'Select a coupon to use:',
+              'Select a boost credit to use:',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
@@ -2214,7 +2214,7 @@ class _SellFormPageState extends State<SellFormPage>
               spacing: 6.w,
               runSpacing: 6.h,
               children: [
-                _buildCouponOption(null, 'No Coupon', 'Post without pinning'),
+                _buildCouponOption(null, 'No Boost', 'Post without pinning'),
                 ..._availableCoupons.map(
                   (coupon) => _buildCouponOption(
                     coupon,
@@ -2321,7 +2321,7 @@ class _SellFormPageState extends State<SellFormPage>
       case CouponType.activityBonus:
         return 'Reward';
       default:
-        return 'Coupon';
+        return 'Boost Credit';
     }
   }
 

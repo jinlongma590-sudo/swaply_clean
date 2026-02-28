@@ -51,7 +51,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
     }
   }
 
-  Future<void> _redeemAirtime() async {
+  Future<void> _claimAirtime() async {
     final phone = _phoneController.text.trim();
 
     if (phone.isEmpty) {
@@ -117,7 +117,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Redeem Airtime'), elevation: 0),
+      appBar: AppBar(title: const Text('Claim Airtime'), elevation: 0),
       body: _loadingPoints
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -161,7 +161,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  Text('Redeem Airtime',
+                  Text('Claim Airtime',
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -180,7 +180,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: _loading ? null : _redeemAirtime,
+                    onPressed: _loading ? null : _claimAirtime,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -195,7 +195,7 @@ class _AirtimeRedeemPageState extends State<AirtimeRedeemPage> {
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                     Colors.white)),
                           )
-                        : const Text('Redeem \$1 Airtime (100 points)',
+                        : const Text('Claim \$1 Airtime (100 points)',
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
