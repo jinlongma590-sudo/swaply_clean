@@ -68,7 +68,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
         s.contains('Â') ||
         s.contains('â') ||
         s.contains('�') ||
-        s.contains(RegExp(r'[€'ƒ"…†‡ˆ‰Š‹ŒŽ''""•--˜™š›œžŸ]'));
+        s.contains(RegExp(r'''[€'ƒ"…†‡ˆ‰Š‹ŒŽ''""•--˜™š›œžŸ]'''));
     if (!looksBroken) return s;
     try {
       final bytes = <int>[];
