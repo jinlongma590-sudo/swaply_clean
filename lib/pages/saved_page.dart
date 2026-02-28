@@ -33,7 +33,6 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isRefreshing = false;
   String? _errorMessage;
-  Timer? _autoRefreshTimer;
   StreamSubscription<dynamic>? _favoritesSubscription;
 
   // ❌ 已删除 _headerBarHeight 方法
@@ -46,7 +45,6 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
 
     if (!widget.isGuest) {
       _loadFavorites();
-      _startAutoRefresh();
       _setupFavoritesListener();
     } else {
       _isLoading = false;
@@ -56,7 +54,6 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoRefreshTimer?.cancel();
     _favoritesSubscription?.cancel();
     super.dispose();
   }
@@ -147,20 +144,6 @@ class _SavedPageState extends State<SavedPage> with WidgetsBindingObserver {
     } catch (e) {
       if (kDebugMode) debugPrint('Error removing from local favorites: $e');
     }
-  }
-
-  // ========== 周期刷新 ==========
-  void _startAutoRefresh() {
-    _autoRefreshTimer?.cancel();
-    if (kQaMode) {
-      if (kDebugMode) debugPrint('[QA_MODE] Skip periodic refresh for tests');
-      return;
-    }
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!widget.isGuest && mounted && !_isRefreshing) {
-        _loadFavorites();
-      }
-    });
   }
 
   // ========== 工具函数 ==========

@@ -737,7 +737,7 @@ class _HomePageState extends State<HomePage>
                 // v1.0.1: 将Featured Ads网格替换为垂直网格广告墙（SliverGrid）
                 _buildFeaturedCarousel(
                   items: pinnedItems,
-                  isLoading: _isFirstLoad,
+                  isLoading: _isFirstLoad || (_isBackgroundRefreshing && pinnedItems.isEmpty),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -758,7 +758,7 @@ class _HomePageState extends State<HomePage>
                   sliver: _buildHybridGrid(
                     items: regularItems,
                     isPinned: false,
-                    isLoading: _isFirstLoad,
+                    isLoading: _isFirstLoad || (_isBackgroundRefreshing && regularItems.isEmpty),
                   ),
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: 80.h)),

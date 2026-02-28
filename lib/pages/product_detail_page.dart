@@ -451,7 +451,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           print('⚠️ 无法加载卖家信息：sellerId 为空');
           print('当前商品数据: $product');
         }
-        setState(() => _loadingSeller = false);
+        if (mounted) setState(() => _loadingSeller = false);
         return;
       }
 
@@ -477,7 +477,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         await _loadSellerVerification();
       } else {
         if (kDebugMode) print('⚠️ 未找到卖家资料');
-        setState(() => _loadingSeller = false);
+        if (mounted) setState(() => _loadingSeller = false);
       }
     } catch (e) {
       if (kDebugMode) print('❌ 加载卖家信息失败: $e');
@@ -517,7 +517,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     final me = Supabase.instance.client.auth.currentUser?.id;
     if (me == null) return;
 
-    setState(() => _loadingBlock = true);
+    if (mounted) setState(() => _loadingBlock = true);
     final s = await OfferService.getBlockStatusBetween(a: me, b: _sellerId!);
     if (!mounted) return;
     setState(() {
@@ -900,7 +900,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     final previousStatus = _isInFavorites;
     final optimisticStatus = !_isInFavorites;
 
-    setState(() {
+    if (mounted) setState(() {
       _isInFavorites = optimisticStatus;
       _isFavoritesLoading = true;
     });
@@ -926,7 +926,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           print(
               '⚠️ Optimistic update mismatch: expected=$optimisticStatus, actual=$actualStatus');
         }
-        setState(() => _isInFavorites = actualStatus);
+        if (mounted) setState(() => _isInFavorites = actualStatus);
       }
 
       // 通知其他组件
@@ -941,8 +941,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ? 'Added to favorites and wishlist successfully!'
           : 'Removed from favorites and wishlist');
 
-      // 发送通知
-      if (actualStatus) _sendWishlistNotification();
+      // ⚠️ 通知已由数据库触发器 create_wishlist_notification 自动发送
+      // 不再需要前端手动发送推送通知
     } catch (e) {
       // ✅ [乐观更新 第4步] 失败时回滚 UI
       if (kDebugMode) {
@@ -963,33 +963,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   Future<void> _sendWishlistNotification() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
-
-      final sellerId = product['user_id'] ?? product['seller_id'];
-      final id = widget.productId ?? product['id']?.toString();
-
-      if (id == null || sellerId == null || sellerId == user.id) return;
-
-      String? userName;
-      try {
-        final profile = await Supabase.instance.client
-            .from('public_profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .maybeSingle();
-        userName = profile?['full_name'];
-      } catch (_) {}
-
-      await NotificationService.createWishlistNotification(
-        sellerId: sellerId,
-        likerId: user.id,
-        listingId: id,
-        listingTitle: product['title'] ?? 'Unknown Item',
-        likerName: userName,
-      );
-    } catch (_) {}
+    // 通知已由数据库触发器 create_wishlist_notification 自动发送
+    // 不再需要前端手动发送推送通知
   }
 
   Future<void> _makePhoneCall() async {
@@ -1401,7 +1376,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       return;
     }
 
-    setState(() => _isOfferLoading = true);
+    if (mounted) setState(() => _isOfferLoading = true);
 
     try {
       // 1️⃣ 创建 offer
@@ -1450,7 +1425,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         _toast('Failed to send offer');
       }
     } finally {
-      setState(() => _isOfferLoading = false);
+      if (mounted) setState(() => _isOfferLoading = false);
     }
   }
 
@@ -2228,7 +2203,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         PageView.builder(
           controller: _pageController,
           onPageChanged: (index) {
-            setState(() => _currentImageIndex = index);
+            if (mounted) setState(() => _currentImageIndex = index);
             _precacheAdjacentImages(index);
           },
           itemCount: productImages.length,

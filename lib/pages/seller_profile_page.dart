@@ -106,7 +106,7 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
       final listingsResponse = await Supabase.instance.client
           .from('listings')
           .select(
-              'id, title, price, images, image_urls, city, created_at, views_count')
+          'id, title, price, images, image_urls, city, created_at, views_count')
           .eq('user_id', widget.sellerId)
           .order('created_at', ascending: false)
           .limit(50);
@@ -217,7 +217,15 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
             // ↓↓↓ 仅为“高度与 Wishlist 一致”所做的最小改动 ↓↓↓
             toolbarHeight: toolbarHeight, // iOS 44 / Android 56
             collapsedHeight: toolbarHeight, // 折叠后同上
-            systemOverlayStyle: SystemUiOverlayStyle.light,
+            // ✅ 明确指定顶部白色文字，底部白色背景与深色手势条，避免污染其他页面
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light, // Android 顶部白字
+              statusBarBrightness: Brightness.dark, // iOS 顶部白字
+              systemNavigationBarColor: Colors.white, // 强制底部系统导航栏为白色
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarIconBrightness: Brightness.dark, // 底部手势条为深色
+            ),
             // ↑↑↑ 其余逻辑不动 ↑↑↑
 
             expandedHeight: 200.h,
@@ -377,13 +385,13 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  // ✅ 轻调，卡片更协调
-                  childAspectRatio: 0.78,
+                  // ✅ 优化 1：比例从 0.78 放宽到 0.74，给文字腾出自然垂直空间
+                  childAspectRatio: 0.74,
                   crossAxisSpacing: 12.w,
                   mainAxisSpacing: 12.w,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+                      (context, index) {
                     final listing = _sellerListings[index];
                     return _buildListingCard(listing);
                   },
@@ -419,11 +427,11 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
     );
   }
 
-  // ===================== 卡片（已修正“图片铺满 + 信息区紧凑”） =====================
+  // ===================== 卡片（已彻底修复 UI 溢出） =====================
   Widget _buildListingCard(Map<String, dynamic> listing) {
     final images = listing['images'] ?? listing['image_urls'] ?? [];
     final imageUrl =
-        images is List && images.isNotEmpty ? images[0].toString() : '';
+    images is List && images.isNotEmpty ? images[0].toString() : '';
 
     return InkWell(
       onTap: () {
@@ -452,74 +460,97 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ 顶部图片：等比铺满（cover），统一高度比例
+            // 顶部图片：等比铺满（cover），统一高度比例
             ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
               child: AspectRatio(
-                aspectRatio: 1.25, // 宽:高 ≈ 1.25，更贴近 Jiji 卡片观感
+                aspectRatio: 1.25,
                 child: imageUrl.isNotEmpty
                     ? Image.network(
-                        SupabaseImageConfig.getThumbnailUrl(imageUrl),
-                        fit: BoxFit.cover, // ✅ 关键：铺满裁剪
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey[200],
-                          child: Icon(Icons.image,
-                              size: 32.sp, color: Colors.grey[400]),
-                        ),
-                      )
+                  SupabaseImageConfig.getThumbnailUrl(imageUrl),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey[200],
+                    child: Icon(Icons.image,
+                        size: 32.sp, color: Colors.grey[400]),
+                  ),
+                )
                     : Container(
-                        color: Colors.grey[200],
-                        child: Icon(Icons.image,
-                            size: 32.sp, color: Colors.grey[400]),
-                      ),
+                  color: Colors.grey[200],
+                  child: Icon(Icons.image,
+                      size: 32.sp, color: Colors.grey[400]),
+                ),
               ),
             ),
 
-            // ✅ 信息区：紧凑排列（去掉 spaceBetween 的大白空）
-            Padding(
-              padding: EdgeInsets.all(10.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min, // 只占需要的高度
-                children: [
-                  Text(
-                    listing['title']?.toString() ?? 'Untitled',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
+            // ✅ 优化 2：使用 Expanded 替代 Flexible，严格吃满剩余高度，防止外部死锁
+            Expanded(
+              child: Padding(
+                // ✅ 优化 3：稍微减小了 Padding，留给文字更多空间
+                padding: EdgeInsets.all(8.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  // ✅ 优化 4：两端对齐。标题贴顶，价格城市贴底。
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 标题：固定最多2行
+                    Text(
+                      listing['title']?.toString() ?? 'Untitled',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                        height: 1.2, // ✅ 明确行高
+                      ),
+                      maxLines: 2, // ✅ 强制截断
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    listing['price']?.toString() ?? r'$0',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                      color: _successGreen,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 10.sp, color: Colors.grey[600]),
-                      SizedBox(width: 2.w),
-                      Expanded(
-                        child: Text(
-                          listing['city']?.toString() ?? 'Unknown',
+
+                    // 底部：价格与城市
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 价格：单行
+                        Text(
+                          listing['price']?.toString() ?? r'$0',
                           style: TextStyle(
-                              fontSize: 10.sp, color: Colors.grey[600]),
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                            color: _successGreen,
+                            height: 1.2, // ✅ 明确行高
+                          ),
+                          maxLines: 1, // ✅ 强制截断
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        SizedBox(height: 2.h),
+
+                        // 城市：单行
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined,
+                                size: 10.sp, color: Colors.grey[600]),
+                            SizedBox(width: 2.w),
+                            Expanded(
+                              child: Text(
+                                listing['city']?.toString() ?? 'Unknown',
+                                style: TextStyle(
+                                  fontSize: 10.sp,
+                                  color: Colors.grey[600],
+                                  height: 1.2, // ✅ 明确行高
+                                ),
+                                maxLines: 1, // ✅ 强制截断
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -527,5 +558,4 @@ class _SellerProfileViewPageState extends State<SellerProfileViewPage> {
       ),
     );
   }
-// =======================================================================
 }

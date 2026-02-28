@@ -1,7 +1,6 @@
 // lib/widgets/welcome_coupon_dialog.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:swaply/router/root_nav.dart';
 
@@ -23,9 +22,9 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
       vsync: this, duration: const Duration(milliseconds: 360))
     ..forward();
   late final Animation<double> _fade =
-      CurvedAnimation(parent: _ac, curve: Curves.easeIn);
+  CurvedAnimation(parent: _ac, curve: Curves.easeIn);
   late final Animation<double> _scale =
-      CurvedAnimation(parent: _ac, curve: Curves.decelerate);
+  CurvedAnimation(parent: _ac, curve: Curves.decelerate);
 
   // CP1252 → 原字节反向映射（修乱码）
   static const Map<int, int> _cp1252Reverse = {
@@ -58,18 +57,58 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
     0x0178: 0x9F,
   };
 
+  // ✅ 不用 RegExp 字符集，避免 “Range out of order in character class” 崩溃
+  bool _containsAnyWeirdCp1252(String s) {
+    const chars = [
+      '€',
+      'ƒ',
+      '…',
+      '†',
+      '‡',
+      'ˆ',
+      '‰',
+      'Š',
+      '‹',
+      'Œ',
+      'Ž',
+      '‘',
+      '’',
+      '“',
+      '”',
+      '•',
+      '–',
+      '—',
+      '˜',
+      '™',
+      'š',
+      '›',
+      'œ',
+      'ž',
+      'Ÿ'
+    ];
+    for (final c in chars) {
+      if (s.contains(c)) return true;
+    }
+    return false;
+  }
+
   String _fixUtf8Mojibake(dynamic v) {
     final s = v?.toString() ?? '';
     if (s.isEmpty) return s;
+
+    // 有 emoji 的文本通常不需要做 mojibake 修复，避免误处理
     final hasEmoji = s.runes.any((r) => (r >= 0x1F300 && r <= 0x1FAFF));
     if (hasEmoji) return s;
+
     final looksBroken = s.contains('ð') ||
         s.contains('Ã') ||
         s.contains('Â') ||
         s.contains('â') ||
         s.contains('�') ||
-        s.contains(RegExp(r'''[€'ƒ"…†‡ˆ‰Š‹ŒŽ''""•--˜™š›œžŸ]'''));
+        _containsAnyWeirdCp1252(s);
+
     if (!looksBroken) return s;
+
     try {
       final bytes = <int>[];
       for (final r in s.runes) {
@@ -79,7 +118,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
         } else if (r <= 0xFF) {
           bytes.add(r & 0xFF);
         } else {
-          bytes.add(0x3F);
+          bytes.add(0x3F); // '?'
         }
       }
       return utf8.decode(bytes, allowMalformed: true);
@@ -106,14 +145,13 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
 
     // -- 更紧凑的尺寸策略 -- //
     final double maxWidth =
-        (isTablet ? 360.0 : 320.0).w.clamp(260.0, sz.width - 32.0);
+    (isTablet ? 360.0 : 320.0).w.clamp(260.0, sz.width - 32.0);
     final double maxHeight = sz.height * 0.52; // 总高 ≤ 52% 屏高（明显更小）
 
-    final String code =
-        (widget.couponData['code']?.toString() ?? '').toUpperCase();
     final String title = _fixUtf8Mojibake(
       widget.couponData['title'] ?? 'Welcome Boost 🎉',
     );
+
     final String rawDesc = widget.couponData['description'] ??
         'Welcome to Swaply! Pin your item for 3 days.';
     final String desc = _fixUtf8Mojibake(rawDesc.replaceAll('coupon', 'boost'));
@@ -138,7 +176,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
           scale: _scale,
           child: ConstrainedBox(
             constraints:
-                BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
+            BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
             child: Material(
               color: Colors.white,
               elevation: 0,
@@ -179,8 +217,11 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                                   ],
                                 ),
                               ),
-                              child: Icon(Icons.card_giftcard,
-                                  color: Colors.white, size: 26.sp),
+                              child: Icon(
+                                Icons.card_giftcard,
+                                color: Colors.white,
+                                size: 26.sp,
+                              ),
                             ),
                             SizedBox(height: 10.h),
 
@@ -196,12 +237,6 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                               ),
                             ),
                             SizedBox(height: 6.h),
-
-// removed
-// removed
-                            SizedBox(height: 6.h),
-
-// boost section removed
 
                             if (expiryText.isNotEmpty) ...[
                               SizedBox(height: 6.h),
@@ -238,7 +273,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                                 color: Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(8.r),
                                 border:
-                                    Border.all(color: Colors.green.shade100),
+                                Border.all(color: Colors.green.shade100),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -302,7 +337,7 @@ class _WelcomeCouponDialogState extends State<WelcomeCouponDialog>
                                   ),
                                 ),
                                 child: Text(
-                                  'View My Coupons',
+                                  'View My Boosts',
                                   style: TextStyle(
                                     fontSize: 14.sp,
                                     color: Colors.white,

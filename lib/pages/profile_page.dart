@@ -8,6 +8,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -76,7 +77,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage>
-    with SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _dead = false;
 
   bool get _signedIn => Supabase.instance.client.auth.currentUser != null;
@@ -89,6 +90,7 @@ class _ProfilePageState extends State<ProfilePage>
   bool _verifyLoading = false;
 
   bool _uploadingAvatar = false;
+  int _retryCount = 0;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -101,6 +103,8 @@ class _ProfilePageState extends State<ProfilePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -118,7 +122,33 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // 从后台回到前台时，如果当前profile为空，尝试轻量重试1次
+    if (state == AppLifecycleState.resumed) {
+      if (_svc.currentProfile == null && _signedIn && !widget.isGuest) {
+        if (kDebugMode) {
+          print('[ProfilePage] App resumed, attempting light retry...');
+        }
+        // 延迟500ms执行，避免与现有AuthFlowObserver冲突
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted || _dead) return;
+          _svc.getMyProfile().then((profile) {
+            if (profile != null && mounted && !_dead) {
+              if (kDebugMode) {
+                print('[ProfilePage] Light retry succeeded');
+              }
+            }
+          });
+        });
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _dead = true;
     _animationController.dispose();
     super.dispose();
@@ -139,6 +169,23 @@ class _ProfilePageState extends State<ProfilePage>
       _badge = badge;
       _verifyLoading = false;
     });
+  }
+
+  // ✅ 新增：手动重试方法
+  Future<void> _retryLoadProfile() async {
+    if (!mounted || _dead) return;
+    
+    _safeSetState(() {
+      _retryCount++;
+    });
+    
+    try {
+      // 使用带重试的版本
+      await _svc.getMyProfileWithRetry(maxRetries: 2);
+    } catch (e) {
+      // 重试失败，保持当前状态
+      if (kDebugMode) print('[ProfilePage] Retry failed: $e');
+    }
   }
 
   // 重新加载用户资料，确保手机号同步
@@ -546,10 +593,38 @@ class _ProfilePageState extends State<ProfilePage>
             }
 
             if (!snapshot.hasData || snapshot.data == null) {
-              return const Center(
-                child: Text(
-                  'No profile data',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 15),
+              return Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline_rounded,
+                          size: 48, color: Colors.orange),
+                      SizedBox(height: 16),
+                      Text(
+                        'Failed to load profile',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700]),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Check your connection and try again',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      ),
+                      SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: _retryLoadProfile,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }

@@ -1,4 +1,5 @@
 // lib/services/dual_favorites_service.dart
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
@@ -17,11 +18,19 @@ class DualFavoritesService {
   static const _ttl = Duration(seconds: 8);
   static final Map<String, _FavCache> _cache = {};
   static final Map<String, Future<List<Map<String, dynamic>>>> _inflight = {};
+  // ✅ 紧急修复：防止死循环 - 请求频率限制
+  static final Map<String, DateTime> _lastRequestTime = {};
+  static const _minRequestInterval = Duration(milliseconds: 500);
 
   // ===== ✅ [新增] 失败查询保护（防止无限重试） =====
   static final Map<String, _FailureRecord> _failures = {};
   static const _failureRetryDelay = Duration(seconds: 30); // 失败后 30 秒内不重试
   static const _maxConsecutiveFailures = 3; // 连续失败 3 次后延长延迟
+
+  // ===== 全局内存缓存（解决N+1查询问题） =====
+  static final Map<String, Set<String>> _userFavoritesCache = {}; // userId -> Set<listingId>
+  static final Map<String, Set<String>> _userWishlistsCache = {}; // userId -> Set<listingId>
+  static final Map<String, Future<void>> _cacheLoadingInflight = {};
 
   static String _key(String userId, int limit, int offset, String kind) =>
       '$userId|$limit|$offset|$kind';
@@ -38,7 +47,107 @@ class DualFavoritesService {
     _cache.clear();
     _inflight.clear();
     _failures.clear(); // ✅ 同时清除失败记录
-    _debugPrint('缓存、并发去重池、失败记录已清空');
+    _userFavoritesCache.clear();
+    _userWishlistsCache.clear();
+    _cacheLoadingInflight.clear();
+    _debugPrint('缓存、并发去重池、失败记录、全局收藏缓存已清空');
+  }
+
+  // ✅ [新增] 初始化用户收藏缓存（App启动或用户登录时调用）
+  static Future<void> initUserCache({required String userId}) async {
+    try {
+      _debugPrint('=== 初始化用户收藏缓存 ===');
+      _debugPrint('用户ID: $userId');
+      
+      if (_cacheLoadingInflight.containsKey(userId)) {
+        _debugPrint('🔄 缓存加载已在进行中，等待完成...');
+        await _cacheLoadingInflight[userId];
+        return;
+      }
+      
+      final future = _loadUserCacheInternal(userId);
+      _cacheLoadingInflight[userId] = future;
+      
+      try {
+        await future;
+      } finally {
+        _cacheLoadingInflight.remove(userId);
+      }
+      
+      _debugPrint('✅ 用户收藏缓存初始化完成');
+      _debugPrint('  - 收藏数量: ${_userFavoritesCache[userId]?.length ?? 0}');
+      _debugPrint('  - 心愿单数量: ${_userWishlistsCache[userId]?.length ?? 0}');
+    } catch (e) {
+      _debugPrint('❌ 初始化用户收藏缓存失败: $e');
+      // 失败时清空缓存，避免脏数据
+      _userFavoritesCache.remove(userId);
+      _userWishlistsCache.remove(userId);
+    }
+  }
+  
+  static Future<void> _loadUserCacheInternal(String userId) async {
+    _debugPrint('正在加载用户收藏数据...');
+    
+    // 并行加载收藏和心愿单
+    final favoritesFuture = _client
+        .from(_favoritesTable)
+        .select('listing_id')
+        .eq('user_id', userId);
+    
+    final wishlistsFuture = _client
+        .from(_wishlistsTable)
+        .select('listing_id')
+        .eq('user_id', userId);
+    
+    final results = await Future.wait([favoritesFuture, wishlistsFuture]);
+    
+    final favorites = results[0] as List<dynamic>;
+    final wishlists = results[1] as List<dynamic>;
+    
+    // 转换为Set
+    final favoritesSet = <String>{};
+    for (final item in favorites) {
+      final listingId = item['listing_id']?.toString();
+      if (listingId != null && listingId.isNotEmpty) {
+        favoritesSet.add(listingId);
+      }
+    }
+    
+    final wishlistsSet = <String>{};
+    for (final item in wishlists) {
+      final listingId = item['listing_id']?.toString();
+      if (listingId != null && listingId.isNotEmpty) {
+        wishlistsSet.add(listingId);
+      }
+    }
+    
+    _userFavoritesCache[userId] = favoritesSet;
+    _userWishlistsCache[userId] = wishlistsSet;
+    
+    _debugPrint('缓存加载完成: ${favoritesSet.length} 收藏, ${wishlistsSet.length} 心愿单');
+  }
+  
+  // ✅ [新增] 同步检查方法（避免网络请求）
+  static bool isInFavoritesSync({required String userId, required String listingId}) {
+    final favoritesSet = _userFavoritesCache[userId];
+    final wishlistsSet = _userWishlistsCache[userId];
+    
+    final inFavorites = favoritesSet?.contains(listingId) ?? false;
+    final inWishlist = wishlistsSet?.contains(listingId) ?? false;
+    
+    if (kDebugMode && (inFavorites || inWishlist)) {
+      _debugPrint('🔄 同步检查: 用户 $userId, 商品 $listingId');
+      _debugPrint('  - 在收藏中: $inFavorites');
+      _debugPrint('  - 在心愿单中: $inWishlist');
+    }
+    
+    return inFavorites || inWishlist;
+  }
+  
+  // ✅ [新增] 检查是否需要初始化缓存
+  static bool _isCacheInitialized(String userId) {
+    return _userFavoritesCache.containsKey(userId) && 
+           _userWishlistsCache.containsKey(userId);
   }
 
   // ✅ [新增] 检查是否应该跳过查询（防重试循环）
@@ -219,9 +328,11 @@ class DualFavoritesService {
           '最终结果: $success (Favorites: $favoritesSuccess, Wishlist: $wishlistSuccess)');
 
       if (success) {
-        // === ✅ 发送"被收藏"通知（RPC：notify_favorite） ===
+        // === ⚠️ 不再需要前端发送通知，依赖数据库触发器 create_wishlist_notification ===
+        // 当 wishlists 表插入成功时，PostgreSQL 触发器会自动创建 wishlist 类型的通知
+        // 避免重复推送（之前是前端 + 触发器 = 两条推送）
         try {
-          // 尝试拿到卖家ID与标题（只查一次最小字段）
+          // 仅记录日志，验证卖家信息（用于调试）
           final listingRow = await _client
               .from('listings')
               .select('user_id, title')
@@ -236,22 +347,14 @@ class DualFavoritesService {
                   : 'your item';
 
           if (sellerId != null && sellerId.isNotEmpty && sellerId != userId) {
-            final ok = await NotificationService.notifyFavorite(
-              sellerId: sellerId,
-              listingId: listingId,
-              listingTitle: safeTitle, // 非空安全
-              likerId: userId,
-            );
             _debugPrint(
-              ok
-                  ? 'Favorite RPC 通知已发送: $listingId -> $sellerId'
-                  : 'Favorite RPC 通知发送失败（返回 false）',
+              '✅ 收藏成功，数据库触发器将自动创建 wishlist 通知: $listingId -> $sellerId',
             );
           } else {
             _debugPrint('未发送通知：sellerId 无效或自己收藏自己');
           }
         } catch (e) {
-          _debugPrint('发送 Favorite 通知时异常: $e');
+          _debugPrint('验证卖家信息时异常（不影响收藏）: $e');
         }
       }
 
@@ -261,6 +364,26 @@ class DualFavoritesService {
         _debugPrint('⚠️ 仅添加到心愿单，收藏表配置可能有问题');
       }
 
+      // ✅ 更新本地缓存
+      if (success) {
+        if (favoritesSuccess) {
+          _updateLocalCache(
+            userId: userId,
+            listingId: listingId,
+            isAdd: true,
+            isFavorite: true,
+          );
+        }
+        if (wishlistSuccess) {
+          _updateLocalCache(
+            userId: userId,
+            listingId: listingId,
+            isAdd: true,
+            isFavorite: false,
+          );
+        }
+      }
+      
       return success;
     } catch (e) {
       _debugPrint('添加收藏时出现异常: $e');
@@ -306,7 +429,29 @@ class DualFavoritesService {
         _debugPrint('从 wishlists 表删除失败: $e');
       }
 
-      return favoritesSuccess || wishlistSuccess;
+      final success = favoritesSuccess || wishlistSuccess;
+      
+      // ✅ 更新本地缓存
+      if (success) {
+        if (favoritesSuccess) {
+          _updateLocalCache(
+            userId: userId,
+            listingId: listingId,
+            isAdd: false,
+            isFavorite: true,
+          );
+        }
+        if (wishlistSuccess) {
+          _updateLocalCache(
+            userId: userId,
+            listingId: listingId,
+            isAdd: false,
+            isFavorite: false,
+          );
+        }
+      }
+      
+      return success;
     } catch (e) {
       _debugPrint('移除收藏时出现异常: $e');
       return false;
@@ -320,6 +465,39 @@ class DualFavoritesService {
   }) async {
     try {
       _debugPrint('检查收藏状态 - 用户: $userId, 商品: $listingId');
+      
+      // ✅ 优先使用同步缓存检查（避免网络请求）
+      if (_isCacheInitialized(userId)) {
+        final cachedResult = isInFavoritesSync(userId: userId, listingId: listingId);
+        if (kDebugMode) {
+          _debugPrint('✅ 使用缓存检查结果: $cachedResult');
+        }
+        return cachedResult;
+      }
+      
+      // ✅ 缓存正在加载中，等待加载完成
+      if (_cacheLoadingInflight.containsKey(userId)) {
+        _debugPrint('⏳ 缓存正在加载中，等待完成...');
+        try {
+          await _cacheLoadingInflight[userId];
+          // 加载完成后再次检查缓存
+          if (_isCacheInitialized(userId)) {
+            final cachedResult = isInFavoritesSync(userId: userId, listingId: listingId);
+            _debugPrint('✅ 缓存加载完成，使用缓存结果: $cachedResult');
+            return cachedResult;
+          }
+        } catch (e) {
+          _debugPrint('等待缓存加载时出错: $e');
+          // 继续执行网络查询
+        }
+      }
+      
+      // ✅ 缓存未初始化，触发后台初始化（避免后续N+1）
+      _debugPrint('⚠️ 缓存未初始化，触发后台初始化...');
+      unawaited(initUserCache(userId: userId));
+      
+      // 回退到原始网络查询（仅限首次）
+      _debugPrint('🔄 回退到网络查询...');
 
       final favoriteResult = await _client
           .from(_favoritesTable)
@@ -343,6 +521,38 @@ class DualFavoritesService {
     } catch (e) {
       _debugPrint('检查收藏状态时出现异常: $e');
       return false;
+    }
+  }
+
+  /// ✅ [新增] 更新本地缓存
+  static void _updateLocalCache({
+    required String userId,
+    required String listingId,
+    required bool isAdd, // true=添加, false=移除
+    required bool isFavorite, // true=favorites表, false=wishlists表
+  }) {
+    if (isFavorite) {
+      final cache = _userFavoritesCache[userId];
+      if (cache != null) {
+        if (isAdd) {
+          cache.add(listingId);
+          _debugPrint('✅ 更新favorites缓存: 添加 $listingId');
+        } else {
+          cache.remove(listingId);
+          _debugPrint('✅ 更新favorites缓存: 移除 $listingId');
+        }
+      }
+    } else {
+      final cache = _userWishlistsCache[userId];
+      if (cache != null) {
+        if (isAdd) {
+          cache.add(listingId);
+          _debugPrint('✅ 更新wishlists缓存: 添加 $listingId');
+        } else {
+          cache.remove(listingId);
+          _debugPrint('✅ 更新wishlists缓存: 移除 $listingId');
+        }
+      }
     }
   }
 
@@ -392,6 +602,19 @@ class DualFavoritesService {
   }) async {
     final key = _key(userId, limit, offset, 'fav');
     final now = DateTime.now();
+
+    // ✅ 紧急修复：防止死循环 - 请求频率限制
+    final lastTime = _lastRequestTime[key];
+    if (lastTime != null && now.difference(lastTime) < _minRequestInterval) {
+      if (kDebugMode) debugPrint('[DualFavoritesService] 请求过于频繁，跳过 $key');
+      // 返回缓存数据（如果有），否则返回空数组
+      final cached = _cache[key];
+      if (cached != null && now.difference(cached.at) < Duration(seconds: 30)) {
+        return cached.data;
+      }
+      return [];
+    }
+    _lastRequestTime[key] = now;
 
     // ✅ [新增] 失败保护：跳过频繁失败的查询
     if (_shouldSkipQuery(key)) {
@@ -527,6 +750,19 @@ class DualFavoritesService {
   }) async {
     final key = _key(userId, limit, offset, 'wish');
     final now = DateTime.now();
+
+    // ✅ 紧急修复：防止死循环 - 请求频率限制
+    final lastTime = _lastRequestTime[key];
+    if (lastTime != null && now.difference(lastTime) < _minRequestInterval) {
+      if (kDebugMode) debugPrint('[DualFavoritesService] 请求过于频繁，跳过 $key');
+      // 返回缓存数据（如果有），否则返回空数组
+      final cached = _cache[key];
+      if (cached != null && now.difference(cached.at) < Duration(seconds: 30)) {
+        return cached.data;
+      }
+      return [];
+    }
+    _lastRequestTime[key] = now;
 
     // ✅ [新增] 失败保护：跳过频繁失败的查询
     if (_shouldSkipQuery(key)) {

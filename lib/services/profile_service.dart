@@ -33,6 +33,9 @@ class ProfileService {
   final Map<String, Future<Map<String, dynamic>?>> _pendingQueries = {};
 
   // ✅ [方案四] 核心：Stream 支持
+  // 🆕 新增：最后成功加载的profile（用于网络错误时兜底）
+  Map<String, dynamic>? _lastSuccessfulProfile;
+
   final _profileController =
       StreamController<Map<String, dynamic>?>.broadcast();
 
@@ -530,6 +533,9 @@ class ProfileService {
       // ✅ 同步写入"内存快照缓存"，便于 UI 首帧瞬时渲染
       ProfileCache.instance.setForCurrentUser(map);
 
+      // 🆕 保存最后成功的profile
+      _lastSuccessfulProfile = Map<String, dynamic>.from(map);
+
       // ✅ [方案四] 核心：推送数据到 Stream
       _updateStream(Map<String, dynamic>.from(map));
 
@@ -548,13 +554,49 @@ class ProfileService {
         print(
             '[ProfileService] ==================== getMyProfile ERROR ====================');
         print('[ProfileService] ❌ Error: $e');
+        print('[ProfileService] Error type: ${e.runtimeType}');
         print('[ProfileService] Stack trace: $stackTrace');
         print(
             '[ProfileService] ==================== getMyProfile END (ERROR) ====================');
       }
-      // ✅ [方案四] 错误时推送 null
-      _updateStream(null);
-      return null;
+      
+      // 🚨 关键修复：网络错误时不推送null，保留缓存数据
+      final isNetworkError = e is HandshakeException ||
+          e is SocketException ||
+          e is TimeoutException ||
+          e.toString().contains('connection') ||
+          e.toString().contains('handshake') ||
+          e.toString().contains('socket');
+      
+      if (isNetworkError) {
+        if (kDebugMode) {
+          print('[ProfileService] 🔄 Network error detected, preserving cached data');
+        }
+        // 网络错误时返回缓存数据，不推送null（保持stream不更新）
+        final currentId = uid;
+        if (currentId != null) {
+          final cached = _cache[currentId];
+          if (cached != null) {
+            if (kDebugMode) {
+              print('[ProfileService] 📦 Returning cached profile data');
+            }
+            return Map<String, dynamic>.from(cached);
+          }
+        }
+        // 没有缓存时也返回最后成功的profile（如果有）
+        if (_lastSuccessfulProfile != null) {
+          if (kDebugMode) {
+            print('[ProfileService] 📦 Returning last successful profile');
+          }
+          return Map<String, dynamic>.from(_lastSuccessfulProfile!);
+        }
+        // 完全没有数据时才返回null，但不推送stream更新
+        return null;
+      } else {
+        // 非网络错误（如数据库异常）推送null
+        _updateStream(null);
+        return null;
+      }
     }
   }
 
@@ -820,6 +862,38 @@ class ProfileService {
   }
 
   // ========== Helpers ==========
+  // ✅ 新增：带重试机制的profile获取
+  Future<Map<String, dynamic>?> getMyProfileWithRetry({
+    int maxRetries = 3,
+    List<Duration> delays = const [
+      Duration(milliseconds: 800),
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+    ]
+  }) async {
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        final result = await getMyProfile();
+        if (result != null) {
+          // 重试成功后确保推送到stream更新UI
+          _updateStream(result);
+          return result;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          final delay = delays[attempt.clamp(0, delays.length - 1)];
+          if (kDebugMode) {
+            print('[ProfileService] 🔄 Retry attempt ${attempt + 1} after ${delay.inSeconds}s');
+          }
+          await Future.delayed(delay);
+        }
+      } catch (e) {
+        if (attempt == maxRetries - 1) rethrow;
+      }
+    }
+    return null;
+  }
+
   String _fileExt(String path) {
     final dot = path.lastIndexOf('.');
     if (dot == -1 || dot == path.length - 1) return '.jpg';
